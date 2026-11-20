@@ -157,7 +157,7 @@ The cigarette formula is fixed; ML improves its **input** — the PM2.5 forecast
 |---|---|
 | Stitch designs | ✅ Today, Scan, Routes, Community, Ask Shwas + design system · ⚠️ verify onboarding screens |
 | GitHub repo | ✅ this repo (private — **make public before submitting**) |
-| Google Maps Demo Key | ✅ created (no card). Retrieve it from the Google Cloud console → Google Maps Platform → Keys. Add as `VITE_GOOGLE_MAPS_KEY` in `.env.local` / Vercel |
+| Google Maps Demo Key | ✅ created (no card). Retrieve it at https://console.cloud.google.com/google/maps-hosted/demo-api-key. Add as `VITE_GOOGLE_MAPS_KEY` in `.env.local` / Vercel |
 | Gemini API key | ✅ created in Google AI Studio → put in `GEMINI_API_KEY` (server-side only) |
 | Supabase project | ✅ `shwas` — Mumbai (`ap-south-1`), URL `https://znjiyhfedmnweoycljys.supabase.co` (Kaizen paused to free the slot) |
 | Supabase Auth | ✅ anonymous (guest) + email sign-in enabled |
