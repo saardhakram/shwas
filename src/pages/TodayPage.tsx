@@ -10,6 +10,7 @@ import {
   Circle,
   AlertCircle,
   Calendar,
+  Sparkle,
 } from 'lucide-react';
 import {
   ResponsiveContainer,
@@ -29,15 +30,12 @@ import {
   computeBestWindow,
   ForecastDataPoint,
 } from '../lib/forecast';
-
-interface PlanItem {
-  id: string;
-  title: string;
-  description: string;
-  cigarettesSaved: number;
-  completed: boolean;
-  time: string;
-}
+import { calculateMemberDailyCigarettes } from '../lib/cigarettes';
+import {
+  generateRuleBasedPlan,
+  buildEnrichedPlan,
+} from '../lib/planGenerator';
+import { AirPlanItem, UserProfile } from '../types';
 
 /**
  * Hook to animate numerical transitions with an ease-out cubic curve.
@@ -60,7 +58,6 @@ function useAnimatedNumber(target: number, duration = 400): number {
     const step = (timestamp: number) => {
       if (!startTimestamp) startTimestamp = timestamp;
       const progress = Math.min((timestamp - startTimestamp) / duration, 1);
-      // Ease out cubic
       const easeOut = 1 - Math.pow(1 - progress, 3);
       const nextVal = startValue + diff * easeOut;
       setCurrent(nextVal);
@@ -108,19 +105,37 @@ const ForecastTooltip = ({
 
 export const TodayPage: React.FC = () => {
   const { t } = useTranslation();
-  const { aqi, selectedFamilyId, setAirQuality } = useAirQuality();
+  const {
+    aqi,
+    pm25: outdoorPm25,
+    selectedFamilyId,
+    userProfile,
+    setAirQuality,
+    setCityName,
+  } = useAirQuality();
 
-  // 1. Live Open-Meteo forecast data state (initializes with clearly-labelled offline fallback)
+  // 1. Live Open-Meteo forecast state
   const [forecastPoints, setForecastPoints] = useState<ForecastDataPoint[]>(
     () => getOfflineFallbackForecast().points
   );
   const [isSampleData, setIsSampleData] = useState<boolean>(true);
   const [sourceLabel, setSourceLabel] = useState<string>('Sample data (offline fallback)');
 
-  // Wire real Open-Meteo API on mount
+  // 2. Daily Air Plan state & Plan Source (Gemini vs Rule-based fallback)
+  const [planItems, setPlanItems] = useState<AirPlanItem[]>([]);
+  const [planSource, setPlanSource] = useState<string>('loading');
+  const [isPlanLoading, setIsPlanLoading] = useState<boolean>(false);
+
+  // Fetch real Open-Meteo data for profile location
   useEffect(() => {
     let active = true;
-    fetchOpenMeteoForecast(28.6139, 77.2090).then((res) => {
+    const lat = userProfile?.location?.lat || 28.6139;
+    const lon = userProfile?.location?.lon || 77.2090;
+    const locName = userProfile?.location?.name || 'Delhi NCR';
+
+    if (setCityName) setCityName(locName);
+
+    fetchOpenMeteoForecast(lat, lon).then((res) => {
       if (active) {
         setForecastPoints(res.points);
         setIsSampleData(res.isSampleData);
@@ -134,75 +149,176 @@ export const TodayPage: React.FC = () => {
     return () => {
       active = false;
     };
-  }, [setAirQuality]);
+  }, [userProfile?.location?.lat, userProfile?.location?.lon]);
 
-  // 2. Compute best clean-air window searching upcoming hours only (from now through next 24h)
+  // 3. Compute best clean-air window searching upcoming hours only (from now through next 24h)
   const bestWindow = useMemo(() => {
     return computeBestWindow(forecastPoints, new Date());
   }, [forecastPoints]);
 
-  // 3. Base exposure calculations per family member
-  const baseCigarettes = useMemo(() => {
-    if (selectedFamilyId === 'grandpa') return 10.5;
-    if (selectedFamilyId === 'child') return 7.6;
-    return 9.0;
-  }, [selectedFamilyId]);
+  // 4. Fallback profile if none exists in localStorage
+  const effectiveProfile: UserProfile = useMemo(() => {
+    if (userProfile && userProfile.family && userProfile.family.length > 0) {
+      return userProfile;
+    }
+    return {
+      language: 'en',
+      location: { lat: 28.6139, lon: 77.2090, name: 'Delhi NCR' },
+      family: [
+        {
+          id: 'me',
+          name: 'Me',
+          age: 32,
+          flags: {},
+          routine: { hoursOutside: 2, hoursAway: 8, awayPlace: 'office' },
+        },
+        {
+          id: 'grandpa',
+          name: 'Grandpa',
+          age: 72,
+          flags: { heart: true },
+          routine: { hoursOutside: 1, hoursAway: 0, awayPlace: 'none' },
+        },
+        {
+          id: 'child',
+          name: 'Aarav',
+          age: 8,
+          flags: { asthma: true },
+          routine: { hoursOutside: 1.5, hoursAway: 6, awayPlace: 'school' },
+        },
+      ],
+      home: {
+        windowsFacingRoad: true,
+        purifier: true,
+        chimney: true,
+        cookingFuel: 'lpg',
+        commuteMode: 'metro',
+        windowsShut: true,
+      },
+    };
+  }, [userProfile]);
 
-  // 4. Interactive Plan Items (dynamically incorporates best upcoming clean-air window)
-  const [completedItems, setCompletedItems] = useState<Record<string, boolean>>({});
+  // 5. Daily Air Plan fetching from /api/plan with daily caching in localStorage
+  useEffect(() => {
+    let active = true;
+    const dateStr = new Date().toISOString().slice(0, 10);
+    const lang = effectiveProfile.language || 'en';
+    const loc = effectiveProfile.location.name || 'city';
+    const cacheKey = `shwas_plan_${dateStr}_${lang}_${loc}`;
+    const completedCacheKey = `shwas_plan_completed_${dateStr}`;
 
-  const planItems: PlanItem[] = useMemo(() => {
-    return [
-      {
-        id: '1',
-        title: 'Keep balcony windows shut during morning commute peak',
-        description: 'Heavy truck & diesel exhaust on main road between 7:30 – 10:00 AM.',
-        cigarettesSaved: 1.4,
-        completed: Boolean(completedItems['1']),
-        time: '8:00 AM',
-      },
-      {
-        id: '2',
-        title: `Airing & cross-ventilation window (${bestWindow.label})`,
-        description: `Atmospheric boundary layer warming disperses local smog plume to lowest levels (${bestWindow.avgPm25} µg/m³, AQI ${bestWindow.avgAqi}).`,
-        cigarettesSaved: 0.8,
-        completed: Boolean(completedItems['2']),
-        time: bestWindow.startTime,
-      },
-      {
-        id: '3',
-        title: 'Take Yellow Line Metro instead of Outer Ring Road auto',
-        description: 'Underground filtered air cabin reduces peak transit exposure.',
-        cigarettesSaved: 1.2,
-        completed: Boolean(completedItems['3']),
-        time: '5:30 PM',
-      },
-      {
-        id: '4',
-        title: 'Run HEPA air purifier on sleep mode in bedroom',
-        description: 'Maintains indoor PM2.5 below 60 µg/m³ overnight.',
-        cigarettesSaved: 0.5,
-        completed: Boolean(completedItems['4']),
-        time: '10:00 PM',
-      },
-    ];
-  }, [completedItems, bestWindow]);
+    // Read cached completed state
+    let savedCompletedMap: Record<string, boolean> = {};
+    try {
+      const storedCompleted = localStorage.getItem(completedCacheKey);
+      if (storedCompleted) {
+        savedCompletedMap = JSON.parse(storedCompleted);
+      }
+    } catch {
+      // ignore
+    }
 
+    // Check plan cache first
+    try {
+      const cached = localStorage.getItem(cacheKey);
+      if (cached) {
+        const parsedItems = JSON.parse(cached);
+        if (Array.isArray(parsedItems) && parsedItems.length >= 5) {
+          const enriched = buildEnrichedPlan(parsedItems, savedCompletedMap);
+          setPlanItems(enriched);
+          setPlanSource('cached');
+          return;
+        }
+      }
+    } catch {
+      // cache miss
+    }
+
+    // Fetch from serverless /api/plan
+    setIsPlanLoading(true);
+    fetch('/api/plan', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        profile: effectiveProfile,
+        forecast: forecastPoints.slice(0, 24),
+      }),
+    })
+      .then((res) => {
+        if (!res.ok) throw new Error(`Plan API error: ${res.status}`);
+        return res.json();
+      })
+      .then((data) => {
+        if (!active) return;
+        const rawPlan = data?.plan || generateRuleBasedPlan(effectiveProfile, forecastPoints);
+        const enriched = buildEnrichedPlan(rawPlan, savedCompletedMap);
+        setPlanItems(enriched);
+        setPlanSource(data?.source || 'rule_based');
+        localStorage.setItem(cacheKey, JSON.stringify(rawPlan));
+      })
+      .catch((err) => {
+        if (!active) return;
+        console.warn('[TodayPage] API plan fetch fell back to rule generator:', err);
+        const fallback = generateRuleBasedPlan(effectiveProfile, forecastPoints);
+        const enriched = buildEnrichedPlan(fallback, savedCompletedMap);
+        setPlanItems(enriched);
+        setPlanSource('rule_based_fallback');
+      })
+      .finally(() => {
+        if (active) setIsPlanLoading(false);
+      });
+
+    return () => {
+      active = false;
+    };
+  }, [effectiveProfile.language, effectiveProfile.location.name, forecastPoints.length]);
+
+  // Toggle plan item completion and persist to daily completed cache
   const togglePlanItem = (id: string) => {
-    setCompletedItems((prev) => ({
-      ...prev,
-      [id]: !prev[id],
-    }));
+    setPlanItems((prev) => {
+      const updated = prev.map((item) =>
+        item.id === id ? { ...item, completed: !item.completed } : item
+      );
+
+      const dateStr = new Date().toISOString().slice(0, 10);
+      const completedCacheKey = `shwas_plan_completed_${dateStr}`;
+      const completedMap: Record<string, boolean> = {};
+      updated.forEach((it) => {
+        if (it.completed) completedMap[it.id] = true;
+      });
+      localStorage.setItem(completedCacheKey, JSON.stringify(completedMap));
+
+      return updated;
+    });
   };
 
-  // Total potential savings if all actions are completed
+  // 6. Calculate real member-specific daily cigarette exposure
+  const baseCigarettes = useMemo(() => {
+    const liveOutdoor = outdoorPm25 || 240;
+    const home = effectiveProfile.home;
+
+    if (selectedFamilyId === 'all') {
+      const exposures = effectiveProfile.family.map((mem) =>
+        calculateMemberDailyCigarettes(mem, liveOutdoor, home)
+      );
+      return exposures.length > 0 ? Math.max(...exposures) : 9.0;
+    }
+
+    const member = effectiveProfile.family.find((f) => f.id === selectedFamilyId);
+    if (member) {
+      return calculateMemberDailyCigarettes(member, liveOutdoor, home);
+    }
+
+    return 9.0;
+  }, [selectedFamilyId, outdoorPm25, effectiveProfile]);
+
+  // Compute total savings from checked items (never trusting model math)
   const totalPotentialSavings = useMemo(() => {
     return planItems.reduce((acc, item) => acc + item.cigarettesSaved, 0);
   }, [planItems]);
 
-  const targetCigarettes = Math.max(0, baseCigarettes - totalPotentialSavings);
+  const targetCigarettes = Math.max(1, baseCigarettes - totalPotentialSavings);
 
-  // Active savings from checked items
   const checkedSavings = useMemo(() => {
     return planItems
       .filter((item) => item.completed)
@@ -225,7 +341,7 @@ export const TodayPage: React.FC = () => {
     <div className="space-y-4 animate-in fade-in duration-300">
       {/* Hero Cigarette Card */}
       <GlassCard className="relative overflow-hidden py-5 px-4 border-white/[0.1] bg-gradient-to-b from-[#182030]/80 to-[#101624]/90">
-        {/* Top header row: Subtitle and Badge separated in a flex layout so they never overlap */}
+        {/* Top header row: Subtitle and Badge separated in flex layout so they never overlap */}
         <div className="flex items-center justify-between gap-2 mb-2">
           <div className="flex items-center gap-1.5 text-xs text-slate-400 font-medium min-w-0">
             <Cigarette className="w-4 h-4 text-amber-400 shrink-0" />
@@ -267,12 +383,12 @@ export const TodayPage: React.FC = () => {
           </div>
         </div>
 
-        {/* Status / Station footer */}
+        {/* Status / Station footer with real location and live Open-Meteo AQI */}
         <div className="mt-4 pt-3 border-t border-white/[0.06] flex items-center justify-between text-[11px] text-slate-400">
           <div className="flex items-center gap-1.5">
             <span className="w-2 h-2 rounded-full bg-red-400 animate-pulse shrink-0" />
             <span className="whitespace-nowrap">
-              Open-Meteo AQI: <strong className="text-slate-200 font-numbers">{aqi}</strong>
+              {effectiveProfile.location.name} AQI: <strong className="text-slate-200 font-numbers">{aqi}</strong>
             </span>
           </div>
           <div className="flex items-center gap-1 min-w-0">
@@ -379,12 +495,21 @@ export const TodayPage: React.FC = () => {
         </div>
       </GlassCard>
 
-      {/* Today's Air Plan Timeline */}
+      {/* Today's Air Plan Timeline (Generated via Gemini serverless function /api/plan) */}
       <div className="space-y-2">
         <div className="flex items-center justify-between px-1">
-          <h3 className="text-xs font-semibold uppercase tracking-wider text-slate-400">
-            {t('today.planTimeline', "Today's Air Plan Timeline")}
-          </h3>
+          <div className="flex items-center gap-1.5">
+            <h3 className="text-xs font-semibold uppercase tracking-wider text-slate-400">
+              {t('today.planTimeline', "Today's Air Plan Timeline")}
+            </h3>
+            {isPlanLoading ? (
+              <span className="text-[10px] text-teal-400 animate-pulse">Generating...</span>
+            ) : planSource === 'gemini' ? (
+              <Badge variant="mint" size="sm" icon={<Sparkle className="w-2.5 h-2.5" />}>
+                Gemini
+              </Badge>
+            ) : null}
+          </div>
           <span className="text-[11px] text-teal-300 font-medium whitespace-nowrap">
             {checkedSavings > 0
               ? `${checkedSavings.toFixed(1)} cigs saved so far`
@@ -392,7 +517,7 @@ export const TodayPage: React.FC = () => {
           </span>
         </div>
 
-        {/* Plan item list with interactive toggle */}
+        {/* Plan item list */}
         <div className="space-y-2">
           {planItems.map((item) => {
             return (
@@ -426,15 +551,20 @@ export const TodayPage: React.FC = () => {
                 {/* Plan Content */}
                 <div className="flex-1 min-w-0">
                   <div className="flex items-start justify-between gap-2">
-                    <h4
-                      className={`text-xs font-semibold leading-tight min-w-0 pr-1 ${
-                        item.completed ? 'text-teal-200 line-through opacity-85' : 'text-slate-100'
-                      }`}
-                    >
-                      {item.title}
-                    </h4>
+                    <div className="flex items-baseline gap-1.5 min-w-0 pr-1">
+                      <span className="text-[10px] font-mono text-teal-300/90 font-medium shrink-0">
+                        {item.time}
+                      </span>
+                      <h4
+                        className={`text-xs font-semibold leading-tight min-w-0 ${
+                          item.completed ? 'text-teal-200 line-through opacity-85' : 'text-slate-100'
+                        }`}
+                      >
+                        {item.action}
+                      </h4>
+                    </div>
 
-                    {/* Non-wrapping, compact badge */}
+                    {/* Non-wrapping, compact badge computed with savingFromAction */}
                     <Badge
                       variant={item.completed ? 'mint' : 'neutral'}
                       size="sm"
@@ -445,7 +575,7 @@ export const TodayPage: React.FC = () => {
                   </div>
 
                   <p className="text-[11px] text-slate-400 mt-1 leading-snug">
-                    {item.description}
+                    {item.reason}
                   </p>
                 </div>
               </GlassCard>

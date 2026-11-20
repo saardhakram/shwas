@@ -6,6 +6,8 @@
  * (Berkeley Earth estimate: https://berkeleyearth.org/air-pollution-and-cigarette-equivalence/)
  */
 
+import { ProfileFamilyMember, ProfileHome } from '../types';
+
 export interface ExposureSegment {
   place: string;
   hours: number;
@@ -38,7 +40,6 @@ export function cigarettesForDay(segments: ExposureSegment[]): number {
   const total = segments.reduce((sum, seg) => {
     const hours = Math.max(0, seg.hours || 0);
     const pm25 = Math.max(0, seg.pm25 || 0);
-    // (pm25 / 22) * (hours / 24)
     const cigs = (pm25 * hours) / (PM25_PER_CIGARETTE_24H * 24);
     return sum + cigs;
   }, 0);
@@ -124,6 +125,42 @@ export function estimateIndoorPm25(
 export function savingFromAction(before: number, after: number): number {
   const diff = before - after;
   return Number(Math.max(0, diff).toFixed(2));
+}
+
+/**
+ * Calculates a family member's real daily cigarette exposure using their specific
+ * daily routine (hours outside, hours away at office/school, hours at home) and building factors.
+ */
+export function calculateMemberDailyCigarettes(
+  member: ProfileFamilyMember,
+  outdoorPm25: number,
+  home: ProfileHome,
+  awayPm25?: number
+): number {
+  const safeOutdoor = Math.max(0, outdoorPm25);
+  const hoursOutside = Math.max(0, member.routine?.hoursOutside || 0);
+  const hoursAway = Math.max(0, member.routine?.hoursAway || 0);
+  const hoursHome = Math.max(0, 24 - hoursOutside - hoursAway);
+
+  // School or office indoor air quality (typically ~55% of outdoor level if enclosed)
+  const safeAwayPm25 = awayPm25 ?? Math.round(safeOutdoor * 0.55);
+
+  // Home indoor air quality computed from home factors
+  const indoorPm25 = estimateIndoorPm25(safeOutdoor, {
+    windowsFacingRoad: Boolean(home.windowsFacingRoad),
+    purifier: Boolean(home.purifier),
+    chimney: Boolean(home.chimney),
+    cookingFuel: home.cookingFuel || 'lpg',
+    windowsShut: home.windowsShut ?? true,
+  });
+
+  const segments: ExposureSegment[] = [
+    { place: 'Outdoors (commute/market)', hours: hoursOutside, pm25: safeOutdoor },
+    { place: member.routine?.awayPlace || 'School/Office', hours: hoursAway, pm25: safeAwayPm25 },
+    { place: 'Home', hours: hoursHome, pm25: indoorPm25 },
+  ];
+
+  return cigarettesForDay(segments);
 }
 
 /**

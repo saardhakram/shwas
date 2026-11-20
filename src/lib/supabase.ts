@@ -1,4 +1,5 @@
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
+import { UserProfile } from '../types';
 
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || 'https://znjiyhfedmnweoycljys.supabase.co';
 const supabasePublishableKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY || '';
@@ -53,4 +54,91 @@ export async function initAnonymousAuth() {
     console.warn('[Shwas] Supabase auth initialization handled gracefully:', err);
     return null;
   }
+}
+
+/**
+ * Upserts user profile into public.profiles:
+ * columns: id (uuid = auth user id), language (text), location (jsonb), family (jsonb), home (jsonb)
+ */
+export async function upsertProfile(profile: UserProfile): Promise<boolean> {
+  // Always persist to localStorage first so app state works offline and synchronously
+  localStorage.setItem('shwas_profile', JSON.stringify({ ...profile, onboardingCompleted: true }));
+
+  if (!isSupabaseConfigured) {
+    return true;
+  }
+
+  try {
+    let user = (await supabase.auth.getSession()).data.session?.user;
+    if (!user) {
+      const newUser = await initAnonymousAuth();
+      if (newUser) user = newUser;
+    }
+
+    if (!user?.id) {
+      console.warn('[Shwas] Anonymous user ID not available for profile upsert.');
+      return false;
+    }
+
+    const payload = {
+      id: user.id,
+      language: profile.language || 'en',
+      location: profile.location,
+      family: profile.family,
+      home: profile.home,
+    };
+
+    const { error } = await supabase
+      .from('profiles')
+      .upsert(payload, { onConflict: 'id' });
+
+    if (error) {
+      console.warn('[Shwas] Notice on profile upsert:', error.message);
+      return false;
+    }
+
+    return true;
+  } catch (err) {
+    console.warn('[Shwas] Error during profile upsert:', err);
+    return false;
+  }
+}
+
+/**
+ * Fetches the user profile from Supabase or localStorage fallback
+ */
+export async function fetchProfile(): Promise<UserProfile | null> {
+  const local = localStorage.getItem('shwas_profile');
+  let profile: UserProfile | null = local ? JSON.parse(local) : null;
+
+  if (!isSupabaseConfigured) {
+    return profile;
+  }
+
+  try {
+    const session = (await supabase.auth.getSession()).data.session;
+    if (!session?.user?.id) return profile;
+
+    const { data, error } = await supabase
+      .from('profiles')
+      .select('*')
+      .eq('id', session.user.id)
+      .maybeSingle();
+
+    if (!error && data) {
+      profile = {
+        id: data.id,
+        language: data.language,
+        location: data.location,
+        family: data.family,
+        home: data.home,
+        onboardingCompleted: true,
+      };
+      localStorage.setItem('shwas_profile', JSON.stringify(profile));
+    }
+  } catch (err) {
+    console.warn('[Shwas] Notice fetching profile from Supabase:', err);
+  }
+
+  return profile;
 }

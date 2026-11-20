@@ -3,9 +3,11 @@ import {
   cigarettesForDay,
   estimateIndoorPm25,
   savingFromAction,
+  calculateMemberDailyCigarettes,
   ExposureSegment,
   HomeCharacteristics,
 } from './cigarettes';
+import { ProfileFamilyMember, ProfileHome } from '../types';
 
 describe('Shwas Cigarette Engine', () => {
   it('correctly calculates 24h outdoor at 22 µg/m³ as exactly 1 cigarette', () => {
@@ -17,11 +19,6 @@ describe('Shwas Cigarette Engine', () => {
   });
 
   it('matches the README Delhi winter day benchmark (≈ 9 cigarettes)', () => {
-    // README specification:
-    // Outside (commute, market): 2h @ 300 µg/m³ -> 1.1 cigs
-    // School / office: 8h @ 200 µg/m³ -> 3.0 cigs
-    // Home, windows open: 14h @ 180 µg/m³ -> 4.8 cigs
-    // Total ≈ 8.94 (≈ 9 cigarettes)
     const delhiDay: ExposureSegment[] = [
       { place: 'Outside (commute, market)', hours: 2, pm25: 300 },
       { place: 'School / office', hours: 8, pm25: 200 },
@@ -29,7 +26,6 @@ describe('Shwas Cigarette Engine', () => {
     ];
 
     const totalCigs = cigarettesForDay(delhiDay);
-    // Exact: (600 + 1600 + 2520) / 528 = 4720 / 528 = 8.939...
     expect(totalCigs).toBeCloseTo(8.94, 1);
     expect(Math.round(totalCigs)).toBe(9);
   });
@@ -60,8 +56,6 @@ describe('Shwas Cigarette Engine', () => {
       const openIndoor = estimateIndoorPm25(300, { ...baseHome, windowsShut: false });
       const shutIndoor = estimateIndoorPm25(300, { ...baseHome, windowsShut: true });
 
-      // Open: 300 * 0.75 + 15 = 240
-      // Shut: 300 * 0.45 + 15 = 150
       expect(shutIndoor).toBeLessThan(openIndoor);
       expect(openIndoor).toBe(240);
       expect(shutIndoor).toBe(150);
@@ -76,7 +70,6 @@ describe('Shwas Cigarette Engine', () => {
         windowsShut: true,
       });
 
-      // (300 * 0.45 + 15 * 0.3) * 0.40 = (135 + 4.5) * 0.40 = 55.8 µg/m³ ≈ 56 µg/m³
       expect(withPurifierAndShutWindows).toBeCloseTo(55.8, 1);
       expect(withPurifierAndShutWindows).toBeLessThan(65);
     });
@@ -101,6 +94,47 @@ describe('Shwas Cigarette Engine', () => {
       });
 
       expect(woodNoChimney).toBeGreaterThan(woodWithChimney);
+    });
+  });
+
+  describe('calculateMemberDailyCigarettes', () => {
+    const member: ProfileFamilyMember = {
+      id: 'me',
+      name: 'Me',
+      age: 32,
+      flags: {},
+      routine: {
+        hoursOutside: 2,
+        hoursAway: 8,
+        awayPlace: 'office',
+      },
+    };
+
+    const home: ProfileHome = {
+      windowsFacingRoad: false,
+      purifier: true,
+      chimney: true,
+      cookingFuel: 'lpg',
+      commuteMode: 'metro',
+      windowsShut: true,
+    };
+
+    it('calculates full day routine exposure realistically', () => {
+      const cigs = calculateMemberDailyCigarettes(member, 250, home);
+      expect(cigs).toBeGreaterThan(0);
+      // With purifier and filtered office, should be substantially cleaner than 24h at 250 µg/m³ (which is ~11.4 cigs)
+      expect(cigs).toBeLessThan(8.0);
+    });
+
+    it('shows higher exposure for members with longer outdoor hours', () => {
+      const outdoorWorker: ProfileFamilyMember = {
+        ...member,
+        routine: { hoursOutside: 6, hoursAway: 4 },
+      };
+      const cigsBase = calculateMemberDailyCigarettes(member, 250, home);
+      const cigsOutdoor = calculateMemberDailyCigarettes(outdoorWorker, 250, home);
+
+      expect(cigsOutdoor).toBeGreaterThan(cigsBase);
     });
   });
 });

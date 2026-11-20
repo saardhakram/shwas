@@ -1,51 +1,63 @@
 export type AqiCategory = 'good' | 'moderate' | 'poor' | 'veryPoor' | 'severe' | 'hazardous';
 
-export interface FamilyMember {
+export interface HealthFlags {
+  asthma?: boolean;
+  heart?: boolean;
+  pregnancy?: boolean;
+}
+
+export interface MemberRoutine {
+  hoursOutside: number; // Commute, market, outdoors
+  hoursAway: number;    // School or office
+  awayPlace?: string;   // 'office' | 'school' | 'other'
+}
+
+export interface ProfileFamilyMember {
   id: string;
   name: string;
   age: number;
-  relation: 'self' | 'spouse' | 'child' | 'parent' | 'other';
-  hasAsthma?: boolean;
-  isPregnant?: boolean;
-  hasHeartCondition?: boolean;
-  avatar?: string;
+  flags: HealthFlags;
+  routine: MemberRoutine;
+  relation?: 'self' | 'spouse' | 'child' | 'parent' | 'other';
+}
+
+export interface ProfileLocation {
+  lat: number;
+  lon: number;
+  name: string;
+}
+
+export interface ProfileHome {
+  windowsFacingRoad: boolean;
+  purifier: boolean;
+  chimney: boolean;
+  cookingFuel: 'lpg' | 'wood' | 'electric' | string;
+  commuteMode: 'metro' | 'auto' | 'bus' | 'bike' | 'car' | 'walk' | string;
+  windowsShut?: boolean;
 }
 
 export interface UserProfile {
   id?: string;
-  cityName: string;
-  stateName?: string;
-  latitude: number;
-  longitude: number;
-  home: {
-    windowsFacingRoad: boolean;
-    purifier: boolean;
-    chimney: boolean;
-    cookingFuel: 'lpg' | 'wood' | 'electric' | string;
-    windowsShut: boolean;
-  };
-  familyMembers: FamilyMember[];
-  onboardingCompleted: boolean;
+  language: string;
+  location: ProfileLocation;
+  family: ProfileFamilyMember[];
+  home: ProfileHome;
+  onboardingCompleted?: boolean;
   createdAt?: string;
+  updatedAt?: string;
 }
 
-export interface AirQualityData {
-  pm25: number;
-  pm10?: number;
-  aqi: number;
-  category: AqiCategory;
-  city: string;
-  timestamp: string;
-  stationName?: string;
-}
-
-export interface AirPlanItem {
-  id: string;
+export interface RawPlanItem {
   time: string;
-  title: string;
-  description: string;
-  actionType: 'ventilate' | 'seal' | 'purify' | 'commute' | 'avoid';
+  action: string;
+  reason: string;
+  category: 'seal' | 'ventilate' | 'commute' | 'purify' | 'routine' | string;
+  before_pm25: number;
+  after_pm25: number;
+}
+
+export interface AirPlanItem extends RawPlanItem {
+  id: string;
   cigarettesSaved: number;
-  co2SavedKg?: number;
   completed: boolean;
 }
