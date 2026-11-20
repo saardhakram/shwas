@@ -35,7 +35,7 @@ export const FamilyChips: React.FC<FamilyChipsProps> = ({
   const list = members && members.length > 0 ? members : defaultMembers;
 
   return (
-    <div className={`flex items-center gap-2 overflow-x-auto pb-1.5 scrollbar-none no-scrollbar ${className}`}>
+    <div className={`flex items-center gap-2 overflow-x-auto pb-1 no-scrollbar touch-pan-x scroll-smooth ${className}`}>
       {list.map((member) => {
         const isSelected = selectedId === member.id;
         return (

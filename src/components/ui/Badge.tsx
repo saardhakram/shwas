@@ -31,11 +31,11 @@ export const Badge: React.FC<BadgeProps> = ({
 
   return (
     <span
-      className={`inline-flex items-center border font-sans tracking-wide uppercase ${variantClasses[variant]} ${sizeClasses[size]} ${className}`}
+      className={`inline-flex items-center border font-sans tracking-wide uppercase whitespace-nowrap shrink-0 ${variantClasses[variant]} ${sizeClasses[size]} ${className}`}
       {...props}
     >
       {icon && <span className="shrink-0">{icon}</span>}
-      {children}
+      <span className="whitespace-nowrap">{children}</span>
     </span>
   );
 };
