@@ -69,31 +69,50 @@ App message: *"You saved your family 4 cigarettes today."*
 
 ---
 
-## 4. Tech stack
+## 4. Tech stack (no Google Cloud, no billing)
 
-| Layer | Choice |
-|---|---|
-| Design | **Google Stitch** (designs only) |
-| Build | **Google Antigravity** (required) |
-| Frontend | React (Vite) + Tailwind CSS |
-| Charts | Recharts or Chart.js |
-| i18n | i18next + Gemini for generated text |
-| AI | Gemini API — plan, chat, Vision scan, translation |
-| Air data | Google Air Quality API |
-| Maps / routes | Google Maps JS, Routes API, Places API |
-| Weather | Open-Meteo (live + historical) |
-| ML | Python, pandas, LightGBM, SHAP (Colab or Antigravity notebook) |
-| ML data | CPCB / OpenAQ historical PM2.5 + Open-Meteo history |
-| Backend API | FastAPI on **Cloud Run** (holds API keys, proxies Gemini/Maps, serves forecast) |
-| Database | Firebase **Firestore** (profiles, groups, leaderboard, alerts) |
-| Auth | Firebase Auth — Google sign-in + Anonymous (guest) |
-| Hosting | Firebase Hosting |
-| Jobs | Cloud Scheduler (daily data refresh) |
-| Share card | html-to-image |
+The rules only require **Google Antigravity**. Everything below runs on free tiers with no credit card.
 
-**Flow:** Browser (Firebase Hosting) → FastAPI (Cloud Run) → Gemini · Air Quality · Maps/Routes · ML model; shared data in Firestore.
+| Layer | Choice | Cost |
+|---|---|---|
+| Design | **Google Stitch** (designs only) | Free |
+| Build | **Google Antigravity** (required) | Free |
+| Frontend | React (Vite) + Tailwind CSS | — |
+| Hosting + API | **Vercel** — static frontend + serverless functions (`/api/*`) | Free (Hobby) |
+| Database | **Supabase** Postgres — profiles, family, plans, groups, leaderboard, alerts, forecasts | Free |
+| Auth | **Supabase Auth** — anonymous (guest) + email magic link (GitHub login optional) | Free |
+| Realtime | Supabase Realtime — live leaderboard & local alerts | Free |
+| File storage | Supabase Storage — scan photos | Free |
+| AI | **Gemini API** via a Google AI Studio key — plan, chat, Vision scan, translation | Free tier |
+| Air quality (live + forecast) | **Open-Meteo Air Quality API** (PM2.5, PM10, NO₂, O₃, US AQI; hourly, no key) | Free |
+| Ground-truth stations | **OpenAQ** API (CPCB station data) | Free key |
+| Weather | **Open-Meteo** forecast + historical archive | Free, no key |
+| Map in the app | **Google Maps JS** with the **Maps Demo Key** — dark-styled map, markers, exposure-coloured route polylines | Free, no card (daily limit) |
+| Routes | **Google Compute Routes** (Demo Key) for drive / walk / bike | Free, no card (daily limit) |
+| Place search | **Google Places UI Kit + Geocoding** (Demo Key) | Free, no card (daily limit) |
+| Metro / transit | "Open in Google Maps" button using **Google Maps URLs** (`/maps/dir/?api=1&travelmode=transit`) | Free, no key |
+| Map fallback | **Leaflet** + OpenStreetMap, plus OpenRouteService for routes — auto-switch if the demo key's daily limit is hit | Free |
+| Charts | Recharts | — |
+| i18n | i18next for UI + Gemini for generated text | — |
+| Voice input | Browser Web Speech API | Free |
+| Share card | html-to-image | — |
+| ML training | Python, pandas, LightGBM, SHAP in **Google Colab** | Free |
+| ML serving + daily refresh | **GitHub Actions** cron → runs model → writes 48-h forecast rows to Supabase | Free |
 
-**Rule:** never put API keys in the frontend — every Gemini/Maps call goes through Cloud Run.
+**Flow:** Browser (Vercel) shows the Google Map → Vercel `/api/*` functions → Gemini · Open-Meteo · OpenAQ · Google Routes. Forecasts, profiles and community data live in Supabase.
+
+**Google tools used:** Antigravity · Stitch · Gemini · Google Maps — no Google Cloud billing anywhere.
+
+**Why GitHub Actions for ML:** no model server to keep awake (free servers sleep and take ~50 s to wake — bad in a live demo). A scheduled job pre-computes the next 48 hours for each demo station and stores them; the app just reads a table. Instant.
+
+**Metro / transit:** the demo key doesn't cover transit routing. In-app, estimate metro trips as walk-to-station + distance at average metro speed (labelled "estimate"); the Metro card has an **Open in Google Maps** button for real metro directions.
+
+**Rules:**
+- Never commit any key to this repo. Use `.env.local` locally and Vercel environment variables in production.
+- The Maps key is visible in the browser by design — restrict it to your Vercel domain(s) and `localhost` (HTTP referrer restriction) in the Google Maps key settings.
+- Keep the Gemini key server-side: call Gemini only from `/api/*`.
+- Turn on Row Level Security for every Supabase table.
+- Demo key is for prototyping only and has a daily limit — keep the Leaflet fallback working before judging.
 
 ---
 
@@ -108,8 +127,8 @@ The cigarette formula is fixed; ML improves its **input** — the PM2.5 forecast
 5. **Split by time** — train on older winters, validate on part of 2024–25, test on the latest winter. Never random split.
 6. **Baselines** — persistence ("next hour = now"), same-hour-yesterday. Model must beat these.
 7. **Train** — LightGBM / XGBoost; horizon-as-feature or separate models for 1/6/12/24/48 h; tune a few params.
-8. **Evaluate** — MAE (main), RMSE, AQI-category accuracy, error by horizon, predicted-vs-actual plot, SHAP importance. Compare live vs Google Air Quality API forecast during build week.
-9. **Deploy** — joblib model in FastAPI on Cloud Run; daily refresh via Cloud Scheduler; fallback to Google forecast if model fails.
+8. **Evaluate** — MAE (main), RMSE, AQI-category accuracy, error by horizon, predicted-vs-actual plot, SHAP importance. Compare live against the Open-Meteo air-quality forecast during build week.
+9. **Deploy** — commit the trained model file to the repo; a GitHub Actions cron (e.g. hourly) fetches latest OpenAQ + Open-Meteo data, runs the model and upserts 48-h forecasts into a Supabase `forecasts` table. Fallback: show the Open-Meteo forecast if a row is missing or stale.
 10. **Integrate** — plan timing ("best air 2–4 PM"), tomorrow's cigarettes, route departure times.
 11. **Write up** — metrics table + charts for the blog.
 
@@ -120,7 +139,7 @@ The cigarette formula is fixed; ML improves its **input** — the PM2.5 forecast
 | Day | Work |
 |---|---|
 | 1 | Setup, onboarding, Daily Air Plan, Cigarette Counter, i18n · **start ML data download** |
-| 2 | Finish plan + counter, Air Quality API wiring |
+| 2 | Finish plan + counter, Open-Meteo / OpenAQ wiring, Supabase schema |
 | 3 | Shwas Scan (Gemini Vision) |
 | 4 | ML: data cleaning, features, baselines |
 | 5 | ML: train, evaluate, deploy, connect |
@@ -136,21 +155,23 @@ The cigarette formula is fixed; ML improves its **input** — the PM2.5 forecast
 
 | Item | Status |
 |---|---|
-| Google Cloud project | ✅ `shwas` (ID `shwas-515315`) |
-| Gemini API | ✅ enabled |
-| Billing | ⏳ **link a billing account** (needed for Air Quality / Maps / Routes / Places) |
-| Air Quality, Maps JS, Routes, Places APIs | ⏳ enable after billing |
-| Firebase | ✅ linked to `shwas-515315` |
-| Firebase Auth | ✅ Google + Anonymous enabled |
-| Firestore | ⏳ `gcloud firestore databases create --location=asia-south1 --project=shwas-515315` |
-| Firebase Hosting | ⏳ `firebase init hosting` from Antigravity |
 | Stitch designs | ✅ Today, Scan, Routes, Community, Ask Shwas + design system · ⚠️ verify onboarding screens |
 | GitHub repo | ✅ this repo (private — **make public before submitting**) |
+| Google Maps Demo Key | ✅ created (no card). Retrieve it from the Google Cloud console → Google Maps Platform → Keys. Add as `VITE_GOOGLE_MAPS_KEY` in `.env.local` / Vercel |
+| Gemini API key | ⏳ create at https://aistudio.google.com/apikey → `GEMINI_API_KEY` (server-side only) |
+| Supabase project | ⏳ create `shwas` (region: Mumbai `ap-south-1`). Free plan allows 2 active projects — pause one of the existing ones first |
+| Supabase Auth | ⏳ enable Anonymous sign-ins + email magic link |
+| Vercel project | ⏳ import this repo, add env vars |
+| OpenAQ / OpenRouteService keys | ⏳ free sign-up (OpenRouteService only needed for the fallback map) |
+| Open-Meteo | ✅ no key needed |
+
+**Not used anymore:** Google Cloud billing, Cloud Run, Firebase. (The earlier `shwas-515315` Google Cloud/Firebase project is unused and costs nothing — leave it or delete it.)
 
 **Links**
 - Stitch project: https://stitch.google.com/projects/824895366468295722
-- Firebase console: https://console.firebase.google.com/project/shwas-515315
-- Cloud billing: https://console.cloud.google.com/billing/linkedaccount?project=shwas-515315
+- Maps Demo Key docs: https://developers.google.com/maps/demo-key
+- Google AI Studio (Gemini key): https://aistudio.google.com/apikey
+- Open-Meteo Air Quality API: https://open-meteo.com/en/docs/air-quality-api
 - PromptWars page: https://promptwars.in/promptwarsVirtual.html
 
 ---
