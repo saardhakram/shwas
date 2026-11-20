@@ -23,7 +23,12 @@ import {
 import GlassCard from '../components/ui/GlassCard';
 import Badge from '../components/ui/Badge';
 import { useAirQuality } from '../components/layout/AppLayout';
-import { generate48HourForecast, computeBestWindow } from '../lib/forecast';
+import {
+  fetchOpenMeteoForecast,
+  getOfflineFallbackForecast,
+  computeBestWindow,
+  ForecastDataPoint,
+} from '../lib/forecast';
 
 interface PlanItem {
   id: string;
@@ -80,7 +85,7 @@ const ForecastTooltip = ({
   payload,
 }: {
   active?: boolean;
-  payload?: Array<{ payload: { day: string; time: string; pm25: number; aqi: number } }>;
+  payload?: Array<{ payload: { day: string; time: string; pm25: number; usAqi: number } }>;
 }) => {
   if (active && payload && payload.length) {
     const data = payload[0].payload;
@@ -93,7 +98,7 @@ const ForecastTooltip = ({
           PM2.5: {data.pm25} µg/m³
         </div>
         <div className="text-slate-400 text-[10px]">
-          Est. AQI ≈ {data.aqi}
+          Open-Meteo US AQI: {data.usAqi}
         </div>
       </div>
     );
@@ -103,66 +108,91 @@ const ForecastTooltip = ({
 
 export const TodayPage: React.FC = () => {
   const { t } = useTranslation();
-  const { aqi, selectedFamilyId } = useAirQuality();
+  const { aqi, selectedFamilyId, setAirQuality } = useAirQuality();
 
-  // 1. Generate forecast dataset and compute single consistent best air window
-  const forecastData = useMemo(() => generate48HourForecast(), []);
-  const bestWindow = useMemo(() => computeBestWindow(forecastData), [forecastData]);
+  // 1. Live Open-Meteo forecast data state (initializes with clearly-labelled offline fallback)
+  const [forecastPoints, setForecastPoints] = useState<ForecastDataPoint[]>(
+    () => getOfflineFallbackForecast().points
+  );
+  const [isSampleData, setIsSampleData] = useState<boolean>(true);
+  const [sourceLabel, setSourceLabel] = useState<string>('Sample data (offline fallback)');
 
-  // 2. Base exposure calculations per family member
-  // Delhi winter benchmark:
-  // All / Me = 9.0 (base) -> 5.1 (target, saving 3.9)
-  // Grandpa = 10.5 -> 6.6
-  // Child (Aarav) = 7.6 -> 3.7
+  // Wire real Open-Meteo API on mount
+  useEffect(() => {
+    let active = true;
+    fetchOpenMeteoForecast(28.6139, 77.2090).then((res) => {
+      if (active) {
+        setForecastPoints(res.points);
+        setIsSampleData(res.isSampleData);
+        setSourceLabel(res.sourceLabel);
+        if (setAirQuality && res.currentAqi) {
+          setAirQuality(res.currentAqi, res.currentPm25);
+        }
+      }
+    });
+
+    return () => {
+      active = false;
+    };
+  }, [setAirQuality]);
+
+  // 2. Compute best clean-air window searching upcoming hours only (from now through next 24h)
+  const bestWindow = useMemo(() => {
+    return computeBestWindow(forecastPoints, new Date());
+  }, [forecastPoints]);
+
+  // 3. Base exposure calculations per family member
   const baseCigarettes = useMemo(() => {
     if (selectedFamilyId === 'grandpa') return 10.5;
     if (selectedFamilyId === 'child') return 7.6;
     return 9.0;
   }, [selectedFamilyId]);
 
-  // 3. Interactive Plan Items (Computed consistently with best air window)
-  const [planItems, setPlanItems] = useState<PlanItem[]>([
-    {
-      id: '1',
-      title: 'Keep balcony windows shut during morning commute peak',
-      description: 'Heavy truck & diesel exhaust on main road between 7:30 – 10:00 AM.',
-      cigarettesSaved: 1.4,
-      completed: false,
-      time: '8:00 AM',
-    },
-    {
-      id: '2',
-      title: `Airing & cross-ventilation window (${bestWindow.label})`,
-      description: `Sun warms boundary layer, dispersing local smog plume to lowest levels of the day (${bestWindow.avgPm25} µg/m³).`,
-      cigarettesSaved: 0.8,
-      completed: false,
-      time: bestWindow.startTime,
-    },
-    {
-      id: '3',
-      title: 'Take Yellow Line Metro instead of Outer Ring Road auto',
-      description: 'Underground filtered air cabin reduces peak transit exposure.',
-      cigarettesSaved: 1.2,
-      completed: false,
-      time: '5:30 PM',
-    },
-    {
-      id: '4',
-      title: 'Run HEPA air purifier on sleep mode in bedroom',
-      description: 'Maintains indoor PM2.5 below 60 µg/m³ overnight.',
-      cigarettesSaved: 0.5,
-      completed: false,
-      time: '10:00 PM',
-    },
-  ]);
+  // 4. Interactive Plan Items (dynamically incorporates best upcoming clean-air window)
+  const [completedItems, setCompletedItems] = useState<Record<string, boolean>>({});
 
-  // Toggle plan item completion
+  const planItems: PlanItem[] = useMemo(() => {
+    return [
+      {
+        id: '1',
+        title: 'Keep balcony windows shut during morning commute peak',
+        description: 'Heavy truck & diesel exhaust on main road between 7:30 – 10:00 AM.',
+        cigarettesSaved: 1.4,
+        completed: Boolean(completedItems['1']),
+        time: '8:00 AM',
+      },
+      {
+        id: '2',
+        title: `Airing & cross-ventilation window (${bestWindow.label})`,
+        description: `Atmospheric boundary layer warming disperses local smog plume to lowest levels (${bestWindow.avgPm25} µg/m³, AQI ${bestWindow.avgAqi}).`,
+        cigarettesSaved: 0.8,
+        completed: Boolean(completedItems['2']),
+        time: bestWindow.startTime,
+      },
+      {
+        id: '3',
+        title: 'Take Yellow Line Metro instead of Outer Ring Road auto',
+        description: 'Underground filtered air cabin reduces peak transit exposure.',
+        cigarettesSaved: 1.2,
+        completed: Boolean(completedItems['3']),
+        time: '5:30 PM',
+      },
+      {
+        id: '4',
+        title: 'Run HEPA air purifier on sleep mode in bedroom',
+        description: 'Maintains indoor PM2.5 below 60 µg/m³ overnight.',
+        cigarettesSaved: 0.5,
+        completed: Boolean(completedItems['4']),
+        time: '10:00 PM',
+      },
+    ];
+  }, [completedItems, bestWindow]);
+
   const togglePlanItem = (id: string) => {
-    setPlanItems((prev) =>
-      prev.map((item) =>
-        item.id === id ? { ...item, completed: !item.completed } : item
-      )
-    );
+    setCompletedItems((prev) => ({
+      ...prev,
+      [id]: !prev[id],
+    }));
   };
 
   // Total potential savings if all actions are completed
@@ -183,7 +213,6 @@ export const TodayPage: React.FC = () => {
   const targetCurrentExposure = Math.max(targetCigarettes, baseCigarettes - checkedSavings);
   const animatedExposure = useAnimatedNumber(targetCurrentExposure, 400);
 
-  // Format animated number: whole number if close to integer, else 1 decimal place
   const formatHeroNumber = (val: number) => {
     const rounded = Math.round(val);
     if (Math.abs(val - rounded) < 0.05) {
@@ -196,7 +225,7 @@ export const TodayPage: React.FC = () => {
     <div className="space-y-4 animate-in fade-in duration-300">
       {/* Hero Cigarette Card */}
       <GlassCard className="relative overflow-hidden py-5 px-4 border-white/[0.1] bg-gradient-to-b from-[#182030]/80 to-[#101624]/90">
-        {/* Top header row: Subtitle and Badge separated in a flex layout so they never overlap at any screen width */}
+        {/* Top header row: Subtitle and Badge separated in a flex layout so they never overlap */}
         <div className="flex items-center justify-between gap-2 mb-2">
           <div className="flex items-center gap-1.5 text-xs text-slate-400 font-medium min-w-0">
             <Cigarette className="w-4 h-4 text-amber-400 shrink-0" />
@@ -225,7 +254,7 @@ export const TodayPage: React.FC = () => {
           </span>
         </div>
 
-        {/* Plan Impact Arc Badge (Bug 2 fix: no duplicated target number) */}
+        {/* Plan Impact Arc Badge */}
         <div className="flex justify-center">
           <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-teal-500/15 border border-teal-500/30 text-teal-300 text-xs font-medium">
             <Sparkles className="w-3.5 h-3.5 text-teal-400 shrink-0" />
@@ -243,7 +272,7 @@ export const TodayPage: React.FC = () => {
           <div className="flex items-center gap-1.5">
             <span className="w-2 h-2 rounded-full bg-red-400 animate-pulse shrink-0" />
             <span className="whitespace-nowrap">
-              Station AQI: <strong className="text-slate-200 font-numbers">{aqi}</strong>
+              Open-Meteo AQI: <strong className="text-slate-200 font-numbers">{aqi}</strong>
             </span>
           </div>
           <div className="flex items-center gap-1 min-w-0">
@@ -264,8 +293,14 @@ export const TodayPage: React.FC = () => {
               {t('today.forecastTitle', '48-Hour Forecast')}
             </h3>
           </div>
-          <span className="text-[11px] text-slate-400 font-mono">
-            PM2.5 (µg/m³)
+          <span
+            className={`text-[10px] font-mono px-2 py-0.5 rounded-full border ${
+              isSampleData
+                ? 'bg-amber-500/10 text-amber-300 border-amber-500/30'
+                : 'bg-teal-500/10 text-teal-300 border-teal-500/30'
+            }`}
+          >
+            {sourceLabel}
           </span>
         </div>
 
@@ -273,7 +308,7 @@ export const TodayPage: React.FC = () => {
         <div className="p-2.5 rounded-xl bg-teal-500/10 border border-teal-500/25 flex items-center gap-2.5 my-2">
           <Clock className="w-4 h-4 text-teal-300 shrink-0" />
           <span className="text-xs text-teal-200 font-medium">
-            Best air window: <strong>{bestWindow.label}</strong> ({bestWindow.avgPm25} µg/m³)
+            Best upcoming window: <strong>{bestWindow.label}</strong> ({bestWindow.avgPm25} µg/m³, AQI {bestWindow.avgAqi})
           </span>
         </div>
 
@@ -281,7 +316,7 @@ export const TodayPage: React.FC = () => {
         <div className="w-full h-44 mt-3 -ml-2">
           <ResponsiveContainer width="100%" height="100%">
             <AreaChart
-              data={forecastData}
+              data={forecastPoints}
               margin={{ top: 8, right: 10, left: -22, bottom: 0 }}
             >
               <defs>
@@ -304,20 +339,22 @@ export const TodayPage: React.FC = () => {
                 fontSize={10}
                 tickLine={false}
                 axisLine={false}
-                domain={[0, 400]}
+                domain={[0, 'auto']}
               />
               <Tooltip content={<ForecastTooltip />} />
 
-              {/* Shading best clean-air window in mint */}
-              <ReferenceArea
-                x1={bestWindow.chartStart}
-                x2={bestWindow.chartEnd}
-                fill="#2DD4BF"
-                fillOpacity={0.22}
-                stroke="#2DD4BF"
-                strokeOpacity={0.6}
-                strokeDasharray="3 3"
-              />
+              {/* Shading upcoming best clean-air window in mint */}
+              {bestWindow.chartStart && bestWindow.chartEnd && (
+                <ReferenceArea
+                  x1={bestWindow.chartStart}
+                  x2={bestWindow.chartEnd}
+                  fill="#2DD4BF"
+                  fillOpacity={0.22}
+                  stroke="#2DD4BF"
+                  strokeOpacity={0.6}
+                  strokeDasharray="3 3"
+                />
+              )}
 
               <Area
                 type="monotone"
@@ -397,7 +434,7 @@ export const TodayPage: React.FC = () => {
                       {item.title}
                     </h4>
 
-                    {/* Non-wrapping, compact badge (Bug 6 fix) */}
+                    {/* Non-wrapping, compact badge */}
                     <Badge
                       variant={item.completed ? 'mint' : 'neutral'}
                       size="sm"

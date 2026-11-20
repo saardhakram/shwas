@@ -15,15 +15,17 @@ interface AirQualityContextType {
   selectedFamilyId: string;
   setSelectedFamilyId: (id: string) => void;
   setAqi: (aqi: number) => void;
+  setAirQuality: (aqi: number, pm25: number) => void;
 }
 
 const AirQualityContext = createContext<AirQualityContextType>({
-  aqi: 342,
-  pm25: 285,
+  aqi: 214,
+  pm25: 180,
   cityName: 'Delhi NCR',
   selectedFamilyId: 'all',
   setSelectedFamilyId: () => {},
   setAqi: () => {},
+  setAirQuality: () => {},
 });
 
 export const useAirQuality = () => useContext(AirQualityContext);
@@ -31,8 +33,8 @@ export const useAirQuality = () => useContext(AirQualityContext);
 export const AppLayout: React.FC = () => {
   const { t } = useTranslation();
   const location = useLocation();
-  const [aqi, setAqi] = useState<number>(342); // Default to severe winter smog for hackathon context
-  const [pm25, setPm25] = useState<number>(285);
+  const [aqi, setAqi] = useState<number>(214); // Live Open-Meteo US AQI baseline
+  const [pm25, setPm25] = useState<number>(180);
   const [cityName] = useState<string>('Delhi NCR');
   const [selectedFamilyId, setSelectedFamilyId] = useState<string>('all');
 
@@ -97,7 +99,10 @@ export const AppLayout: React.FC = () => {
         setSelectedFamilyId,
         setAqi: (newAqi) => {
           setAqi(newAqi);
-          setPm25(Math.round(newAqi * 0.8));
+        },
+        setAirQuality: (newAqi, newPm25) => {
+          setAqi(newAqi);
+          setPm25(newPm25);
         },
       }}
     >

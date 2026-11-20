@@ -1,10 +1,23 @@
+/**
+ * Open-Meteo Air Quality & 48-Hour Forecast Service
+ *
+ * Integrates directly with Open-Meteo Air Quality API:
+ * - Uses Open-Meteo's own real-time and forecasted `us_aqi` directly (no artificial formulas).
+ * - Computes the best clean-air window strictly across upcoming hours (from now through next 24h).
+ * - Provides offline fallback clearly labelled "sample data".
+ */
+
 export interface ForecastDataPoint {
-  hourIndex: number;
-  time: string;
-  hour: number;
-  day: 'Today' | 'Tomorrow';
-  pm25: number;
-  aqi: number;
+  isoTime: string;      // e.g. "2026-11-20T14:00"
+  timestamp: number;    // epoch milliseconds
+  time: string;         // e.g. "2 PM"
+  fullTime: string;     // e.g. "2:00 PM"
+  hour: number;         // 0 - 23
+  day: 'Today' | 'Tomorrow' | string;
+  pm25: number;         // raw PM2.5 in µg/m³
+  usAqi: number;        // Direct from Open-Meteo's us_aqi
+  aqi: number;          // alias for usAqi
+  isPast: boolean;
 }
 
 export interface BestAirWindow {
@@ -12,25 +25,29 @@ export interface BestAirWindow {
   endHour: number;
   startTime: string;
   endTime: string;
+  dayLabel: string;
   label: string;
   shortLabel: string;
   chartStart: string;
   chartEnd: string;
   avgPm25: number;
+  avgAqi: number;
 }
 
-/**
- * Formats an hour number (0-23) into clean 12-hour string (e.g. 14 -> "2 PM")
- */
+export interface ForecastResult {
+  currentAqi: number;
+  currentPm25: number;
+  points: ForecastDataPoint[];
+  isSampleData: boolean;
+  sourceLabel: string;
+}
+
 export function formatHourShort(hour: number): string {
   const period = hour >= 12 ? 'PM' : 'AM';
   const displayH = hour % 12 === 0 ? 12 : hour % 12;
   return `${displayH} ${period}`;
 }
 
-/**
- * Formats an hour number into minute-precision 12-hour string (e.g. 14 -> "2:00 PM")
- */
 export function formatHourFull(hour: number): string {
   const period = hour >= 12 ? 'PM' : 'AM';
   const displayH = hour % 12 === 0 ? 12 : hour % 12;
@@ -38,95 +55,234 @@ export function formatHourFull(hour: number): string {
 }
 
 /**
- * Generates a realistic 48-hour winter PM2.5 forecast curve for urban centers (e.g. Delhi NCR).
- * Diurnal characteristics:
- * - High inversion & morning peak (7-9 AM) ~320-360 µg/m³
- * - Solar surface heating breaks inversion midday, improving air between 2 PM – 4 PM ~110-130 µg/m³
- * - Evening peak (8-11 PM) spikes again ~280-320 µg/m³
+ * Fetches real 48-hour air quality forecast from Open-Meteo API.
+ * Uses Open-Meteo's own `us_aqi` and `pm2_5` fields directly.
  */
-export function generate48HourForecast(): ForecastDataPoint[] {
-  const points: ForecastDataPoint[] = [];
+export async function fetchOpenMeteoForecast(
+  latitude = 28.6139,
+  longitude = 77.2090
+): Promise<ForecastResult> {
+  const url = `https://air-quality-api.open-meteo.com/v1/air-quality?latitude=${latitude}&longitude=${longitude}&hourly=pm2_5,us_aqi&timezone=auto&forecast_days=3`;
 
-  // Typical diurnal pattern in Delhi winter across 24 hours (0h to 23h)
-  const diurnalPm25 = [
-    260, 275, 290, 310, 330, 345, // 00:00 - 05:00 Night accumulation
-    355, 360, 340, 290, 230, 180, // 06:00 - 11:00 Morning peak & warming
-    150, 130, 120, 125, 140, 180, // 12:00 - 17:00 Afternoon dispersion window
-    220, 260, 290, 305, 295, 275, // 18:00 - 23:00 Evening rush & calm night
-  ];
+  try {
+    const res = await fetch(url);
+    if (!res.ok) {
+      throw new Error(`Open-Meteo API returned status ${res.status}`);
+    }
 
-  for (let i = 0; i < 48; i++) {
-    const hour = i % 24;
-    const day: 'Today' | 'Tomorrow' = i < 24 ? 'Today' : 'Tomorrow';
-    
-    // Day 2 has slightly different weather dispersion (10% variance)
-    const variance = i >= 24 ? -12 : 0;
-    const pm25 = Math.max(30, diurnalPm25[hour] + variance);
-    const aqi = Math.round(pm25 * 1.15);
+    const data = await res.json();
+    if (!data?.hourly?.time || !data?.hourly?.pm2_5 || !data?.hourly?.us_aqi) {
+      throw new Error('Invalid Open-Meteo response structure');
+    }
 
-    points.push({
-      hourIndex: i,
-      time: formatHourShort(hour),
-      hour,
-      day,
-      pm25,
-      aqi,
-    });
+    const times: string[] = data.hourly.time;
+    const pm25Arr: number[] = data.hourly.pm2_5;
+    const usAqiArr: number[] = data.hourly.us_aqi;
+
+    const now = new Date();
+    const todayStr = now.toISOString().slice(0, 10);
+    const tomorrow = new Date(now.getTime() + 86400000);
+    const tomorrowStr = tomorrow.toISOString().slice(0, 10);
+
+    const points: ForecastDataPoint[] = [];
+    let currentPoint: ForecastDataPoint | null = null;
+    let minTimeDiff = Infinity;
+
+    for (let i = 0; i < times.length; i++) {
+      const isoTime = times[i];
+      const pointDate = new Date(isoTime);
+      const timestamp = pointDate.getTime();
+      const hour = pointDate.getHours();
+      const dateStr = isoTime.slice(0, 10);
+
+      let day = 'Later';
+      if (dateStr === todayStr) {
+        day = 'Today';
+      } else if (dateStr === tomorrowStr) {
+        day = 'Tomorrow';
+      } else {
+        day = pointDate.toLocaleDateString('en-US', { weekday: 'short' });
+      }
+
+      const pm25 = Math.round((pm25Arr[i] || 0) * 10) / 10;
+      // Direct Open-Meteo us_aqi (no formula)
+      const usAqi = Math.round(usAqiArr[i] || 0);
+
+      const isPast = timestamp < now.getTime() - 45 * 60 * 1000;
+
+      const pt: ForecastDataPoint = {
+        isoTime,
+        timestamp,
+        time: formatHourShort(hour),
+        fullTime: formatHourFull(hour),
+        hour,
+        day,
+        pm25,
+        usAqi,
+        aqi: usAqi,
+        isPast,
+      };
+
+      points.push(pt);
+
+      // Identify the closest hour to current time for live indicators
+      const diff = Math.abs(timestamp - now.getTime());
+      if (diff < minTimeDiff) {
+        minTimeDiff = diff;
+        currentPoint = pt;
+      }
+    }
+
+    // Keep next 48 hours of points starting from current hour
+    const startIndex = currentPoint ? Math.max(0, points.indexOf(currentPoint)) : 0;
+    const activePoints = points.slice(startIndex, startIndex + 48);
+
+    return {
+      currentAqi: currentPoint?.usAqi ?? 180,
+      currentPm25: currentPoint?.pm25 ?? 140,
+      points: activePoints.length >= 24 ? activePoints : points.slice(0, 48),
+      isSampleData: false,
+      sourceLabel: 'Open-Meteo Live API',
+    };
+  } catch (err) {
+    console.warn('[Shwas] Open-Meteo live request failed, using offline fallback:', err);
+    return getOfflineFallbackForecast();
   }
-
-  return points;
 }
 
 /**
- * Computes the single optimal clean-air window across daytime hours (11:00 to 18:00)
- * Evaluates consecutive hours to find the minimum average PM2.5.
+ * Offline sample data fallback only — used when device is offline or API is unavailable.
+ * Clearly labelled "sample data".
  */
-export function computeBestWindow(forecast: ForecastDataPoint[]): BestAirWindow {
-  // Focus on daytime window of today (hours 11 AM to 6 PM)
-  const todayPoints = forecast.slice(0, 24);
-  const candidates = todayPoints.filter((p) => p.hour >= 11 && p.hour <= 18);
+export function getOfflineFallbackForecast(): ForecastResult {
+  const points: ForecastDataPoint[] = [];
+  const now = new Date();
+  const currentHour = now.getHours();
 
-  if (candidates.length < 2) {
+  // Typical diurnal PM2.5 and EPA US AQI points
+  const diurnalPm25 = [
+    260, 275, 290, 310, 330, 345, // 00:00 - 05:00
+    355, 360, 340, 290, 230, 180, // 06:00 - 11:00
+    150, 130, 120, 125, 140, 180, // 12:00 - 17:00
+    220, 260, 290, 305, 295, 275, // 18:00 - 23:00
+  ];
+
+  // EPA breakpoint standard US AQI values for corresponding PM2.5 levels
+  const diurnalUsAqi = [
+    310, 325, 340, 360, 380, 395,
+    405, 410, 390, 340, 280, 230,
+    200, 180, 170, 175, 190, 230,
+    270, 310, 340, 355, 345, 325,
+  ];
+
+  for (let i = 0; i < 48; i++) {
+    const ptDate = new Date(now.getTime() + i * 3600 * 1000);
+    const hour = ptDate.getHours();
+    const day = i < 24 ? 'Today' : 'Tomorrow';
+    const pm25 = diurnalPm25[hour];
+    const usAqi = diurnalUsAqi[hour];
+
+    points.push({
+      isoTime: ptDate.toISOString(),
+      timestamp: ptDate.getTime(),
+      time: formatHourShort(hour),
+      fullTime: formatHourFull(hour),
+      hour,
+      day,
+      pm25,
+      usAqi,
+      aqi: usAqi,
+      isPast: false,
+    });
+  }
+
+  const currentPm25 = diurnalPm25[currentHour];
+  const currentAqi = diurnalUsAqi[currentHour];
+
+  return {
+    currentAqi,
+    currentPm25,
+    points,
+    isSampleData: true,
+    sourceLabel: 'Sample data (offline fallback)',
+  };
+}
+
+/**
+ * Computes the best clean-air window.
+ *
+ * CRITICAL RULE:
+ * Must search upcoming hours from `now` through the next 24 hours.
+ * Never suggests a window that has already passed today.
+ *
+ * @param forecast Array of forecast points
+ * @param fromDate Reference date/time (defaults to new Date())
+ */
+export function computeBestWindow(
+  forecast: ForecastDataPoint[],
+  fromDate: Date = new Date()
+): BestAirWindow {
+  const fromTime = fromDate.getTime();
+  const maxUpcomingTime = fromTime + 24 * 3600 * 1000;
+
+  // Filter to upcoming hours only: from (now - 15m) up to +24 hours
+  const upcoming = forecast.filter((p) => {
+    return p.timestamp >= fromTime - 15 * 60 * 1000 && p.timestamp <= maxUpcomingTime;
+  });
+
+  if (upcoming.length < 2) {
+    // Fallback if upcoming points are sparse
+    const defaultStart = fromDate.getHours() < 14 ? '2:00 PM' : 'Tomorrow 2:00 PM';
+    const defaultEnd = fromDate.getHours() < 14 ? '4:00 PM' : 'Tomorrow 4:00 PM';
     return {
       startHour: 14,
       endHour: 16,
       startTime: '2:00 PM',
       endTime: '4:00 PM',
-      label: '2:00 PM – 4:00 PM',
-      shortLabel: '2–4 PM',
+      dayLabel: fromDate.getHours() < 14 ? 'Today' : 'Tomorrow',
+      label: `${defaultStart} – ${defaultEnd}`,
+      shortLabel: fromDate.getHours() < 14 ? '2–4 PM' : 'Tmrw 2–4 PM',
       chartStart: '2 PM',
       chartEnd: '4 PM',
-      avgPm25: 123,
+      avgPm25: 120,
+      avgAqi: 175,
     };
   }
 
+  // Find consecutive 2-hour window with lowest average PM2.5 in upcoming 24h
   let minAvg = Infinity;
   let bestIdx = 0;
 
-  for (let i = 0; i < candidates.length - 1; i++) {
-    const avg = (candidates[i].pm25 + candidates[i + 1].pm25) / 2;
+  for (let i = 0; i < upcoming.length - 1; i++) {
+    const avg = (upcoming[i].pm25 + upcoming[i + 1].pm25) / 2;
     if (avg < minAvg) {
       minAvg = avg;
       bestIdx = i;
     }
   }
 
-  const startPt = candidates[bestIdx];
-  const endHour = (startPt.hour + 2) % 24;
-  const startTime = formatHourFull(startPt.hour);
-  const endTime = formatHourFull(endHour);
-  const chartStart = formatHourShort(startPt.hour);
-  const chartEnd = formatHourShort(endHour);
+  const startPt = upcoming[bestIdx];
+  const endPt = upcoming[bestIdx + 1];
+
+  const sameDayAsNow =
+    new Date(startPt.timestamp).toDateString() === fromDate.toDateString();
+  const dayPrefix = sameDayAsNow ? '' : `${startPt.day} `;
+
+  const label = `${dayPrefix}${startPt.fullTime} – ${endPt.fullTime}`;
+  const shortLabel = `${dayPrefix}${startPt.time}–${endPt.time}`;
+  const avgAqi = Math.round((startPt.usAqi + endPt.usAqi) / 2);
 
   return {
     startHour: startPt.hour,
-    endHour,
-    startTime,
-    endTime,
-    label: `${startTime} – ${endTime}`,
-    shortLabel: `${chartStart}–${chartEnd}`,
-    chartStart,
-    chartEnd,
+    endHour: endPt.hour,
+    startTime: startPt.fullTime,
+    endTime: endPt.fullTime,
+    dayLabel: startPt.day,
+    label,
+    shortLabel,
+    chartStart: startPt.time,
+    chartEnd: endPt.time,
     avgPm25: Math.round(minAvg),
+    avgAqi,
   };
 }
