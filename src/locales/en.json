@@ -1,0 +1,73 @@
+{
+  "app": {
+    "name": "Shwas",
+    "tagline": "Urban Air Quality Assistant",
+    "disclaimer": "Awareness estimate, not a medical measurement."
+  },
+  "nav": {
+    "today": "Today",
+    "scan": "Scan",
+    "routes": "Routes",
+    "community": "Community",
+    "ask": "Ask Shwas"
+  },
+  "today": {
+    "title": "Today's Air Plan",
+    "heroCigarettes": "cigarettes",
+    "heroSubtitle": "breathed today across your routine",
+    "targetPlan": "{{target}} if you follow your plan",
+    "saveCallout": "You can save your family {{saved}} cigarettes today",
+    "liveAqi": "Live AQI",
+    "familyTitle": "Family Exposure",
+    "forecastTitle": "Shwas 48-Hour Forecast (ML)",
+    "forecastBestWindow": "Best air window: 2:00 PM – 4:30 PM",
+    "planTimeline": "Timeline & Low-Emission Actions",
+    "emptyState": "Setting up your daily air plan...",
+    "emptySubtitle": "Personalized actions based on live CPCB stations and your home scan."
+  },
+  "family": {
+    "all": "All Family",
+    "me": "Me",
+    "grandpa": "Grandpa (72)",
+    "child": "Aarav (8)",
+    "asthmaTag": "Asthma",
+    "seniorTag": "Senior",
+    "childTag": "Child"
+  },
+  "aqi": {
+    "good": "Good",
+    "moderate": "Moderate",
+    "poor": "Poor",
+    "veryPoor": "Very Poor",
+    "severe": "Severe Smog",
+    "hazardous": "Hazardous"
+  },
+  "scan": {
+    "title": "Shwas Scan",
+    "subtitle": "AI-powered indoor pollution audit with Gemini Vision"
+  },
+  "routes": {
+    "title": "Clean Routes",
+    "subtitle": "Compare Metro, Auto, Walk & Bike by pollution exposure"
+  },
+  "community": {
+    "title": "Community",
+    "subtitle": "Together we breathe cleaner air"
+  },
+  "ask": {
+    "title": "Ask Shwas",
+    "subtitle": "Ask anything about air quality, kids' play, or elderly safety"
+  },
+  "onboarding": {
+    "title": "Welcome to Shwas",
+    "subtitle": "Turn invisible smog into actionable protection for your family",
+    "startBtn": "Get Started",
+    "demoContinue": "Continue to Today's Plan"
+  },
+  "actions": {
+    "save": "Save",
+    "saved": "Saved",
+    "cleanAirAction": "Clean Air Action",
+    "dangerAlert": "High Exposure Alert"
+  }
+}
