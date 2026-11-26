@@ -65,6 +65,7 @@ export interface EvaluatedRouteOption extends RawRouteGeometry {
 
 export interface DepartureTip {
   bestTimeLabel: string;
+  bestTime24h?: string;
   departureLabel: string;
   percentLessSmog: number;
   currentPm25: number;

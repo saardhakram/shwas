@@ -32,6 +32,10 @@
     "community": "Community",
     "ask": "Ask Shwas"
   },
+  "time": {
+    "today": "Today",
+    "tomorrow": "Tomorrow"
+  },
   "today": {
     "title": "Today's Air Plan",
     "heroCigarettes": "cigarettes",

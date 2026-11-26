@@ -60,7 +60,7 @@ export const LanguageSwitcher: React.FC<{ className?: string }> = ({ className =
         aria-haspopup="listbox"
         aria-expanded={isOpen}
         aria-label={t('app.selectLanguageAria', 'Select language, current language {{language}}', {
-          language: currentLang.label,
+          language: currentLang.native,
         })}
         className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl bg-white/[0.06] hover:bg-white/[0.12] border border-white/[0.1] text-xs font-medium text-slate-200 transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal-400"
       >

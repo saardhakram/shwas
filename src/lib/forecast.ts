@@ -4,7 +4,13 @@
 
 import { isSupabaseConfigured, supabase } from './supabase.js';
 import { logger } from './logger.js';
-import { formatHourShort, formatHourFull, computeBestWindow } from '@shared/forecastWindow';
+import {
+  computeLocalDayOffset,
+  dayKeyFromOffset,
+  formatHourShort,
+  formatHourFull,
+  computeBestWindow,
+} from '@shared/forecastWindow';
 import type { ForecastDataPoint, BestAirWindow } from '@shared/forecastWindow';
 import {
   ML_FORECAST_MAX_AGE_MS,
@@ -55,6 +61,7 @@ export function getOfflineFallbackForecast(): ForecastResult {
   for (let i = 0; i < 48; i++) {
     const ptDate = new Date(now.getTime() + i * 3600 * 1000);
     const hour = ptDate.getHours();
+    const dayOffset = computeLocalDayOffset(ptDate, now);
     const pm25 = DIURNAL_PM25[hour];
     const usAqi = DIURNAL_US_AQI[hour];
 
@@ -64,7 +71,8 @@ export function getOfflineFallbackForecast(): ForecastResult {
       time: formatHourShort(hour),
       fullTime: formatHourFull(hour),
       hour,
-      day: i < 24 ? 'Today' : 'Tomorrow',
+      day: dayKeyFromOffset(dayOffset),
+      dayOffset,
       pm25,
       usAqi,
       aqi: usAqi,

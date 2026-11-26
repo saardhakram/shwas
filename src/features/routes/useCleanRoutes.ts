@@ -12,7 +12,7 @@ export { buildDepartureDate, parseTipTimeTo24h };
 export type { DeparturePreset };
 
 export function useCleanRoutes() {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const { pm25: livePm25, userProfile } = useAirQuality();
 
   const savedHome = useMemo(
@@ -44,8 +44,15 @@ export function useCleanRoutes() {
     [departurePreset, customTime, referenceNow],
   );
   const departureTip = useMemo(
-    () => computeDepartureTip(forecastPoints, departureDate, departurePreset === 'now', t),
-    [forecastPoints, departureDate, departurePreset, t],
+    () =>
+      computeDepartureTip(
+        forecastPoints,
+        departureDate,
+        departurePreset === 'now',
+        t,
+        i18n.language,
+      ),
+    [forecastPoints, departureDate, departurePreset, t, i18n.language],
   );
 
   const evaluation = useRouteEvaluation({
@@ -69,7 +76,9 @@ export function useCleanRoutes() {
   };
 
   const handleApplyTipTime = () => {
-    const parsed = departureTip ? parseTipTimeTo24h(departureTip.bestTimeLabel) : null;
+    const parsed = departureTip
+      ? departureTip.bestTime24h || parseTipTimeTo24h(departureTip.bestTimeLabel)
+      : null;
     if (!parsed) return;
     setReferenceNow(new Date());
     setCustomTimeState(parsed);

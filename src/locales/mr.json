@@ -32,6 +32,10 @@
     "community": "समुदाय",
     "ask": "श्वासला विचारा"
   },
+  "time": {
+    "today": "आज",
+    "tomorrow": "उद्या"
+  },
   "today": {
     "title": "आजची वायू योजना",
     "heroCigarettes": "सिगारेट",

@@ -4,18 +4,15 @@
 
 import type { ForecastDataPoint } from './forecast';
 import type { DepartureTip } from './routeExposure';
+import { formatClockTime } from './dateTimeFormat';
 
 type TranslateFn = (key: string, defaultValue: string, options?: Record<string, unknown>) => string;
 
 const defaultT: TranslateFn = (_k, def, opts) =>
   opts ? def.replace(/\{\{(\w+)\}\}/g, (_, k) => String(opts[k] ?? '')) : def;
 
-function formatShortTime(d: Date): string {
-  const h = d.getHours();
-  const m = d.getMinutes();
-  const ampm = h >= 12 ? 'PM' : 'AM';
-  const h12 = h % 12 === 0 ? 12 : h % 12;
-  return `${h12}:${m.toString().padStart(2, '0')} ${ampm}`;
+function format24hTime(d: Date): string {
+  return `${d.getHours().toString().padStart(2, '0')}:${d.getMinutes().toString().padStart(2, '0')}`;
 }
 
 function findClosestForecastPoint(
@@ -62,6 +59,7 @@ export function computeDepartureTip(
   departureTime: Date,
   isNow = true,
   t: TranslateFn = defaultT,
+  language = 'en',
 ): DepartureTip | null {
   if (!forecastPoints || forecastPoints.length < 3) return null;
 
@@ -80,13 +78,16 @@ export function computeDepartureTip(
   if (reductionPct < 10) return null;
 
   const bestDate = new Date(bestPoint.isoTime);
-  const bestTimeLabel = isNaN(bestDate.getTime()) ? bestPoint.time : formatShortTime(bestDate);
+  const hasValidBestDate = !isNaN(bestDate.getTime());
+  const bestTimeLabel = hasValidBestDate ? formatClockTime(bestDate, language) : bestPoint.time;
+  const bestTime24h = hasValidBestDate ? format24hTime(bestDate) : undefined;
   const departureLabel = isNow
     ? t('routes.now', 'now').toLowerCase()
-    : formatShortTime(departureTime);
+    : formatClockTime(departureTime, language);
 
   return {
     bestTimeLabel,
+    bestTime24h,
     departureLabel,
     percentLessSmog: reductionPct,
     currentPm25: currentPoint.pm25,

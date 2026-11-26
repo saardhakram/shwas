@@ -18,6 +18,12 @@ import {
   type BestAirWindow,
   type ForecastDataPoint,
 } from '../../lib/forecast';
+import {
+  formatBestWindowLabel,
+  formatClockTime,
+  formatDayLabel,
+  formatShortHourFromLabel,
+} from '../../lib/dateTimeFormat';
 import { CHART_COLORS } from '@shared/constants';
 
 const ForecastTooltip = ({
@@ -25,15 +31,26 @@ const ForecastTooltip = ({
   payload,
 }: {
   active?: boolean;
-  payload?: Array<{ payload: { day: string; time: string; pm25: number; usAqi: number } }>;
+  payload?: Array<{
+    payload: {
+      day: string;
+      dayOffset?: number;
+      timestamp: number;
+      time: string;
+      pm25: number;
+      usAqi: number;
+    };
+  }>;
 }) => {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   if (!active || !payload?.length) return null;
   const data = payload[0].payload;
+  const dayLabel = formatDayLabel(data, i18n.language, t);
+  const timeLabel = formatClockTime(data.timestamp, i18n.language) || data.time;
   return (
     <div className="bg-surface-popover/95 border border-white/10 rounded-xl p-2.5 shadow-2xl backdrop-blur-xl text-xs space-y-0.5">
       <div className="font-semibold text-slate-200">
-        {data.day} · {data.time}
+        {dayLabel} · {timeLabel}
       </div>
       <div className="text-teal-300 font-mono font-medium">
         {t('today.pm25Value', 'PM2.5: {{pm25}} µg/m³', { pm25: data.pm25 })}
@@ -64,9 +81,10 @@ export const ForecastChartCard: React.FC<ForecastChartCardProps> = ({
   mlGeneratedAt,
   sourceLabel,
 }) => {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const now = new Date();
   const isStaleMlWarning = isMlForecast && isMlForecastStaleWarning(mlGeneratedAt, now);
+  const formattedBestWindow = formatBestWindowLabel(bestWindow, i18n.language, t);
 
   return (
     <GlassCard className="border-white/[0.08] bg-surface-chart/60 p-4">
@@ -115,7 +133,8 @@ export const ForecastChartCard: React.FC<ForecastChartCardProps> = ({
       <div className="p-2.5 rounded-xl bg-teal-500/10 border border-teal-500/25 flex items-center gap-2.5 my-2">
         <Clock className="w-4 h-4 text-teal-300 shrink-0" aria-hidden="true" />
         <span className="text-xs text-teal-200 font-medium">
-          {t('today.bestWindowPrefix', 'Best upcoming window:')} <strong>{bestWindow.label}</strong>{' '}
+          {t('today.bestWindowPrefix', 'Best upcoming window:')}{' '}
+          <strong>{formattedBestWindow}</strong>{' '}
           {t('today.bestWindowStats', '({{pm25}} µg/m³, AQI {{aqi}})', {
             pm25: bestWindow.avgPm25,
             aqi: bestWindow.avgAqi,
@@ -140,6 +159,7 @@ export const ForecastChartCard: React.FC<ForecastChartCardProps> = ({
               tickLine={false}
               axisLine={false}
               interval={7}
+              tickFormatter={(val: string) => formatShortHourFromLabel(val, i18n.language)}
             />
             <YAxis
               stroke={CHART_COLORS.axis}
@@ -179,7 +199,7 @@ export const ForecastChartCard: React.FC<ForecastChartCardProps> = ({
         <span>{t('today.now', 'Now')}</span>
         <span className="text-teal-300 font-medium flex items-center gap-1">
           <span className="w-2 h-2 rounded-full bg-teal-400 inline-block" />
-          {t('today.windowLabel', 'Window: {{label}}', { label: bestWindow.label })}
+          {t('today.windowLabel', 'Window: {{label}}', { label: formattedBestWindow })}
         </span>
         <span>{t('today.plus48h', '+48h')}</span>
       </div>

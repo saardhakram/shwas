@@ -2,6 +2,7 @@ import React from 'react';
 import { useTranslation } from 'react-i18next';
 import { CheckCircle2, Circle, Sparkle } from 'lucide-react';
 import Badge from '../../components/ui/Badge';
+import { formatStoredTimeText } from '../../lib/dateTimeFormat';
 import type { AirPlanItem } from '../../types';
 
 interface PlanTimelineProps {
@@ -23,7 +24,7 @@ export const PlanTimeline: React.FC<PlanTimelineProps> = ({
   totalPotentialSavings,
   onToggleItem,
 }) => {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
 
   const statusLabel = isPlanLoading
     ? isStillThinking
@@ -96,7 +97,7 @@ export const PlanTimeline: React.FC<PlanTimelineProps> = ({
               <div className="flex items-start justify-between gap-2">
                 <div className="flex items-baseline gap-1.5 min-w-0 pr-1">
                   <span className="text-[10px] font-mono text-teal-300/90 font-medium shrink-0">
-                    {item.time}
+                    {formatStoredTimeText(item.time, i18n.language, t)}
                   </span>
                   <span
                     className={`text-xs font-semibold leading-tight min-w-0 ${

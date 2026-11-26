@@ -3,7 +3,12 @@
  */
 
 import mlMetrics from '../data/mlMetrics.json';
-import { formatHourShort, formatHourFull } from '@shared/forecastWindow';
+import {
+  computeLocalDayOffset,
+  dayKeyFromOffset,
+  formatHourShort,
+  formatHourFull,
+} from '@shared/forecastWindow';
 import type { ForecastDataPoint } from '@shared/forecastWindow';
 import {
   ML_FORECAST_MAX_AGE_MS,
@@ -92,21 +97,7 @@ export function formatForecastUpdatedAgo(
     : tr('today.updatedHrAgo', 'updated {{hr}} hr ago', { hr: hrs });
 }
 
-function classifyDayLabel(
-  dateStr: string,
-  pointDate: Date,
-  todayStr: string,
-  tomorrowStr: string,
-): string {
-  if (dateStr === todayStr) return 'Today';
-  if (dateStr === tomorrowStr) return 'Tomorrow';
-  return pointDate.toLocaleDateString('en-US', { weekday: 'short' });
-}
-
 export function parseOpenMeteoHourly(hourly: OpenMeteoHourlyPayload, now: Date): ForecastResult {
-  const todayStr = now.toISOString().slice(0, 10);
-  const tomorrowStr = new Date(now.getTime() + 86400000).toISOString().slice(0, 10);
-
   const points: ForecastDataPoint[] = [];
   let currentPoint: ForecastDataPoint | null = null;
   let minTimeDiff = Infinity;
@@ -116,6 +107,7 @@ export function parseOpenMeteoHourly(hourly: OpenMeteoHourlyPayload, now: Date):
     const pointDate = new Date(isoTime);
     const timestamp = pointDate.getTime();
     const hour = pointDate.getHours();
+    const dayOffset = computeLocalDayOffset(pointDate, now);
     const pm25 = Math.round((hourly.pm2_5[i] || 0) * 10) / 10;
     const usAqi = Math.round(hourly.us_aqi[i] || 0);
 
@@ -125,7 +117,8 @@ export function parseOpenMeteoHourly(hourly: OpenMeteoHourlyPayload, now: Date):
       time: formatHourShort(hour),
       fullTime: formatHourFull(hour),
       hour,
-      day: classifyDayLabel(isoTime.slice(0, 10), pointDate, todayStr, tomorrowStr),
+      day: dayKeyFromOffset(dayOffset),
+      dayOffset,
       pm25,
       usAqi,
       aqi: usAqi,
@@ -193,13 +186,12 @@ function selectNearestStationRows(
 
 function mapMlRowsToPoints(rows: SupabaseForecastRow[], now: Date): ForecastDataPoint[] {
   const sorted = [...rows].sort((a, b) => a.horizon_hour - b.horizon_hour);
-  const todayStr = now.toISOString().slice(0, 10);
-  const tomorrowStr = new Date(now.getTime() + 86400000).toISOString().slice(0, 10);
 
   return sorted.map((row) => {
     const ptDate = new Date(row.target_time);
     const timestamp = ptDate.getTime();
     const hour = ptDate.getHours();
+    const dayOffset = computeLocalDayOffset(ptDate, now);
     const pm25 = Math.round(Math.max(0, Number(row.predicted_pm25)) * 10) / 10;
     const usAqi = Math.round(Math.max(0, Number(row.predicted_us_aqi)));
     return {
@@ -208,7 +200,8 @@ function mapMlRowsToPoints(rows: SupabaseForecastRow[], now: Date): ForecastData
       time: formatHourShort(hour),
       fullTime: formatHourFull(hour),
       hour,
-      day: classifyDayLabel(ptDate.toISOString().slice(0, 10), ptDate, todayStr, tomorrowStr),
+      day: dayKeyFromOffset(dayOffset),
+      dayOffset,
       pm25,
       usAqi,
       aqi: usAqi,

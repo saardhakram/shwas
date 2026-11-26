@@ -32,6 +32,10 @@
     "community": "समुदाय",
     "ask": "श्वास से पूछें"
   },
+  "time": {
+    "today": "आज",
+    "tomorrow": "कल"
+  },
   "today": {
     "title": "आज की वायु योजना",
     "heroCigarettes": "सिगरेट",
