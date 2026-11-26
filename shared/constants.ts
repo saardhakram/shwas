@@ -20,8 +20,14 @@ export const MAX_PLAN_SAVINGS_RATIO = 0.7;
 /** Server-side and client-side daily plan cache time-to-live (6 hours). */
 export const PLAN_CACHE_TTL_MS = 6 * 60 * 60 * 1000;
 
-/** Maximum age before an ML station forecast falls back to live Open-Meteo (6 hours). */
-export const ML_FORECAST_MAX_AGE_MS = 6 * 60 * 60 * 1000;
+/** Age after which an ML forecast displays a muted warning badge (6 hours). */
+export const ML_FORECAST_STALE_WARN_AGE_MS = 6 * 60 * 60 * 1000;
+
+/** Maximum age before an ML station forecast falls back to live Open-Meteo (24 hours). */
+export const ML_FORECAST_MAX_AGE_MS = 24 * 60 * 60 * 1000;
+
+/** Minimum future hourly coverage (in hours) required from ML forecast rows starting at now. */
+export const ML_FORECAST_MIN_COVERAGE_HOURS = 24;
 
 /** Maximum distance (km) from a trained Delhi ML station to use ML predictions. */
 export const ML_STATION_MAX_DISTANCE_KM = 60;

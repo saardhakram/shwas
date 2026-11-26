@@ -5,7 +5,12 @@
 import mlMetrics from '../data/mlMetrics.json';
 import { formatHourShort, formatHourFull } from '@shared/forecastWindow';
 import type { ForecastDataPoint } from '@shared/forecastWindow';
-import { ML_FORECAST_MAX_AGE_MS, ML_STATION_MAX_DISTANCE_KM } from '@shared/constants';
+import {
+  ML_FORECAST_MAX_AGE_MS,
+  ML_FORECAST_MIN_COVERAGE_HOURS,
+  ML_FORECAST_STALE_WARN_AGE_MS,
+  ML_STATION_MAX_DISTANCE_KM,
+} from '@shared/constants';
 
 export interface SupabaseForecastRow {
   location_id: string;
@@ -33,6 +38,7 @@ export interface ForecastResult {
   mlLocationName?: string;
   generatedAt?: string;
   updatedAgoLabel?: string;
+  isStaleWarning?: boolean;
 }
 
 export interface OpenMeteoHourlyPayload {
@@ -44,7 +50,20 @@ export interface OpenMeteoHourlyPayload {
 type TranslateFn = (key: string, defaultValue: string, options?: Record<string, unknown>) => string;
 
 /**
- * Formats an ML forecast generated_at ISO timestamp as "updated X min ago".
+ * Returns true when an ML forecast timestamp is strictly older than 6 hours.
+ */
+export function isMlForecastStaleWarning(
+  generatedAtIso?: string | null,
+  now: Date = new Date(),
+): boolean {
+  if (!generatedAtIso) return false;
+  const ts = new Date(generatedAtIso).getTime();
+  if (isNaN(ts)) return false;
+  return now.getTime() - ts > ML_FORECAST_STALE_WARN_AGE_MS;
+}
+
+/**
+ * Formats an ML forecast generated_at ISO timestamp as "updated X min ago" or "updated X h ago".
  */
 export function formatForecastUpdatedAgo(
   generatedAtIso?: string | null,
@@ -58,7 +77,12 @@ export function formatForecastUpdatedAgo(
     t ||
     ((_k, def, opts) =>
       opts ? def.replace(/\{\{(\w+)\}\}/g, (_, k) => String(opts[k] ?? '')) : def);
-  const diffMin = Math.max(0, Math.round((now.getTime() - ts) / 60000));
+  const diffMs = Math.max(0, now.getTime() - ts);
+  if (diffMs > ML_FORECAST_STALE_WARN_AGE_MS) {
+    const roundedHrs = Math.max(6, Math.round(diffMs / 3600000));
+    return tr('today.updatedHoursAgo', 'updated {{h}} h ago', { h: roundedHrs });
+  }
+  const diffMin = Math.round(diffMs / 60000);
   if (diffMin < 1) return tr('today.updatedJustNow', 'updated just now');
   if (diffMin < 60) return tr('today.updatedMinAgo', 'updated {{min}} min ago', { min: diffMin });
   const hrs = Math.floor(diffMin / 60);
@@ -197,8 +221,42 @@ function resolveModelMae(rowMae: number | null | undefined, defaultMae: number):
   return typeof rowMae === 'number' && !isNaN(rowMae) && rowMae > 0 ? rowMae : defaultMae;
 }
 
+function sliceActiveMlPoints(points: ForecastDataPoint[], now: Date): ForecastDataPoint[] | null {
+  const valid = points
+    .filter((pt) => !isNaN(pt.timestamp))
+    .sort((a, b) => a.timestamp - b.timestamp);
+  if (valid.length < ML_FORECAST_MIN_COVERAGE_HOURS) return null;
+
+  const nowMs = now.getTime();
+  const oneHourMs = 60 * 60 * 1000;
+
+  let startIdx = -1;
+  for (let i = valid.length - 1; i >= 0; i--) {
+    if (valid[i].timestamp <= nowMs) {
+      if (nowMs - valid[i].timestamp < oneHourMs) startIdx = i;
+      break;
+    }
+  }
+  if (startIdx === -1) {
+    const nextIdx = valid.findIndex((pt) => pt.timestamp >= nowMs);
+    if (nextIdx !== -1 && valid[nextIdx].timestamp - nowMs <= oneHourMs) {
+      startIdx = nextIdx;
+    }
+  }
+  if (startIdx === -1) return null;
+
+  const active = valid.slice(startIdx, startIdx + 48);
+  const last = active[active.length - 1];
+  const requiredEndMs =
+    Math.min(active[0].timestamp, nowMs) + ML_FORECAST_MIN_COVERAGE_HOURS * oneHourMs;
+  if (active.length < ML_FORECAST_MIN_COVERAGE_HOURS || !last || last.timestamp < requiredEndMs) {
+    return null;
+  }
+  return active;
+}
+
 /**
- * Selects the nearest fresh (< 6h old) ML station forecast from Supabase rows.
+ * Selects the nearest ML station forecast covering the current hour and next 24h (<= 24h old).
  */
 export function resolveMlForecastFromRows(
   rows: SupabaseForecastRow[],
@@ -217,17 +275,19 @@ export function resolveMlForecastFromRows(
   if (!isFinite(latestGenMs)) return null;
 
   const ageMs = now.getTime() - latestGenMs;
-  if (ageMs >= ML_FORECAST_MAX_AGE_MS || ageMs < -15 * 60 * 1000) return null;
+  if (ageMs > ML_FORECAST_MAX_AGE_MS || ageMs < -15 * 60 * 1000) return null;
 
-  const points = mapMlRowsToPoints(nearestRows, now);
-  const first = points[0];
+  const activePoints = sliceActiveMlPoints(mapMlRowsToPoints(nearestRows, now), now);
+  if (!activePoints) return null;
+
+  const first = activePoints[0];
   const resolvedMae = resolveModelMae(nearestRows[0].model_mae, defaultMae);
   const generatedAt = new Date(latestGenMs).toISOString();
 
   return {
-    currentAqi: first?.usAqi ?? 180,
-    currentPm25: first?.pm25 ?? 140,
-    points: points.slice(0, 48),
+    currentAqi: first.usAqi,
+    currentPm25: first.pm25,
+    points: activePoints,
     isSampleData: false,
     sourceLabel: `Model MAE ±${Math.round(resolvedMae)} µg/m³`,
     isMlForecast: true,
@@ -236,5 +296,6 @@ export function resolveMlForecastFromRows(
     mlLocationName: nearestRows[0].location_name,
     generatedAt,
     updatedAgoLabel: formatForecastUpdatedAgo(generatedAt, now),
+    isStaleWarning: isMlForecastStaleWarning(generatedAt, now),
   };
 }

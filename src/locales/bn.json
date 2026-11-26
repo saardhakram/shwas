@@ -57,6 +57,7 @@
     "updatedMinAgo": "{{min}} মিনিট আগে আপডেট",
     "updatedHrMinAgo": "{{hr}} ঘণ্টা {{min}} মিনিট আগে আপডেট",
     "updatedHrAgo": "{{hr}} ঘণ্টা আগে আপডেট",
+    "updatedHoursAgo": "{{h}} ঘণ্টা আগে আপডেট",
     "sourceSample": "নমুনা ডেটা (অফলাইন ফলব্যাক)",
     "planTimeline": "আজকের বায়ু পরিকল্পনা",
     "planByGemini": "জেমিনি পরিকল্পনা",

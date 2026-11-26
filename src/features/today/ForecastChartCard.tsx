@@ -14,6 +14,7 @@ import GlassCard from '../../components/ui/GlassCard';
 import Badge from '../../components/ui/Badge';
 import {
   formatForecastUpdatedAgo,
+  isMlForecastStaleWarning,
   type BestAirWindow,
   type ForecastDataPoint,
 } from '../../lib/forecast';
@@ -64,6 +65,8 @@ export const ForecastChartCard: React.FC<ForecastChartCardProps> = ({
   sourceLabel,
 }) => {
   const { t } = useTranslation();
+  const now = new Date();
+  const isStaleMlWarning = isMlForecast && isMlForecastStaleWarning(mlGeneratedAt, now);
 
   return (
     <GlassCard className="border-white/[0.08] bg-surface-chart/60 p-4">
@@ -84,8 +87,12 @@ export const ForecastChartCard: React.FC<ForecastChartCardProps> = ({
               )}
             </div>
             {isMlForecast && mlGeneratedAt && (
-              <span className="text-[10px] text-slate-400 block leading-tight mt-0.5">
-                {formatForecastUpdatedAgo(mlGeneratedAt, new Date(), t)}
+              <span
+                className={`text-[10px] block leading-tight mt-0.5 ${
+                  isStaleMlWarning ? 'text-amber-300/80' : 'text-slate-400'
+                }`}
+              >
+                {formatForecastUpdatedAgo(mlGeneratedAt, now, t)}
               </span>
             )}
           </div>

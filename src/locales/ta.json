@@ -57,6 +57,7 @@
     "updatedMinAgo": "{{min}} நிமி முன் புதுப்பிக்கப்பட்டது",
     "updatedHrMinAgo": "{{hr}} ம {{min}} நிமி முன் புதுப்பிக்கப்பட்டது",
     "updatedHrAgo": "{{hr}} மணி முன் புதுப்பிக்கப்பட்டது",
+    "updatedHoursAgo": "{{h}} மணி முன் புதுப்பிக்கப்பட்டது",
     "sourceSample": "மாதிரி தரவு (ஆஃப்லைன்)",
     "planTimeline": "இன்றைய காற்று திட்டம்",
     "planByGemini": "ஜெமினி திட்டம்",

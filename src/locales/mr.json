@@ -57,6 +57,7 @@
     "updatedMinAgo": "{{min}} मि. पूर्वी अपडेट",
     "updatedHrMinAgo": "{{hr}} तास {{min}} मि. पूर्वी अपडेट",
     "updatedHrAgo": "{{hr}} तास पूर्वी अपडेट",
+    "updatedHoursAgo": "{{h}} तास पूर्वी अपडेट",
     "sourceSample": "नमुना डेटा (ऑफलाइन)",
     "planTimeline": "आजची वायू योजना",
     "planByGemini": "जेमिनी योजना",

@@ -57,6 +57,7 @@
     "updatedMinAgo": "{{min}} मिनट पहले अपडेट",
     "updatedHrMinAgo": "{{hr}} घंटे {{min}} मिनट पहले अपडेट",
     "updatedHrAgo": "{{hr}} घंटे पहले अपडेट",
+    "updatedHoursAgo": "{{h}} घंटे पहले अपडेट",
     "sourceSample": "नमूना डेटा (ऑफ़लाइन फ़ॉलबैक)",
     "planTimeline": "आज की वायु योजना",
     "planByGemini": "जेमिनी द्वारा योजना",

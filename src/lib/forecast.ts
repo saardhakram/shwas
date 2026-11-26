@@ -6,9 +6,14 @@ import { isSupabaseConfigured, supabase } from './supabase.js';
 import { logger } from './logger.js';
 import { formatHourShort, formatHourFull, computeBestWindow } from '@shared/forecastWindow';
 import type { ForecastDataPoint, BestAirWindow } from '@shared/forecastWindow';
-import { ML_FORECAST_MAX_AGE_MS, ML_STATION_MAX_DISTANCE_KM } from '@shared/constants';
+import {
+  ML_FORECAST_MAX_AGE_MS,
+  ML_FORECAST_STALE_WARN_AGE_MS,
+  ML_STATION_MAX_DISTANCE_KM,
+} from '@shared/constants';
 import {
   formatForecastUpdatedAgo,
+  isMlForecastStaleWarning,
   parseOpenMeteoHourly,
   resolveMlForecastFromRows,
   type ForecastResult,
@@ -21,8 +26,10 @@ export {
   formatHourFull,
   computeBestWindow,
   formatForecastUpdatedAgo,
+  isMlForecastStaleWarning,
   resolveMlForecastFromRows,
   ML_FORECAST_MAX_AGE_MS,
+  ML_FORECAST_STALE_WARN_AGE_MS,
   ML_STATION_MAX_DISTANCE_KM,
 };
 export type { ForecastDataPoint, BestAirWindow, ForecastResult, SupabaseForecastRow };
@@ -116,8 +123,8 @@ async function querySupabaseForecastRows(): Promise<SupabaseForecastRow[] | null
 }
 
 /**
- * Smart 48-hour forecast loader: tries Supabase ML forecast (< 6h, <= 60 km),
- * then falls back automatically to Open-Meteo live forecast.
+ * Smart 48-hour forecast loader: tries Supabase ML forecast (covering current hour + 24h,
+ * <= 24h old, <= 60 km), then falls back automatically to Open-Meteo live forecast.
  */
 export async function fetchSmartForecast(
   latitude = 28.6139,

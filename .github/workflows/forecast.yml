@@ -2,8 +2,9 @@ name: Shwas Hourly ML Forecast
 
 on:
   schedule:
-    # Two off-peak schedules per hour (minutes 17 & 47 UTC) to avoid GitHub Actions :00/:05 delays
+    # Three off-peak schedules per hour (minutes 17, 37 & 47 UTC) for redundancy against GitHub Actions delays
     - cron: '17 * * * *'
+    - cron: '37 * * * *'
     - cron: '47 * * * *'
   workflow_dispatch:
 

@@ -57,6 +57,7 @@
     "updatedMinAgo": "{{min}} నిమి క్రితం అప్‌డేట్",
     "updatedHrMinAgo": "{{hr}} గం {{min}} నిమి క్రితం అప్‌డేట్",
     "updatedHrAgo": "{{hr}} గం క్రితం అప్‌డేట్",
+    "updatedHoursAgo": "{{h}} గం క్రితం అప్‌డేట్",
     "sourceSample": "నమూనా డేటా (ఆఫ్‌లైన్ ఫాల్‌బ్యాక్)",
     "planTimeline": "ఈరోజు వాయు ప్రణాళిక",
     "planByGemini": "జెమిని ప్రణాళిక",

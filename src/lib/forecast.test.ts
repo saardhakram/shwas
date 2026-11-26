@@ -103,9 +103,12 @@ describe('Open-Meteo & Best Air Window Engine', () => {
       generatedAt: Date,
       basePm25 = 160,
       modelMae = 21.4,
+      count = 48,
+      startHorizon = 1,
     ): SupabaseForecastRow[] => {
-      return Array.from({ length: 48 }, (_, i) => {
-        const target = new Date(generatedAt.getTime() + (i + 1) * 3600 * 1000);
+      return Array.from({ length: count }, (_, i) => {
+        const horizon = startHorizon + i;
+        const target = new Date(generatedAt.getTime() + horizon * 3600 * 1000);
         return {
           location_id: locationId,
           location_name: locationId === 'delhi_ito' ? 'ITO, Central Delhi' : 'Anand Vihar, Delhi',
@@ -113,16 +116,16 @@ describe('Open-Meteo & Best Air Window Engine', () => {
           lon,
           generated_at: generatedAt.toISOString(),
           target_time: target.toISOString(),
-          horizon_hour: i + 1,
-          predicted_pm25: basePm25 + (i % 6),
-          predicted_us_aqi: 210,
+          horizon_hour: horizon,
+          predicted_pm25: basePm25 + horizon,
+          predicted_us_aqi: 200 + horizon,
           model_version: 'shwas-lgbm-v1',
           model_mae: modelMae,
         };
       });
     };
 
-    it('uses fresh (< 6h) ML forecast for nearest Delhi station, reports Model MAE and updatedAgoLabel', async () => {
+    it('uses fresh (< 6h) ML forecast starting from the current hour with no warning flag', async () => {
       const now = new Date('2026-11-26T10:00:00Z');
       const freshGen = new Date(now.getTime() - 4 * 3600 * 1000); // 4 hours old (< 6h)
       const rows = [
@@ -140,17 +143,46 @@ describe('Open-Meteo & Best Air Window Engine', () => {
 
       expect(fallbackSpy).not.toHaveBeenCalled();
       expect(res.isMlForecast).toBe(true);
+      expect(res.isStaleWarning).toBe(false);
       expect(res.mlLocationName).toBe('ITO, Central Delhi');
       expect(res.modelMae).toBe(19.6);
       expect(res.sourceLabel).toBe('Model MAE ±20 µg/m³');
       expect(res.generatedAt).toBe(freshGen.toISOString());
       expect(res.updatedAgoLabel).toBe('updated 4 hr ago');
-      expect(res.points).toHaveLength(48);
+      // Starts at current hour (horizon 4 = 10:00Z), not generation time (horizon 1 = 07:00Z)
+      expect(res.points[0].isoTime).toBe(now.toISOString());
+      expect(res.currentPm25).toBe(159);
+      expect(res.points).toHaveLength(45);
     });
 
-    it('falls back to Open-Meteo when ML forecast is stale (>= 6h old)', async () => {
+    it('keeps using ML forecast when 6–24h old if it covers now + 24h, slices from current hour, and marks warning', async () => {
       const now = new Date('2026-11-26T10:00:00Z');
-      const staleGen = new Date(now.getTime() - 7 * 3600 * 1000); // 7 hours old (>= 6h)
+      const lateGen = new Date(now.getTime() - 12 * 3600 * 1000); // 12 hours old (6–24h window)
+      const rows = makeRows('delhi_ito', 28.6289, 77.2405, lateGen, 140, 21.4);
+
+      const fallbackSpy = vi.fn();
+      const res = await fetchSmartForecast(28.6289, 77.2405, {
+        loadSupabaseRows: async () => rows,
+        fallbackFetch: fallbackSpy,
+        now,
+      });
+
+      expect(fallbackSpy).not.toHaveBeenCalled();
+      expect(res.isMlForecast).toBe(true);
+      expect(res.isStaleWarning).toBe(true);
+      expect(res.updatedAgoLabel).toBe('updated 12 h ago');
+      // Starts at current hour (horizon 12 = 10:00Z) and covers remaining 37 hours (>= 24h)
+      expect(res.points[0].isoTime).toBe(now.toISOString());
+      expect(res.currentPm25).toBe(152);
+      expect(res.points).toHaveLength(37);
+      expect(res.points[res.points.length - 1].timestamp).toBeGreaterThanOrEqual(
+        now.getTime() + 24 * 3600 * 1000,
+      );
+    });
+
+    it('falls back to Open-Meteo when ML forecast is too old (> 24h)', async () => {
+      const now = new Date('2026-11-26T10:00:00Z');
+      const staleGen = new Date(now.getTime() - 25 * 3600 * 1000); // 25 hours old (> 24h)
       const rows = makeRows('delhi_ito', 28.6289, 77.2405, staleGen);
 
       const openMeteoResult = {
@@ -163,6 +195,35 @@ describe('Open-Meteo & Best Air Window Engine', () => {
 
       const res = await fetchSmartForecast(28.6289, 77.2405, {
         loadSupabaseRows: async () => rows,
+        fallbackFetch: fallbackSpy,
+        now,
+      });
+
+      expect(fallbackSpy).toHaveBeenCalledTimes(1);
+      expect(res.isMlForecast).toBe(false);
+      expect(res.sourceLabel).toBe('Open-Meteo Live API');
+    });
+
+    it('falls back to Open-Meteo when ML rows are missing and do not cover now + 24h', async () => {
+      const now = new Date('2026-11-26T10:00:00Z');
+      const lateGen = new Date(now.getTime() - 10 * 3600 * 1000); // 10h old
+      // Only 30 rows exist (covers up to now + 20h, short of 24h)
+      const shortRows = makeRows('delhi_ito', 28.6289, 77.2405, lateGen, 150, 20, 30);
+      expect(resolveMlForecastFromRows(shortRows, 28.6289, 77.2405, now)).toBeNull();
+
+      // Rows start 3 hours in the future (missing current hour)
+      const missingCurrentRows = makeRows('delhi_ito', 28.6289, 77.2405, now, 150, 20, 48, 3);
+      expect(resolveMlForecastFromRows(missingCurrentRows, 28.6289, 77.2405, now)).toBeNull();
+
+      const fallbackSpy = vi.fn().mockResolvedValue({
+        ...getOfflineFallbackForecast(),
+        isSampleData: false,
+        isMlForecast: false,
+        sourceLabel: 'Open-Meteo Live API',
+      });
+
+      const res = await fetchSmartForecast(28.6289, 77.2405, {
+        loadSupabaseRows: async () => shortRows,
         fallbackFetch: fallbackSpy,
         now,
       });

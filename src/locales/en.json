@@ -57,6 +57,7 @@
     "updatedMinAgo": "updated {{min}} min ago",
     "updatedHrMinAgo": "updated {{hr}} hr {{min}} min ago",
     "updatedHrAgo": "updated {{hr}} hr ago",
+    "updatedHoursAgo": "updated {{h}} h ago",
     "sourceSample": "Sample data (offline fallback)",
     "planTimeline": "Today's Air Plan Timeline",
     "planByGemini": "Plan by Gemini",
