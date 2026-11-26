@@ -40,6 +40,37 @@ function apiDevPlugin() {
             return;
           }
         }
+
+        if (req.url?.startsWith('/api/scan')) {
+          if (req.method === 'POST') {
+            let body = '';
+            req.on('data', (chunk: any) => {
+              body += chunk;
+            });
+            req.on('end', async () => {
+              try {
+                const { processScanRequest } = await server.ssrLoadModule('/api/scan.ts');
+                const parsedBody = body ? JSON.parse(body) : {};
+                const env = loadEnv('development', process.cwd(), '');
+                const apiKey = env.GEMINI_API_KEY || process.env.GEMINI_API_KEY;
+                if (env.GEMINI_MODEL) {
+                  process.env.GEMINI_MODEL = env.GEMINI_MODEL;
+                }
+
+                const result = await processScanRequest(parsedBody, apiKey);
+                res.setHeader('Content-Type', 'application/json');
+                res.statusCode = 200;
+                res.end(JSON.stringify(result));
+              } catch (err: any) {
+                console.error('[API Dev Server Scan Error]:', err);
+                res.statusCode = 500;
+                res.setHeader('Content-Type', 'application/json');
+                res.end(JSON.stringify({ error: err.message }));
+              }
+            });
+            return;
+          }
+        }
         next();
       });
     },

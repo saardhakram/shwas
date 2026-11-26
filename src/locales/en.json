@@ -44,7 +44,9 @@
   },
   "scan": {
     "title": "Shwas Scan",
-    "subtitle": "AI-powered indoor pollution audit with Gemini Vision"
+    "subtitle": "AI-powered indoor pollution audit with Gemini Vision",
+    "takePhoto": "Take Photo / Choose Image",
+    "scanSubtitle": "Snap a photo of your living room, stove, incense corner, or street windows."
   },
   "routes": {
     "title": "Clean Routes",
