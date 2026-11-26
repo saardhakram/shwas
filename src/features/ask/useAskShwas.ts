@@ -5,7 +5,7 @@ import { fetchSmartForecast, type ForecastDataPoint } from '../../lib/forecast';
 import { logger } from '../../lib/logger';
 import { parsePlanCache } from '../../lib/planGenerator';
 import { STORAGE_KEYS, storage } from '../../lib/storage';
-import { CLIENT_ASK_TIMEOUT_MS } from '../../shared/constants';
+import { CLIENT_ASK_TIMEOUT_MS } from '@shared/constants';
 import type { RawPlanItem, UserProfile } from '../../types';
 import type { SpeechRecognitionInstance, SpeechRecognitionResultEvent } from '../../types/maps';
 import {

@@ -12,9 +12,9 @@
 import { isSupabaseConfigured, supabase } from './supabase.js';
 import { logger } from './logger.js';
 import mlMetrics from '../data/mlMetrics.json';
-import { formatHourShort, formatHourFull, computeBestWindow } from '../shared/forecastWindow.js';
-import type { ForecastDataPoint, BestAirWindow } from '../shared/forecastWindow.js';
-import { ML_FORECAST_MAX_AGE_MS, ML_STATION_MAX_DISTANCE_KM } from '../shared/constants.js';
+import { formatHourShort, formatHourFull, computeBestWindow } from '@shared/forecastWindow';
+import type { ForecastDataPoint, BestAirWindow } from '@shared/forecastWindow';
+import { ML_FORECAST_MAX_AGE_MS, ML_STATION_MAX_DISTANCE_KM } from '@shared/constants';
 
 export {
   formatHourShort,

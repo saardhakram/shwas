@@ -2,7 +2,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { requestDailyPlanOnce, resetDailyPlanFetcherForTesting, StorageLike } from './planFetcher';
 import { serializePlanCache, generateRuleBasedPlan } from './planGenerator';
 import type { UserProfile } from '../types';
-import type { ForecastDataPoint } from '../shared/forecastWindow';
+import type { ForecastDataPoint } from '@shared/forecastWindow';
 
 function createMemoryStorage(): StorageLike {
   const map = new Map<string, string>();

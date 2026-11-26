@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import handler, { processPlanRequest, clearPlanCacheForTesting } from './plan.js';
 import { serverLogger } from './_lib/logger.js';
-import type { UserProfile } from '../src/types/index.js';
+import type { UserProfile } from '../shared/types.js';
 import type { ApiRequest, ApiResponse, GeminiGenerateContentRequest } from './_lib/types.js';
 
 describe('Serverless Plan API (/api/plan)', () => {

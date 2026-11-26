@@ -6,9 +6,9 @@
  * forecast/profile object references change identity.
  */
 
-import type { UserProfile, RawPlanItem } from '../types/index.js';
-import type { ForecastDataPoint } from '../shared/forecastWindow.js';
-import { CLIENT_PLAN_TIMEOUT_MS } from '../shared/constants.js';
+import type { UserProfile, RawPlanItem } from '@shared/types';
+import type { ForecastDataPoint } from '@shared/forecastWindow';
+import { CLIENT_PLAN_TIMEOUT_MS } from '@shared/constants';
 import { logger } from './logger.js';
 import { STORAGE_KEYS, storage as defaultStorage } from './storage.js';
 import { generateRuleBasedPlan, parsePlanCache, serializePlanCache } from './planGenerator.js';

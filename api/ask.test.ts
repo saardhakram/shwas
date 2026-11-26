@@ -5,8 +5,8 @@ import handler, {
   DAILY_QUESTION_LIMIT,
   buildTimeMiniCard,
 } from './ask.js';
-import type { UserProfile } from '../src/types/index.js';
-import type { ForecastDataPoint } from '../src/shared/forecastWindow.js';
+import type { UserProfile } from '../shared/types.js';
+import type { ForecastDataPoint } from '../shared/forecastWindow.js';
 import type {
   ApiRequest,
   ApiResponse,

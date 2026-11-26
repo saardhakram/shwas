@@ -13,7 +13,7 @@ import {
 } from '../../lib/planGenerator';
 import { buildPlanDedupeKey, requestDailyPlanOnce } from '../../lib/planFetcher';
 import { STORAGE_KEYS, storage } from '../../lib/storage';
-import { CLIENT_PLAN_TIMEOUT_MS } from '../../shared/constants';
+import { CLIENT_PLAN_TIMEOUT_MS } from '@shared/constants';
 import { upsertTodayDailySavings } from '../../lib/communityService';
 import type { RawPlanItem, UserProfile } from '../../types';
 

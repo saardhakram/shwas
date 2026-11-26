@@ -16,7 +16,7 @@ import { callGeminiWithRetry } from './_lib/geminiClient.js';
 import { ValidationError } from './_lib/errors.js';
 import { assertMethod, withApiHandler } from './_lib/http.js';
 import { serverLogger } from './_lib/logger.js';
-import { GEMINI_SCAN_BUDGET_MS } from '../src/shared/constants.js';
+import { GEMINI_SCAN_BUDGET_MS } from '../shared/constants.js';
 import type { ApiRequest, ApiResponse } from './_lib/types.js';
 import { isRecord, parseRequestBody } from './_lib/types.js';
 import { validateScanRequestBody } from './_lib/validation.js';

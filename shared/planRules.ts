@@ -3,7 +3,7 @@
  * Safe to import from both browser code (Vite) and Node.js serverless functions (Vercel /api/*).
  */
 
-import type { UserProfile, RawPlanItem } from '../types/index.js';
+import type { UserProfile, RawPlanItem } from './types.js';
 import { computeBestWindow } from './forecastWindow.js';
 import type { ForecastDataPoint } from './forecastWindow.js';
 

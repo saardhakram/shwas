@@ -17,7 +17,7 @@ import {
   type BestAirWindow,
   type ForecastDataPoint,
 } from '../../lib/forecast';
-import { CHART_COLORS } from '../../shared/constants';
+import { CHART_COLORS } from '@shared/constants';
 
 const ForecastTooltip = ({
   active,

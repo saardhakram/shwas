@@ -9,11 +9,11 @@
  * 2. The baseline for frontend savings calculations using savingFromAction.
  */
 
-import type { RawPlanItem, AirPlanItem, ProfileFamilyMember, ProfileHome } from '../types/index.js';
-import { MAX_PLAN_SAVINGS_RATIO, PM25_HOURS_PER_CIGARETTE } from '../shared/constants.js';
-import { calculateFamilyExposure } from './cigarettes.js';
+import type { RawPlanItem, AirPlanItem, ProfileFamilyMember, ProfileHome } from '@shared/types';
+import { MAX_PLAN_SAVINGS_RATIO, PM25_HOURS_PER_CIGARETTE } from '@shared/constants';
+import { calculateFamilyExposure } from '@shared/cigarettes';
 import { logger } from './logger.js';
-export { generateRuleBasedPlan } from '../shared/planRules.js';
+export { generateRuleBasedPlan } from '@shared/planRules';
 
 /**
  * Raw (unrounded) cigarettes saved by a single action based on its duration in hours:

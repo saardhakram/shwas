@@ -25,7 +25,7 @@ import {
   GEMINI_DEFAULT_BUDGET_MS,
   GEMINI_DEFAULT_FALLBACK_MODEL,
   GEMINI_DEFAULT_PRIMARY_MODEL,
-} from '../../src/shared/constants.js';
+} from '../../shared/constants.js';
 
 export interface GeminiCallOptions {
   apiKey: string;

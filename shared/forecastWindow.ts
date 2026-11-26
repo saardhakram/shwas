@@ -44,10 +44,7 @@ export function formatHourFull(hour: number): string {
 }
 
 /**
- * Computes the best clean-air window.
- *
- * CRITICAL RULE:
- * Must search upcoming hours from `now` through the next 24 hours.
+ * Computes the best clean-air window across upcoming hours (now through next 24 hours).
  * Never suggests a window that has already passed today.
  */
 export function computeBestWindow(
@@ -57,7 +54,6 @@ export function computeBestWindow(
   const fromTime = fromDate.getTime();
   const maxUpcomingTime = fromTime + 24 * 3600 * 1000;
 
-  // Filter to upcoming hours only: from (now - 15m) up to +24 hours
   const upcoming = forecast.filter((p) => {
     return p.timestamp >= fromTime - 15 * 60 * 1000 && p.timestamp <= maxUpcomingTime;
   });

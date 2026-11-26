@@ -36,7 +36,7 @@
  */
 
 import { ProfileHome, UserProfile } from '../types';
-import { PM25_HOURS_PER_CIGARETTE } from '../shared/constants';
+import { PM25_HOURS_PER_CIGARETTE } from '@shared/constants';
 import { estimateIndoorPm25, savingFromAction } from './cigarettes';
 
 export type PollutionSourceId =

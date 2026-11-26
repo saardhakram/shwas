@@ -24,7 +24,7 @@
  *    - walk:        0.00 kg/km
  */
 
-import { PM25_HOURS_PER_CIGARETTE } from '../shared/constants';
+import { PM25_HOURS_PER_CIGARETTE } from '@shared/constants';
 import { logger } from './logger';
 
 export { PM25_HOURS_PER_CIGARETTE };

@@ -15,7 +15,7 @@ import {
   markGoogleMapsAuthFailed,
 } from './googleMapsLoader';
 import { drawGoogleMapOverlays, drawLeafletMapOverlays } from './mapRenderers';
-import { CHART_COLORS } from '../../shared/constants';
+import { CHART_COLORS } from '@shared/constants';
 import { logger } from '../../lib/logger';
 
 interface RouteMapProps {

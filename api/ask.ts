@@ -9,12 +9,12 @@ import { callGeminiWithRetry } from './_lib/geminiClient.js';
 import { ValidationError } from './_lib/errors.js';
 import { assertMethod, withApiHandler } from './_lib/http.js';
 import { serverLogger } from './_lib/logger.js';
-import { GEMINI_ASK_BUDGET_MS, PM25_HOURS_PER_CIGARETTE } from '../src/shared/constants.js';
+import { GEMINI_ASK_BUDGET_MS, PM25_HOURS_PER_CIGARETTE } from '../shared/constants.js';
 import type { ApiRequest, ApiResponse } from './_lib/types.js';
 import { getErrorMessage, isRecord, parseRequestBody } from './_lib/types.js';
 import { validateAskRequestBody } from './_lib/validation.js';
-import type { UserProfile, RawPlanItem } from '../src/types/index.js';
-import type { ForecastDataPoint } from '../src/shared/forecastWindow.js';
+import type { UserProfile, RawPlanItem } from '../shared/types.js';
+import type { ForecastDataPoint } from '../shared/forecastWindow.js';
 
 export const DAILY_QUESTION_LIMIT = 20;
 

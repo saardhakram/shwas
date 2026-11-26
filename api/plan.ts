@@ -6,10 +6,10 @@
  * validates output and returns a rule-based fallback on any failure.
  */
 
-import { generateRuleBasedPlan } from '../src/shared/planRules.js';
-import { GEMINI_PLAN_BUDGET_MS, PLAN_CACHE_TTL_MS } from '../src/shared/constants.js';
-import type { UserProfile, RawPlanItem } from '../src/types/index.js';
-import type { ForecastDataPoint } from '../src/shared/forecastWindow.js';
+import { generateRuleBasedPlan } from '../shared/planRules.js';
+import { GEMINI_PLAN_BUDGET_MS, PLAN_CACHE_TTL_MS } from '../shared/constants.js';
+import type { UserProfile, RawPlanItem } from '../shared/types.js';
+import type { ForecastDataPoint } from '../shared/forecastWindow.js';
 import { callGeminiWithRetry } from './_lib/geminiClient.js';
 import { ValidationError } from './_lib/errors.js';
 import { assertMethod, withApiHandler } from './_lib/http.js';
