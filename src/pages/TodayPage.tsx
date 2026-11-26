@@ -37,6 +37,7 @@ import {
   parsePlanCache,
   serializePlanCache,
 } from '../lib/planGenerator';
+import { upsertTodayDailySavings } from '../lib/communityService';
 import { RawPlanItem, UserProfile } from '../types';
 
 /**
@@ -376,6 +377,15 @@ export const TodayPage: React.FC = () => {
       .reduce((acc, item) => acc + item.cigarettesSaved, 0);
     return Number(sum.toFixed(1));
   }, [planItems]);
+
+  // Sync checked plan savings to Community daily_savings whenever user checks/unchecks items
+  useEffect(() => {
+    if (planItems.length === 0) return;
+    const selfName = effectiveProfile.family?.[0]?.name || 'My Family';
+    const familyLabel =
+      selfName.toLowerCase() === 'me' ? 'My Family' : `${selfName}'s Family`;
+    upsertTodayDailySavings(checkedSavings, familyLabel);
+  }, [checkedSavings, planItems.length, effectiveProfile.family]);
 
   // Current exposure decreases as user checks off items: e.g. 9.0 -> 7.6
   const targetCurrentExposure = Math.max(targetCigarettes, baseCigarettes - checkedSavings);
