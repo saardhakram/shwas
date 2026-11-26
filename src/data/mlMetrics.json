@@ -1,0 +1,9 @@
+{
+  "modelVersion": "shwas-lgbm-v1",
+  "mae": 23.44,
+  "rmse": 33.23,
+  "aqiCategoryAccuracyPct": 74.1,
+  "persistenceMae": 45.23,
+  "sameHourYesterdayMae": 37.12,
+  "evaluatedAt": "2026-11-26T07:07:28.469391+00:00"
+}

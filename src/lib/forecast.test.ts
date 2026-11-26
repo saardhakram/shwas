@@ -1,8 +1,11 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import {
   computeBestWindow,
   getOfflineFallbackForecast,
+  resolveMlForecastFromRows,
+  fetchSmartForecast,
   ForecastDataPoint,
+  SupabaseForecastRow,
 } from './forecast';
 
 describe('Open-Meteo & Best Air Window Engine', () => {
@@ -90,5 +93,104 @@ describe('Open-Meteo & Best Air Window Engine', () => {
     // Should pick today's 2 PM window
     expect(bestWindow.startHour).toBe(14);
     expect(bestWindow.avgPm25).toBe(55);
+  });
+
+  describe('Supabase ML Forecast & Open-Meteo Fallback', () => {
+    const makeRows = (
+      locationId: string,
+      lat: number,
+      lon: number,
+      generatedAt: Date,
+      basePm25 = 160,
+      modelMae = 21.4
+    ): SupabaseForecastRow[] => {
+      return Array.from({ length: 48 }, (_, i) => {
+        const target = new Date(generatedAt.getTime() + (i + 1) * 3600 * 1000);
+        return {
+          location_id: locationId,
+          location_name: locationId === 'delhi_ito' ? 'ITO, Central Delhi' : 'Anand Vihar, Delhi',
+          lat,
+          lon,
+          generated_at: generatedAt.toISOString(),
+          target_time: target.toISOString(),
+          horizon_hour: i + 1,
+          predicted_pm25: basePm25 + (i % 6),
+          predicted_us_aqi: 210,
+          model_version: 'shwas-lgbm-v1',
+          model_mae: modelMae,
+        };
+      });
+    };
+
+    it('uses fresh (< 3h) ML forecast for nearest Delhi station and reports Model MAE', async () => {
+      const now = new Date('2026-11-26T10:00:00Z');
+      const freshGen = new Date(now.getTime() - 45 * 60 * 1000); // 45 min old (< 3h)
+      const rows = [
+        ...makeRows('delhi_anand_vihar', 28.6469, 77.3160, freshGen, 220, 19.6),
+        ...makeRows('delhi_ito', 28.6289, 77.2405, freshGen, 155, 19.6),
+      ];
+
+      const fallbackSpy = vi.fn();
+      // Query near ITO (28.625, 77.235)
+      const res = await fetchSmartForecast(28.625, 77.235, {
+        loadSupabaseRows: async () => rows,
+        fallbackFetch: fallbackSpy,
+        now,
+      });
+
+      expect(fallbackSpy).not.toHaveBeenCalled();
+      expect(res.isMlForecast).toBe(true);
+      expect(res.mlLocationName).toBe('ITO, Central Delhi');
+      expect(res.modelMae).toBe(19.6);
+      expect(res.sourceLabel).toBe('Model MAE ±20 µg/m³');
+      expect(res.points).toHaveLength(48);
+    });
+
+    it('falls back to Open-Meteo when ML forecast is stale (>= 3h old)', async () => {
+      const now = new Date('2026-11-26T10:00:00Z');
+      const staleGen = new Date(now.getTime() - 4 * 3600 * 1000); // 4 hours old
+      const rows = makeRows('delhi_ito', 28.6289, 77.2405, staleGen);
+
+      const openMeteoResult = { ...getOfflineFallbackForecast(), isSampleData: false, sourceLabel: 'Open-Meteo Live API', isMlForecast: false };
+      const fallbackSpy = vi.fn().mockResolvedValue(openMeteoResult);
+
+      const res = await fetchSmartForecast(28.6289, 77.2405, {
+        loadSupabaseRows: async () => rows,
+        fallbackFetch: fallbackSpy,
+        now,
+      });
+
+      expect(fallbackSpy).toHaveBeenCalledTimes(1);
+      expect(res.isMlForecast).toBe(false);
+      expect(res.sourceLabel).toBe('Open-Meteo Live API');
+    });
+
+    it('falls back to Open-Meteo when user location is outside Delhi (> 60 km away)', () => {
+      const now = new Date('2026-11-26T10:00:00Z');
+      const freshGen = new Date(now.getTime() - 30 * 60 * 1000);
+      const rows = makeRows('delhi_ito', 28.6289, 77.2405, freshGen);
+
+      // Mumbai coordinates (~1,150 km from Delhi)
+      const mlRes = resolveMlForecastFromRows(rows, 19.076, 72.8777, now);
+      expect(mlRes).toBeNull();
+    });
+
+    it('falls back to Open-Meteo when Supabase query errors or returns empty', async () => {
+      const fallbackSpy = vi.fn().mockResolvedValue({
+        ...getOfflineFallbackForecast(),
+        isMlForecast: false,
+        sourceLabel: 'Open-Meteo Live API',
+      });
+
+      const res = await fetchSmartForecast(28.6289, 77.2405, {
+        loadSupabaseRows: async () => {
+          throw new Error('Network error');
+        },
+        fallbackFetch: fallbackSpy,
+      });
+
+      expect(fallbackSpy).toHaveBeenCalledTimes(1);
+      expect(res.isMlForecast).toBe(false);
+    });
   });
 });

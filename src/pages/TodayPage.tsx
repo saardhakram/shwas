@@ -25,7 +25,7 @@ import GlassCard from '../components/ui/GlassCard';
 import Badge from '../components/ui/Badge';
 import { useAirQuality } from '../components/layout/AppLayout';
 import {
-  fetchOpenMeteoForecast,
+  fetchSmartForecast,
   getOfflineFallbackForecast,
   computeBestWindow,
   ForecastDataPoint,
@@ -116,11 +116,13 @@ export const TodayPage: React.FC = () => {
     setCityName,
   } = useAirQuality();
 
-  // 1. Live Open-Meteo forecast state
+  // 1. Live forecast state (Supabase Shwas ML if fresh < 3h, else Open-Meteo fallback)
   const [forecastPoints, setForecastPoints] = useState<ForecastDataPoint[]>(
     () => getOfflineFallbackForecast().points
   );
   const [isSampleData, setIsSampleData] = useState<boolean>(true);
+  const [isMlForecast, setIsMlForecast] = useState<boolean>(false);
+  const [modelMae, setModelMae] = useState<number | null>(null);
   const [sourceLabel, setSourceLabel] = useState<string>('Sample data (offline fallback)');
 
   // 2. Daily Air Plan state & Plan Source (Gemini vs Rule-based fallback)
@@ -131,7 +133,7 @@ export const TodayPage: React.FC = () => {
   const [isStillThinking, setIsStillThinking] = useState<boolean>(false);
   const planRequestInFlight = useRef<string | null>(null);
 
-  // Fetch real Open-Meteo data for profile location
+  // Fetch smart forecast (fresh Supabase ML -> Open-Meteo fallback) for profile location
   useEffect(() => {
     let active = true;
     const lat = userProfile?.location?.lat || 28.6139;
@@ -140,10 +142,12 @@ export const TodayPage: React.FC = () => {
 
     if (setCityName) setCityName(locName);
 
-    fetchOpenMeteoForecast(lat, lon).then((res) => {
+    fetchSmartForecast(lat, lon).then((res) => {
       if (active) {
         setForecastPoints(res.points);
         setIsSampleData(res.isSampleData);
+        setIsMlForecast(Boolean(res.isMlForecast));
+        setModelMae(typeof res.modelMae === 'number' ? res.modelMae : null);
         setSourceLabel(res.sourceLabel);
         if (setAirQuality && res.currentAqi) {
           setAirQuality(res.currentAqi, res.currentPm25);
@@ -448,23 +452,31 @@ export const TodayPage: React.FC = () => {
         </div>
       </GlassCard>
 
-      {/* 48-Hour Forecast Card (Recharts Area Chart with Mint Best Window Shading) */}
+      {/* 48-Hour Forecast Card (Shwas ML when fresh < 3h, else Open-Meteo 48-Hour Forecast) */}
       <GlassCard className="border-white/[0.08] bg-[#121927]/60 p-4">
-        <div className="flex items-center justify-between mb-2">
-          <div className="flex items-center gap-2">
-            <Calendar className="w-4 h-4 text-teal-400" />
-            <h3 className="text-sm font-semibold text-slate-200">
-              {t('today.forecastTitle', '48-Hour Forecast')}
+        <div className="flex items-center justify-between gap-2 mb-2">
+          <div className="flex items-center gap-2 min-w-0">
+            <Calendar className="w-4 h-4 text-teal-400 shrink-0" />
+            <h3 className="text-sm font-semibold text-slate-200 truncate">
+              {isMlForecast
+                ? 'Shwas Forecast (ML)'
+                : t('today.forecastTitle', '48-Hour Forecast')}
             </h3>
+            {isMlForecast && (
+              <Badge variant="mint" size="sm" className="shrink-0">
+                ML
+              </Badge>
+            )}
           </div>
           <span
-            className={`text-[10px] font-mono px-2 py-0.5 rounded-full border ${
-              isSampleData
+            className={`text-[10px] font-mono px-2 py-0.5 rounded-full border whitespace-nowrap shrink-0 ${isSampleData
                 ? 'bg-amber-500/10 text-amber-300 border-amber-500/30'
                 : 'bg-teal-500/10 text-teal-300 border-teal-500/30'
-            }`}
+              }`}
           >
-            {sourceLabel}
+            {isMlForecast && modelMae !== null
+              ? `Model MAE ±${Math.round(modelMae)} µg/m³`
+              : sourceLabel}
           </span>
         </div>
 
@@ -575,11 +587,10 @@ export const TodayPage: React.FC = () => {
                 key={item.id}
                 variant={item.completed ? 'mint' : 'subtle'}
                 onClick={() => togglePlanItem(item.id)}
-                className={`flex items-start gap-3 p-3 cursor-pointer transition-all duration-200 select-none ${
-                  item.completed
+                className={`flex items-start gap-3 p-3 cursor-pointer transition-all duration-200 select-none ${item.completed
                     ? 'border-teal-500/40 shadow-sm shadow-teal-500/10'
                     : 'hover:border-white/15'
-                }`}
+                  }`}
               >
                 {/* Checkbox Icon */}
                 <button
@@ -606,9 +617,8 @@ export const TodayPage: React.FC = () => {
                         {item.time}
                       </span>
                       <h4
-                        className={`text-xs font-semibold leading-tight min-w-0 ${
-                          item.completed ? 'text-teal-200 line-through opacity-85' : 'text-slate-100'
-                        }`}
+                        className={`text-xs font-semibold leading-tight min-w-0 ${item.completed ? 'text-teal-200 line-through opacity-85' : 'text-slate-100'
+                          }`}
                       >
                         {item.action}
                       </h4>

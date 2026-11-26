@@ -1,0 +1,101 @@
+{
+  "model_version": "shwas-lgbm-v1",
+  "trained_at": "2026-11-26T07:07:02.028893+00:00",
+  "feature_columns": [
+    "location_idx",
+    "horizon",
+    "pm25_now",
+    "pm25_lag_1",
+    "pm25_lag_3",
+    "pm25_lag_6",
+    "pm25_lag_24",
+    "pm25_roll_6h",
+    "pm25_roll_12h",
+    "pm25_roll_24h",
+    "pm25_diff_1h",
+    "pm25_diff_24h",
+    "origin_hour",
+    "origin_hour_sin",
+    "origin_hour_cos",
+    "origin_weekday",
+    "origin_month",
+    "origin_is_weekend",
+    "origin_is_diwali",
+    "origin_is_stubble_season",
+    "target_hour",
+    "target_hour_sin",
+    "target_hour_cos",
+    "target_weekday",
+    "target_month",
+    "target_is_weekend",
+    "target_is_diwali",
+    "target_is_stubble_season",
+    "wind_speed_10m",
+    "wind_direction_10m",
+    "wind_u",
+    "wind_v",
+    "temperature_2m",
+    "relative_humidity_2m",
+    "precipitation",
+    "boundary_layer_height",
+    "target_wind_speed_10m",
+    "target_wind_u",
+    "target_wind_v",
+    "target_temperature_2m",
+    "target_relative_humidity_2m",
+    "target_precipitation",
+    "target_boundary_layer_height"
+  ],
+  "best_params": {
+    "learning_rate": 0.05,
+    "num_leaves": 63,
+    "min_child_samples": 50,
+    "subsample": 0.8,
+    "colsample_bytree": 0.8,
+    "best_iteration": 226
+  },
+  "val_mae": 15.43,
+  "stations": [
+    {
+      "idx": 0,
+      "id": "delhi_anand_vihar",
+      "name": "Anand Vihar, Delhi",
+      "lat": 28.6469,
+      "lon": 77.316
+    },
+    {
+      "idx": 1,
+      "id": "delhi_rk_puram",
+      "name": "R.K. Puram, Delhi",
+      "lat": 28.5633,
+      "lon": 77.1869
+    },
+    {
+      "idx": 2,
+      "id": "delhi_ito",
+      "name": "ITO, Central Delhi",
+      "lat": 28.6289,
+      "lon": 77.2405
+    }
+  ],
+  "splits": {
+    "train_rows": 715536,
+    "val_rows": 181584,
+    "test_rows": 190224,
+    "train_range": [
+      "2024-05-27 00:00:00+05:30",
+      "2025-07-15 00:00:00+05:30"
+    ],
+    "val_range": [
+      "2025-07-17 00:00:00+05:30",
+      "2025-10-30 00:00:00+05:30"
+    ],
+    "test_range": [
+      "2025-11-01 00:00:00+05:30",
+      "2026-02-19 00:00:00+05:30"
+    ]
+  },
+  "test_mae": 23.44,
+  "test_rmse": 33.23,
+  "aqi_category_accuracy_pct": 74.1
+}

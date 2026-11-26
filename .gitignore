@@ -155,3 +155,12 @@ vite.config.ts.timestamp-*
 .nx/cache
 .nx/workspace-data
 .nx/migrate-runs
+
+# Shwas ML local data & Python caches (never commit raw data or venvs)
+ml/data/
+ml/.venv/
+ml/__pycache__/
+ml/.pytest_cache/
+.pytest_cache/
+**/__pycache__/
+*.pyc
