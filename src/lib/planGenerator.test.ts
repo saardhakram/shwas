@@ -3,6 +3,7 @@ import {
   generateRuleBasedPlan,
   calculatePlanItemSavings,
   buildEnrichedPlan,
+  computeTodayExposureSummary,
   parsePlanCache,
   serializePlanCache,
 } from './planGenerator';
@@ -227,5 +228,53 @@ describe('Daily Air Plan Generator Engine', () => {
     );
     expect(fallbackSaved).toBe(0.6);
     expect(fallbackSaved).toBeLessThanOrEqual(0.9 * 0.7);
+  });
+
+  it('uses the EXACT same base hero number across hero, pill (X -> Y), and badge (-S) for family average and individual members', () => {
+    const rawPlan = generateRuleBasedPlan(sampleProfile);
+
+    // Check across multiple realistic PM2.5 values and both "all" and specific member selections
+    for (const pm25 of [95, 135, 180, 247, 320]) {
+      for (const memberId of ['all', 'me', 'child']) {
+        const summary = computeTodayExposureSummary(
+          sampleProfile.family,
+          pm25,
+          sampleProfile.home,
+          memberId,
+          rawPlan,
+          {}
+        );
+
+        // When no items are checked, hero display MUST equal pill start (heroCigarettes)
+        expect(summary.currentCigarettes).toBe(summary.heroCigarettes);
+        // Pill math MUST be exact to 1 decimal place: hero - badgeSavings === target
+        expect(
+          Number((summary.heroCigarettes - summary.totalPotentialSavings).toFixed(1))
+        ).toBe(summary.targetCigarettes);
+        // Badge savings must respect the 70% cap of the same heroCigarettes base
+        expect(summary.totalPotentialSavings).toBeLessThanOrEqual(
+          Number((summary.heroCigarettes * 0.7 + 1e-9).toFixed(2))
+        );
+        // Sum of item badges must equal totalPotentialSavings
+        const itemSum = Number(
+          summary.planItems.reduce((s, it) => s + it.cigarettesSaved, 0).toFixed(1)
+        );
+        expect(itemSum).toBe(summary.totalPotentialSavings);
+      }
+    }
+
+    // Checking the first item lowers currentCigarettes by exactly that item's saving
+    const checked = computeTodayExposureSummary(
+      sampleProfile.family,
+      135,
+      sampleProfile.home,
+      'all',
+      rawPlan,
+      { plan_1: true }
+    );
+    expect(checked.checkedSavings).toBe(checked.planItems[0].cigarettesSaved);
+    expect(checked.currentCigarettes).toBe(
+      Number(Math.max(checked.targetCigarettes, checked.heroCigarettes - checked.checkedSavings).toFixed(1))
+    );
   });
 });

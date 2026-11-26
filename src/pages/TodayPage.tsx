@@ -31,10 +31,9 @@ import {
   formatForecastUpdatedAgo,
   ForecastDataPoint,
 } from '../lib/forecast';
-import { calculateFamilyExposure } from '../lib/cigarettes';
 import {
   generateRuleBasedPlan,
-  buildEnrichedPlan,
+  computeTodayExposureSummary,
   parsePlanCache,
 } from '../lib/planGenerator';
 import {
@@ -45,21 +44,32 @@ import { upsertTodayDailySavings } from '../lib/communityService';
 import { RawPlanItem, UserProfile } from '../types';
 
 /**
- * Hook to animate numerical transitions with an ease-out cubic curve.
+ * Hook to smoothly animate countdown when the user checks/unchecks plan items,
+ * while snapping IMMEDIATELY whenever `resetKey` (base hero exposure) changes
+ * so the hero number NEVER disagrees with the pill ("X -> Y") or savings badge ("-S").
  */
-function useAnimatedNumber(target: number, duration = 400): number {
+function useAnimatedNumber(target: number, resetKey: number, duration = 300): number {
   const [current, setCurrent] = useState(target);
+  const currentRef = useRef(target);
+  const lastResetKeyRef = useRef(resetKey);
+
+  // Snap synchronously during render when the base hero number changes (e.g. live PM2.5 arrives or family chip switches)
+  const baseChanged = lastResetKeyRef.current !== resetKey;
+  if (baseChanged) {
+    lastResetKeyRef.current = resetKey;
+    currentRef.current = target;
+  }
 
   useEffect(() => {
-    let startTimestamp: number | null = null;
-    const startValue = current;
-    const diff = target - startValue;
-
-    if (Math.abs(diff) < 0.01) {
+    if (baseChanged || Math.abs(target - currentRef.current) < 0.01) {
+      currentRef.current = target;
       setCurrent(target);
       return;
     }
 
+    let startTimestamp: number | null = null;
+    const startValue = currentRef.current;
+    const diff = target - startValue;
     let animationFrameId: number;
 
     const step = (timestamp: number) => {
@@ -67,20 +77,31 @@ function useAnimatedNumber(target: number, duration = 400): number {
       const progress = Math.min((timestamp - startTimestamp) / duration, 1);
       const easeOut = 1 - Math.pow(1 - progress, 3);
       const nextVal = startValue + diff * easeOut;
+      currentRef.current = nextVal;
       setCurrent(nextVal);
 
       if (progress < 1) {
         animationFrameId = requestAnimationFrame(step);
       } else {
+        currentRef.current = target;
         setCurrent(target);
       }
     };
 
     animationFrameId = requestAnimationFrame(step);
-    return () => cancelAnimationFrame(animationFrameId);
-  }, [target]);
+    // Safety fallback if requestAnimationFrame is throttled in a background tab
+    const safetyTimer = setTimeout(() => {
+      currentRef.current = target;
+      setCurrent(target);
+    }, duration + 80);
 
-  return current;
+    return () => {
+      cancelAnimationFrame(animationFrameId);
+      clearTimeout(safetyTimer);
+    };
+  }, [target, resetKey, duration, baseChanged]);
+
+  return baseChanged ? target : current;
 }
 
 // Custom tooltip for Recharts 48-Hour Forecast Area Chart
@@ -346,43 +367,27 @@ export const TodayPage: React.FC = () => {
     });
   };
 
-  // 6. Calculate real member-specific daily cigarette exposure using unified function
-  const baseCigarettes = useMemo(() => {
+  // 6. Compute hero, pill ("X -> Y"), badge ("-S"), and capped plan items ONCE from the same PM2.5 source
+  const exposureSummary = useMemo(() => {
     const liveOutdoor = outdoorPm25 || 240;
-    const home = effectiveProfile.home;
-    const { cigarettes } = calculateFamilyExposure(
+    return computeTodayExposureSummary(
       effectiveProfile.family,
       liveOutdoor,
-      home,
-      selectedFamilyId
+      effectiveProfile.home,
+      selectedFamilyId,
+      rawPlanItems,
+      completedMap
     );
-    return cigarettes;
-  }, [selectedFamilyId, outdoorPm25, effectiveProfile]);
+  }, [effectiveProfile, outdoorPm25, selectedFamilyId, rawPlanItems, completedMap]);
 
-  // Derive enriched plan items reactively on the SAME basis as baseCigarettes (selected member or family average)
-  // Item savings are scaled proportionally so their sum NEVER exceeds 70% of baseCigarettes.
-  const planItems = useMemo(() => {
-    return buildEnrichedPlan(rawPlanItems, completedMap, baseCigarettes);
-  }, [rawPlanItems, completedMap, baseCigarettes]);
-
-  // Compute total savings from plan items (never trusting model math)
-  const totalPotentialSavings = useMemo(() => {
-    const sum = planItems.reduce((acc, item) => acc + item.cigarettesSaved, 0);
-    return Number(sum.toFixed(1));
-  }, [planItems]);
-
-  // Target Y = X minus total savings, never higher than X, 1 decimal place
-  const targetCigarettes = useMemo(() => {
-    const reduced = Math.max(0, baseCigarettes - totalPotentialSavings);
-    return Number(Math.min(baseCigarettes, reduced).toFixed(1));
-  }, [baseCigarettes, totalPotentialSavings]);
-
-  const checkedSavings = useMemo(() => {
-    const sum = planItems
-      .filter((item) => item.completed)
-      .reduce((acc, item) => acc + item.cigarettesSaved, 0);
-    return Number(sum.toFixed(1));
-  }, [planItems]);
+  const {
+    heroCigarettes: baseCigarettes,
+    currentCigarettes: targetCurrentExposure,
+    totalPotentialSavings,
+    targetCigarettes,
+    checkedSavings,
+    planItems,
+  } = exposureSummary;
 
   // Sync checked plan savings to Community daily_savings whenever user checks/unchecks items
   useEffect(() => {
@@ -393,9 +398,8 @@ export const TodayPage: React.FC = () => {
     upsertTodayDailySavings(checkedSavings, familyLabel);
   }, [checkedSavings, planItems.length, effectiveProfile.family]);
 
-  // Current exposure decreases as user checks off items: e.g. 9.0 -> 7.6
-  const targetCurrentExposure = Math.max(targetCigarettes, baseCigarettes - checkedSavings);
-  const animatedExposure = useAnimatedNumber(targetCurrentExposure, 400);
+  // Animate only when user checks/unchecks items; snap immediately when baseCigarettes changes
+  const animatedExposure = useAnimatedNumber(targetCurrentExposure, baseCigarettes, 300);
 
   const formatHeroNumber = (val: number) => {
     return val.toFixed(1);
