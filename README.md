@@ -16,7 +16,7 @@ Built with **Google Antigravity** for **PromptWars: Virtual — Challenge 06: Ur
 | **Indoor air quality hacks** | **Shwas Scan (`/scan`)** | Upload or snap a photo of a room, kitchen, or street-facing window → Gemini Vision detects indoor sources (incense, unvented stove, road ingress) with glowing bounding boxes and one-tap **"Add to my plan"**. |
 | **Sustainable alternatives** | **Clean Routes (`/routes`)** | Compares **Metro, Walk, Two-Wheeler, Auto, and Car** on smog exposure (cigarettes), travel time, and **CO₂ emissions**. Recommendations balance lung health and sustainability (never recommending Car when Metro/Walk/Bike is within 0.02 cigarettes and 15 min). |
 | **Tailored to location & lifestyle** | **5-Step Onboarding (`/onboarding`)** | Captures language (English, हिंदी, తెలుగు, தமிழ், বাংলা, मराठी), GPS/city, family members (age, asthma/heart/pregnancy), home factors (road-facing windows, purifier, chimney, cooking fuel), and commute mode. |
-| **Clearly explain direct impact** | **Cigarette Counter** | Berkeley Earth equivalent (`22 µg/m³ PM2.5 for 24h ≈ 1 cigarette`). Computed deterministically in code (`src/lib/cigarettes.ts`, `src/lib/fixes.ts`, `src/lib/routeExposure.ts`) — never delegated to LLM arithmetic. |
+| **Clearly explain direct impact** | **Cigarette Counter** | Berkeley Earth equivalent (`22 µg/m³ PM2.5 for 24h ≈ 1 cigarette`). Computed deterministically in code (`shared/cigarettes.ts`, `src/lib/fixes.ts`, `src/lib/routeExposure.ts`) — never delegated to LLM arithmetic. |
 | **Community action** | **Community (`/community`)** | Society & school groups via 6-character join codes (backed by Supabase RLS + `SECURITY DEFINER` RPC), weekly collective savings leaderboard with streaks, hyperlocal smoke/dust alerts, and downloadable/WhatsApp share cards. |
 | **Conversational guidance** | **Ask Shwas (`/ask`)** | Context-aware AI assistant with voice input (Web Speech API), dynamic family suggestion chips, inline AQI/cigarette mini-cards, and medical safety guardrails (20 questions/user/day). |
 
@@ -24,30 +24,37 @@ Built with **Google Antigravity** for **PromptWars: Virtual — Challenge 06: Ur
 
 ## 2. Architecture
 
+> See **[`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md)** for full request flows, ML serving diagrams, and engineering design decisions.
+
 ```text
-Browser (React 18 + Vite + Tailwind + i18next, hosted on Vercel)
- ├── src/pages/      → Thin route shells (/onboarding, /today, /scan, /routes, /community, /ask)
- ├── src/features/   → Feature modules (hooks + subcomponents) per screen:
+Shared Pure Domain Layer (shared/*.ts, zero browser dependencies)
+ └── types.ts, constants.ts, cigarettes.ts, forecastWindow.ts, planRules.ts
+
+Browser SPA (React 18 + Vite + Tailwind + i18next, hosted on Vercel)
+ ├── src/pages/      → Lazy-loaded route shells (/onboarding, /today, /scan, /routes, /community, /ask)
+ ├── src/features/   → Feature modules (focused hooks + subcomponents) per screen:
  │                     onboarding/, today/, scan/, routes/, community/, ask/
- ├── src/shared/     → Pure browser- & Node-safe domain logic & constants (constants.ts, forecastWindow.ts, planRules.ts)
- ├── src/lib/        → Client services (cigarettes, planGenerator, planFetcher, forecast, routeExposure,
- │                     routeScoring, routingService, googleRouting, osrmRouting, community, communityService, logger)
- └── src/components/ → Shared layout (AppLayout, atmosphere), navigation (BottomNav), map (RouteMap), and UI primitives
+ ├── src/lib/        → Client services (storage, i18n, forecast, planFetcher, planGenerator, fixes,
+ │                     routeExposure, routeScoring, routingService, googleRouting, osrmRouting, community*, logger)
+ ├── src/locales/    → Verified 6-language bundles (en, hi, te, ta, bn, mr) guarded by AST i18n tests
+ └── src/components/ → Shared layout (AppLayout, AppHeader, atmosphere), BottomNav, RouteMap, and UI primitives
 
-Vercel Serverless Functions (api/*.ts, Node ESM runtime)
- ├── api/_lib/geminiClient.ts → Shared Gemini client (gemini-3.5-flash primary + gemini-3.1-flash-lite fallback,
- │                              thinkingLevel: "minimal", retry + fallback budget reservation)
- ├── api/_lib/validation.ts   → Runtime request payload validators (HTTP 400 on malformed/oversized inputs)
- ├── api/_lib/logger.ts       → Structured server logger (silent in tests)
- ├── api/health.ts            → Lightweight GET /api/health warmup endpoint
- ├── api/plan.ts              → Daily Air Plan generator + 6h server cache + rule-based fallback
- ├── api/scan.ts              → Gemini Vision indoor pollution hotspot detector (5 MB image limit)
- └── api/ask.ts               → Grounded family Q&A + time-aware exposure mini-card + 20/day rate limit
+Vercel Serverless Functions (api/*.ts, Node ESM runtime — zero imports from src/)
+ ├── api/_lib/errors.ts, http.ts, validation.ts, rateLimiter.ts, logger.ts
+ ├── api/_lib/geminiClient.ts + geminiTransport.ts (gemini-3.5-flash primary + gemini-3.1-flash-lite fallback)
+ ├── api/_lib/{plan,scan,ask}/ → Isolated prompt, cache/schema, and service modules per endpoint
+ ├── api/health.ts   → Lightweight GET /api/health warmup endpoint
+ ├── api/plan.ts     → Daily Air Plan generator + 6h server cache + deterministic rule fallback
+ ├── api/scan.ts     → Gemini Vision indoor pollution hotspot detector (5 MB image limit)
+ └── api/ask.ts      → Grounded family Q&A + time-aware exposure mini-card + 20/day rate limit
 
-ML Serving Pipeline (Zero-cost, Zero-cold-start)
- └── GitHub Actions (.github/workflows/forecast.yml, off-peak cron :17 and :47)
-      → fetches latest Delhi PM2.5 & weather → runs LightGBM (ml/model/shwas_lgbm.joblib)
-      → upserts 48h predictions into Supabase `forecasts` table
+ML Pipeline & Serving (ml/, Python 3.11 + LightGBM + SHAP, zero cold start)
+ ├── ml/features/    → Cleaning, origin lags/weather/calendar, multi-horizon framing, temporal split, AQI helpers
+ ├── ml/collect.py + collect_lib/ → OpenAQ v3 & Open-Meteo historical data ingestion
+ ├── ml/train.py     → Time-split LightGBM training & validation tuning
+ ├── ml/evaluate.py + eval_lib/   → Baseline comparison, SHAP charts, metrics.md & frontend JSON sync
+ └── GitHub Actions (.github/workflows/forecast.yml, off-peak cron :17 & :47)
+      → runs ml/predict.py → upserts 48h predictions into Supabase `forecasts` table
       → App reads fresh (<6h) ML predictions from Supabase, else falls back seamlessly to Open-Meteo
 ```
 
@@ -150,10 +157,11 @@ ml/.venv/Scripts/pytest ml/test_features.py -v
 
 ### 4. Supabase Database Migrations
 Apply the SQL files in `supabase/migrations/` in order via the Supabase SQL Editor:
-1. `supabase/migrations/002_forecasts.sql` — `forecasts` table for 48h ML predictions (public read, service-role write).
-2. `supabase/migrations/003_community.sql` — `groups`, `group_members`, `daily_savings`, `alerts` + RLS + Realtime.
-3. `supabase/migrations/004_restrict_is_group_member.sql` — Revokes `EXECUTE` on `is_group_member(uuid)` from `public, anon`.
-4. `supabase/migrations/005_join_by_code.sql` — Adds `SECURITY DEFINER` RPC `join_group_by_code(code, display_name)` and restricts `groups` `SELECT` to members/creators only.
+1. `supabase/migrations/001_profiles.sql` — `profiles` table for per-user language, location, family & home settings with `updated_at` trigger and owner-only RLS.
+2. `supabase/migrations/002_forecasts.sql` — `forecasts` table for 48h ML predictions (public read, service-role write).
+3. `supabase/migrations/003_community.sql` — `groups`, `group_members`, `daily_savings`, `alerts` + RLS + Realtime.
+4. `supabase/migrations/004_restrict_is_group_member.sql` — Revokes `EXECUTE` on `is_group_member(uuid)` from `public, anon`.
+5. `supabase/migrations/005_join_by_code.sql` — Adds `SECURITY DEFINER` RPC `join_group_by_code(code, display_name)` and restricts `groups` `SELECT` to members/creators only.
 
 ### 5. Deploy to Vercel
 - Import the repository in Vercel (`vercel.json` is pre-configured to serve `api/*.ts` as Node serverless functions and rewrite SPA routes to `/index.html`).
@@ -194,6 +202,6 @@ Shwas includes full UI translations (`i18next`) and multilingual Gemini response
 Contributions are welcome! Before opening a pull request:
 1. Run `npm ci && npm run check && npm run build` and confirm **0 lint errors and 0 warnings**.
 2. If you modify `ml/`, run `ruff check ml`, `ruff format --check ml`, and `pytest ml/`.
-3. Keep all scientific cigarette/PM2.5/CO₂ arithmetic deterministic in code (`src/lib/` or `src/shared/`) rather than in LLM prompts, and never expose server keys (`GEMINI_API_KEY`, `SUPABASE_SERVICE_ROLE_KEY`) to client bundles.
+3. Keep all scientific cigarette/PM2.5/CO₂ arithmetic deterministic in code (`shared/` or `src/lib/`) rather than in LLM prompts, and never expose server keys (`GEMINI_API_KEY`, `SUPABASE_SERVICE_ROLE_KEY`) to client bundles.
 
 Licensed under the [MIT License](LICENSE).
