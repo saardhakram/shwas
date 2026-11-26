@@ -1,5 +1,11 @@
 import { describe, it, expect } from 'vitest';
-import { generateRuleBasedPlan, calculatePlanItemSavings, buildEnrichedPlan } from './planGenerator';
+import {
+  generateRuleBasedPlan,
+  calculatePlanItemSavings,
+  buildEnrichedPlan,
+  parsePlanCache,
+  serializePlanCache,
+} from './planGenerator';
 import { UserProfile, RawPlanItem } from '../types';
 
 describe('Daily Air Plan Generator Engine', () => {
@@ -162,5 +168,23 @@ describe('Daily Air Plan Generator Engine', () => {
     };
     const plan = generateRuleBasedPlan(hindiProfile);
     expect(plan[0].action).toMatch(/[\u0900-\u097F]/); // contains Devanagari Hindi characters
+  });
+
+  it('serializes and parses daily plan cache preserving source and migrates legacy arrays', () => {
+    const items = generateRuleBasedPlan(sampleProfile);
+
+    // New { source, items, createdAt } format preserves 'gemini' source
+    const serialized = serializePlanCache('gemini', items);
+    const parsed = parsePlanCache(serialized);
+    expect(parsed).not.toBeNull();
+    expect(parsed!.source).toBe('gemini');
+    expect(parsed!.items).toHaveLength(items.length);
+    expect(parsed!.createdAt).toBeTruthy();
+
+    // Legacy plain-array cache migrates gracefully to 'offline'
+    const legacyParsed = parsePlanCache(JSON.stringify(items));
+    expect(legacyParsed).not.toBeNull();
+    expect(legacyParsed!.source).toBe('offline');
+    expect(legacyParsed!.items).toHaveLength(items.length);
   });
 });

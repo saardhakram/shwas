@@ -65,3 +65,23 @@
   -ms-overflow-style: none !important; /* IE and Edge */
   scrollbar-width: none !important; /* Firefox */
 }
+
+/* Dark-mode styling for OpenStreetMap Leaflet fallback tiles */
+.shwas-leaflet-dark .leaflet-tile-pane {
+  filter: invert(100%) hue-rotate(180deg) brightness(86%) contrast(92%) saturate(65%);
+}
+
+.shwas-leaflet-dark .leaflet-container {
+  background: #0b0f17;
+  font-family: inherit;
+}
+
+.shwas-leaflet-dark .leaflet-control-attribution {
+  background: rgba(11, 15, 23, 0.78) !important;
+  color: rgba(148, 163, 184, 0.85) !important;
+  font-size: 9px !important;
+}
+
+.shwas-leaflet-dark .leaflet-control-attribution a {
+  color: #2dd4bf !important;
+}

@@ -17,6 +17,7 @@ import Badge from '../components/ui/Badge';
 import { useAirQuality } from '../components/layout/AppLayout';
 import { resizeImageForUpload } from '../lib/imageUtils';
 import { computeScanResults, ComputedFix } from '../lib/fixes';
+import { parsePlanCache, serializePlanCache } from '../lib/planGenerator';
 import { RawPlanItem } from '../types';
 
 export const ScanPage: React.FC = () => {
@@ -130,23 +131,15 @@ export const ScanPage: React.FC = () => {
         action: fix.fix,
         reason: `${fix.label}: ${fix.why}`,
         category: fix.category,
+        hours: 4,
         before_pm25: fix.beforePm25,
         after_pm25: fix.afterPm25,
       };
 
-      const existingStr = localStorage.getItem(cacheKey);
-      let list: RawPlanItem[] = [];
-      if (existingStr) {
-        try {
-          list = JSON.parse(existingStr);
-        } catch {
-          list = [];
-        }
-      }
-
-      // Prepend or add new fix action
-      list = [newPlanItem, ...list];
-      localStorage.setItem(cacheKey, JSON.stringify(list));
+      const existingCache = parsePlanCache(localStorage.getItem(cacheKey));
+      const list: RawPlanItem[] = [newPlanItem, ...(existingCache?.items || [])];
+      const preservedSource = existingCache?.source || 'offline';
+      localStorage.setItem(cacheKey, serializePlanCache(preservedSource, list));
 
       setAddedFixIds((prev) => ({ ...prev, [fix.id]: true }));
     } catch (e) {

@@ -34,6 +34,8 @@ import { calculateFamilyExposure } from '../lib/cigarettes';
 import {
   generateRuleBasedPlan,
   buildEnrichedPlan,
+  parsePlanCache,
+  serializePlanCache,
 } from '../lib/planGenerator';
 import { RawPlanItem, UserProfile } from '../types';
 
@@ -223,17 +225,19 @@ export const TodayPage: React.FC = () => {
     }
     setCompletedMap(savedCompletedMap);
 
-    // Check plan cache first
+    // Check plan cache first (supports { source, items, createdAt } and migrates legacy arrays)
     try {
-      const cached = localStorage.getItem(cacheKey);
-      if (cached) {
-        const parsedItems = JSON.parse(cached);
-        if (Array.isArray(parsedItems) && parsedItems.length >= 5) {
-          setRawPlanItems(parsedItems);
-          setPlanSource('cached');
-          setIsPlanLoading(false);
-          return;
+      const cachedRaw = localStorage.getItem(cacheKey);
+      const cachedEntry = parsePlanCache(cachedRaw);
+      if (cachedEntry && cachedEntry.items.length >= 5) {
+        setRawPlanItems(cachedEntry.items);
+        setPlanSource(cachedEntry.source);
+        setIsPlanLoading(false);
+        // Migrate legacy plain-array entry in place
+        if (cachedRaw && cachedRaw.trim().startsWith('[')) {
+          localStorage.setItem(cacheKey, serializePlanCache(cachedEntry.source, cachedEntry.items));
         }
+        return;
       }
     } catch {
       // cache miss
@@ -281,9 +285,10 @@ export const TodayPage: React.FC = () => {
         const rawPlan = (Array.isArray(data?.plan) && data.plan.length >= 5)
           ? data.plan
           : generateRuleBasedPlan(effectiveProfile, forecastPoints);
+        const resolvedSource = data?.source || 'rule_based';
         setRawPlanItems(rawPlan);
-        setPlanSource(data?.source || 'rule_based');
-        localStorage.setItem(cacheKey, JSON.stringify(rawPlan));
+        setPlanSource(resolvedSource);
+        localStorage.setItem(cacheKey, serializePlanCache(resolvedSource, rawPlan));
       })
       .catch((err) => {
         clearTimeout(stillThinkingTimer);

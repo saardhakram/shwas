@@ -264,3 +264,50 @@ export function buildEnrichedPlan(
     };
   });
 }
+
+export interface CachedDailyPlan {
+  source: string;
+  items: RawPlanItem[];
+  createdAt: string;
+}
+
+/**
+ * Parses a cached daily plan from localStorage.
+ * Gracefully migrates legacy plain-array entries to { source, items, createdAt }.
+ */
+export function parsePlanCache(raw: string | null): CachedDailyPlan | null {
+  if (!raw) return null;
+  try {
+    const parsed = JSON.parse(raw);
+    if (Array.isArray(parsed)) {
+      if (parsed.length === 0) return null;
+      return {
+        source: 'offline',
+        items: parsed,
+        createdAt: new Date().toISOString(),
+      };
+    }
+    if (parsed && typeof parsed === 'object' && Array.isArray(parsed.items)) {
+      return {
+        source: typeof parsed.source === 'string' ? parsed.source : 'offline',
+        items: parsed.items,
+        createdAt:
+          typeof parsed.createdAt === 'string'
+            ? parsed.createdAt
+            : new Date().toISOString(),
+      };
+    }
+    return null;
+  } catch {
+    return null;
+  }
+}
+
+export function serializePlanCache(source: string, items: RawPlanItem[]): string {
+  const payload: CachedDailyPlan = {
+    source,
+    items,
+    createdAt: new Date().toISOString(),
+  };
+  return JSON.stringify(payload);
+}
