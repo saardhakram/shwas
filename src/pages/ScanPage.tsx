@@ -24,12 +24,12 @@ export const ScanPage: React.FC = () => {
 
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-base font-bold text-white tracking-tight flex items-center gap-2">
+          <h1 className="text-base font-bold text-white tracking-tight flex items-center gap-2">
             <span>{t('scan.title', 'Shwas Scan')}</span>
             <span className="text-[10px] uppercase font-mono px-1.5 py-0.5 rounded bg-teal-500/20 text-teal-300 border border-teal-500/30">
               {t('scan.visionBadge', 'Vision')}
             </span>
-          </h2>
+          </h1>
           <p className="text-xs text-slate-400">
             {t('scan.subtitle', 'AI-powered indoor pollution audit with Gemini Vision')}
           </p>

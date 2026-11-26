@@ -21,10 +21,10 @@ export const ScanCaptureCard: React.FC<ScanCaptureCardProps> = ({
       <GlassCard className="p-8 text-center space-y-4">
         <div className="w-12 h-12 rounded-full border-2 border-teal-400 border-t-transparent animate-spin mx-auto" />
         <div className="space-y-1">
-          <h4 className="text-sm font-semibold text-white flex items-center justify-center gap-2">
+          <h2 className="text-sm font-semibold text-white flex items-center justify-center gap-2">
             <Sparkles className="w-4 h-4 text-teal-300 animate-pulse" aria-hidden="true" />
             <span>{t('scan.analyzingHeading', 'Analyzing photo with Gemini Vision...')}</span>
-          </h4>
+          </h2>
           <p className="text-xs text-slate-400">
             {t(
               'scan.analyzingSubtitle',
@@ -47,9 +47,9 @@ export const ScanCaptureCard: React.FC<ScanCaptureCardProps> = ({
         <Camera className="w-8 h-8" />
       </div>
       <div className="space-y-1.5 max-w-sm">
-        <h3 className="text-sm font-semibold text-white">
+        <h2 className="text-sm font-semibold text-white">
           {t('scan.scanHeading', 'Scan Room, Kitchen, or Window')}
-        </h3>
+        </h2>
         <p className="text-xs text-slate-400 leading-relaxed">
           {t(
             'scan.scanSubtitle',

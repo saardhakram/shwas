@@ -126,9 +126,9 @@ export const ScanResultsView: React.FC<ScanResultsViewProps> = ({
       </GlassCard>
 
       <div className="space-y-3">
-        <div className="text-xs font-bold uppercase tracking-wider text-slate-400 px-0.5">
+        <h2 className="text-xs font-bold uppercase tracking-wider text-slate-400 px-0.5">
           {t('scan.recommendedFixes', 'Recommended Fixes & Impact')}
-        </div>
+        </h2>
         {computedFixes.map((item, idx) => (
           <ScanFixCard
             key={`${item.id}-${idx}`}

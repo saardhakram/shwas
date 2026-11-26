@@ -38,9 +38,9 @@ export const RevealStep: React.FC<RevealStepProps> = ({
             </div>
           </div>
           <div>
-            <h3 className="text-lg font-bold text-white font-display">
+            <h1 className="text-lg font-bold text-white font-display">
               {t('onboarding.calculatingTitle', 'Calculating your air...')}
-            </h3>
+            </h1>
             <p className="text-xs text-slate-400 mt-1">
               {t(
                 'onboarding.calculatingSubtitle',
@@ -56,9 +56,9 @@ export const RevealStep: React.FC<RevealStepProps> = ({
             <Badge variant="danger" size="sm" className="mb-1">
               {t('onboarding.revealBadge', 'Air Exposure Analysis')}
             </Badge>
-            <h2 className="text-xl font-bold font-display text-white">
+            <h1 className="text-xl font-bold font-display text-white">
               {t('onboarding.revealTitle', "Your family's cigarette exposure")}
-            </h2>
+            </h1>
             <p className="text-xs text-slate-400">
               {t('onboarding.revealFootnote', 'Based on 22 µg/m³ PM2.5 in a day = 1 cigarette.')}
             </p>

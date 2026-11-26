@@ -47,9 +47,9 @@ export const LocalAlertsCard: React.FC<LocalAlertsCardProps> = ({
       <div className="flex items-center justify-between gap-2">
         <div className="flex items-center gap-2">
           <Megaphone className="w-4 h-4 text-amber-400" aria-hidden="true" />
-          <h3 className="text-xs font-bold text-slate-100 uppercase tracking-wider">
+          <h2 className="text-xs font-bold text-slate-100 uppercase tracking-wider">
             {t('community.localAlerts', 'Local Air Alerts')}
-          </h3>
+          </h2>
         </div>
         <button
           type="button"

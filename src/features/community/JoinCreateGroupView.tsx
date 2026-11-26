@@ -38,7 +38,7 @@ export const JoinCreateGroupView: React.FC<JoinCreateGroupViewProps> = ({
     <div className="space-y-4 animate-in fade-in duration-300 pb-8">
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-base font-bold text-white">{t('community.title', 'Community')}</h2>
+          <h1 className="text-base font-bold text-white">{t('community.title', 'Community')}</h1>
           <p className="text-xs text-slate-400">
             {t('community.subtitle', 'Track clean air savings with your society or school')}
           </p>
@@ -78,9 +78,9 @@ export const JoinCreateGroupView: React.FC<JoinCreateGroupViewProps> = ({
       <GlassCard className="p-4 space-y-3 border-white/[0.1]">
         <div className="flex items-center gap-2">
           <Users className="w-4 h-4 text-teal-400" aria-hidden="true" />
-          <h3 className="text-xs font-bold text-white">
+          <h2 className="text-xs font-bold text-white">
             {t('community.createGroup', 'Create a Society or School Group')}
-          </h3>
+          </h2>
         </div>
         <p className="text-[11px] text-slate-400">
           {t(
@@ -115,9 +115,9 @@ export const JoinCreateGroupView: React.FC<JoinCreateGroupViewProps> = ({
       <GlassCard className="p-4 space-y-3 border-white/[0.1]">
         <div className="flex items-center gap-2">
           <KeyRound className="w-4 h-4 text-amber-400" aria-hidden="true" />
-          <h3 className="text-xs font-bold text-white">
+          <h2 className="text-xs font-bold text-white">
             {t('community.joinGroup', 'Join with a 6-Character Code')}
-          </h3>
+          </h2>
         </div>
         <form onSubmit={onJoinGroup} className="flex gap-2">
           <label htmlFor="community-join-code" className="sr-only">

@@ -39,9 +39,9 @@ export const LocationStep: React.FC<LocationStepProps> = ({
         <Badge variant="mint" size="sm" className="mb-1">
           {t('onboarding.stepOf', 'Step {{step}} of 5', { step: 2 })}
         </Badge>
-        <h2 className="text-xl font-bold font-display text-white">
+        <h1 className="text-xl font-bold font-display text-white">
           {t('onboarding.locTitle', 'Where does your family live?')}
-        </h2>
+        </h1>
         <p className="text-xs text-slate-400">
           {t(
             'onboarding.locSubtitle',

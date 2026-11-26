@@ -43,7 +43,7 @@ export const ScanFixCard: React.FC<ScanFixCardProps> = ({
             {index + 1}
           </span>
           <div>
-            <h4 className="text-xs font-bold text-white">{item.label}</h4>
+            <h3 className="text-xs font-bold text-white">{item.label}</h3>
             <span className="text-[10px] text-slate-400 uppercase tracking-wider">
               {t('scan.categoryLabel', 'Category: {{category}}', { category: item.category })}
             </span>

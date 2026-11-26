@@ -14,7 +14,7 @@ export const OnboardingPage: React.FC = () => {
 
   return (
     <div className="min-h-screen max-w-md mx-auto px-4 py-5 flex flex-col justify-between selection:bg-teal-500/30 selection:text-teal-200">
-      <div className="space-y-4">
+      <header className="space-y-4">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
             <div className="w-8 h-8 rounded-xl bg-teal-500/15 border border-teal-500/30 flex items-center justify-center text-teal-300">
@@ -55,9 +55,9 @@ export const OnboardingPage: React.FC = () => {
             </div>
           ))}
         </div>
-      </div>
+      </header>
 
-      <div className="flex-1 my-4">
+      <main className="flex-1 my-4">
         {ob.step === 1 && (
           <LanguageStep language={ob.language} onSelectLanguage={ob.handleSelectLanguage} />
         )}
@@ -113,9 +113,9 @@ export const OnboardingPage: React.FC = () => {
             home={ob.home}
           />
         )}
-      </div>
+      </main>
 
-      <div className="pt-2">
+      <footer className="pt-2">
         {ob.step < 5 ? (
           <button
             type="button"
@@ -137,7 +137,7 @@ export const OnboardingPage: React.FC = () => {
             </button>
           )
         )}
-      </div>
+      </footer>
     </div>
   );
 };

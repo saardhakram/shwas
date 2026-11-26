@@ -19,9 +19,9 @@ export const LanguageStep: React.FC<LanguageStepProps> = ({ language, onSelectLa
         <Badge variant="mint" size="sm" className="mb-1">
           {t('onboarding.stepOf', 'Step {{step}} of 5', { step: 1 })}
         </Badge>
-        <h2 className="text-xl font-bold font-display text-white">
+        <h1 className="text-xl font-bold font-display text-white">
           {t('onboarding.langTitle', 'Choose your language')}
-        </h2>
+        </h1>
         <p className="text-xs text-slate-400">
           {t(
             'onboarding.langSubtitle',

@@ -35,12 +35,12 @@ export const CommunityPage: React.FC = () => {
     <div className="space-y-4 animate-in fade-in duration-300 pb-10">
       <div className="flex items-start justify-between gap-2">
         <div className="min-w-0">
-          <h2 className="text-base font-bold text-white tracking-tight truncate">
+          <h1 className="text-base font-bold text-white tracking-tight truncate">
             {c.activeGroup.name} · {c.weeklyStats.memberCount}{' '}
             {c.weeklyStats.memberCount === 1
               ? t('community.familySingular', 'family')
               : t('community.familyPlural', 'families')}
-          </h2>
+          </h1>
           <div className="flex items-center gap-2 mt-1">
             <button
               type="button"

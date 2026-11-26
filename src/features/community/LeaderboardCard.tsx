@@ -17,9 +17,9 @@ export const LeaderboardCard: React.FC<LeaderboardCardProps> = ({ leaderboard, c
       <div className="flex items-center justify-between gap-2">
         <div className="flex items-center gap-2">
           <Award className="w-4 h-4 text-amber-400" aria-hidden="true" />
-          <h3 className="text-xs font-bold text-slate-100 uppercase tracking-wider">
+          <h2 className="text-xs font-bold text-slate-100 uppercase tracking-wider">
             {t('community.leaderboard', 'Weekly Leaderboard')}
-          </h3>
+          </h2>
         </div>
         <span className="text-[10px] text-slate-400 text-right">
           {t('community.climbHint', 'Check items on Today to climb')}

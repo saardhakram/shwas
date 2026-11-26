@@ -22,9 +22,9 @@ export const RoutesPage: React.FC = () => {
     <div className="space-y-4 animate-in fade-in duration-300 pb-10">
       <div className="flex items-center justify-between gap-2">
         <div>
-          <h2 className="text-base font-bold text-white tracking-tight">
+          <h1 className="text-base font-bold text-white tracking-tight">
             {t('routes.title', 'Clean Routes')}
-          </h2>
+          </h1>
           <p className="text-xs text-slate-400">
             {t('routes.subtitle', 'Compare Metro, Car, Auto, Bike & Walk by smog exposure')}
           </p>
@@ -98,9 +98,9 @@ export const RoutesPage: React.FC = () => {
 
       <div className="space-y-2.5 relative z-10">
         <div className="flex items-center justify-between px-0.5">
-          <h3 className="text-xs font-semibold uppercase tracking-wider text-slate-400">
+          <h2 className="text-xs font-semibold uppercase tracking-wider text-slate-400">
             {t('routes.comparisonHeading', 'Route & Mode Exposure Comparison')}
-          </h3>
+          </h2>
           {r.isLoadingRoutes && (
             <span className="text-[11px] text-teal-300 flex items-center gap-1.5" role="status">
               <Loader2 className="w-3 h-3 animate-spin" aria-hidden="true" />{' '}

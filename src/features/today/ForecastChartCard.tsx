@@ -93,11 +93,11 @@ export const ForecastChartCard: React.FC<ForecastChartCardProps> = ({
           <Calendar className="w-4 h-4 text-teal-400 shrink-0 mt-0.5" aria-hidden="true" />
           <div className="min-w-0">
             <div className="flex items-center gap-1.5">
-              <h3 className="text-sm font-semibold text-slate-200 truncate">
+              <h2 className="text-sm font-semibold text-slate-200 truncate">
                 {isMlForecast
                   ? t('today.forecastMlTitle', 'Shwas Forecast (ML)')
                   : t('today.forecastTitle', '48-Hour Forecast')}
-              </h3>
+              </h2>
               {isMlForecast && (
                 <Badge variant="mint" size="sm" className="shrink-0">
                   ML

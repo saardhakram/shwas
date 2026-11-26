@@ -1,10 +1,12 @@
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 import { useTodayPlan } from '../features/today/useTodayPlan';
 import { HeroExposureCard } from '../features/today/HeroExposureCard';
 import { ForecastChartCard } from '../features/today/ForecastChartCard';
 import { PlanTimeline } from '../features/today/PlanTimeline';
 
 export const TodayPage: React.FC = () => {
+  const { t } = useTranslation();
   const {
     aqi,
     selectedFamilyId,
@@ -26,6 +28,7 @@ export const TodayPage: React.FC = () => {
 
   return (
     <div className="space-y-4 animate-in fade-in duration-300">
+      <h1 className="sr-only">{t('today.title', "Today's Air Plan")}</h1>
       <HeroExposureCard
         selectedFamilyId={selectedFamilyId}
         animatedExposure={animatedExposure}

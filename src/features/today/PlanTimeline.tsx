@@ -38,9 +38,9 @@ export const PlanTimeline: React.FC<PlanTimelineProps> = ({
     <div className="space-y-2">
       <div className="flex items-center justify-between px-1">
         <div className="flex items-center gap-1.5">
-          <h3 className="text-xs font-semibold uppercase tracking-wider text-slate-400">
+          <h2 className="text-xs font-semibold uppercase tracking-wider text-slate-400">
             {t('today.planTimeline', "Today's Air Plan Timeline")}
-          </h3>
+          </h2>
           {isPlanLoading ? (
             <span className="text-[10px] text-teal-400 animate-pulse" role="status">
               {statusLabel}

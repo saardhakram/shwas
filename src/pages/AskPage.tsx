@@ -17,9 +17,9 @@ export const AskPage: React.FC = () => {
         <div className="flex items-center gap-2.5 min-w-0">
           <ShwasWindAvatar spinning={ask.isSending} />
           <div className="min-w-0">
-            <h2 className="text-base font-bold text-white tracking-tight">
+            <h1 className="text-base font-bold text-white tracking-tight">
               {t('ask.title', 'Ask Shwas')}
-            </h2>
+            </h1>
             <p className="text-xs text-slate-400 truncate">
               {t('ask.subtitle', 'Air quality & family routine guidance')}
             </p>
