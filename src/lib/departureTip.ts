@@ -5,10 +5,9 @@
 import type { ForecastDataPoint } from './forecast';
 import type { DepartureTip } from './routeExposure';
 import { formatClockTime } from './dateTimeFormat';
+import type { TranslateFn } from '../types';
 
-type TranslateFn = (key: string, defaultValue: string, options?: Record<string, unknown>) => string;
-
-const defaultT: TranslateFn = (_k, def, opts) =>
+const defaultT: TranslateFn = (_k: string, def: string, opts?: Record<string, unknown>) =>
   opts ? def.replace(/\{\{(\w+)\}\}/g, (_, k) => String(opts[k] ?? '')) : def;
 
 function format24hTime(d: Date): string {

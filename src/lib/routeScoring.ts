@@ -15,9 +15,9 @@ import {
 } from './routeExposure';
 export { computeDepartureTip } from './departureTip';
 
-type TranslateFn = (key: string, defaultValue: string, options?: Record<string, unknown>) => string;
+import type { TranslateFn } from '../types';
 
-const defaultT: TranslateFn = (_k, def, opts) =>
+const defaultT: TranslateFn = (_k: string, def: string, opts?: Record<string, unknown>) =>
   opts ? def.replace(/\{\{(\w+)\}\}/g, (_, k) => String(opts[k] ?? '')) : def;
 
 const SUSTAINABLE_MODES = new Set<RouteMode>(['metro', 'walk', 'two_wheeler']);

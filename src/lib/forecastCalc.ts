@@ -52,7 +52,7 @@ export interface OpenMeteoHourlyPayload {
   us_aqi: number[];
 }
 
-type TranslateFn = (key: string, defaultValue: string, options?: Record<string, unknown>) => string;
+import type { TranslateFn } from '../types';
 
 /**
  * Returns true when an ML forecast timestamp is strictly older than 6 hours.
@@ -80,7 +80,7 @@ export function formatForecastUpdatedAgo(
   if (isNaN(ts)) return '';
   const tr: TranslateFn =
     t ||
-    ((_k, def, opts) =>
+    ((_k: string, def: string, opts?: Record<string, unknown>) =>
       opts ? def.replace(/\{\{(\w+)\}\}/g, (_, k) => String(opts[k] ?? '')) : def);
   const diffMs = Math.max(0, now.getTime() - ts);
   if (diffMs > ML_FORECAST_STALE_WARN_AGE_MS) {

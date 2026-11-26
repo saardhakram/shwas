@@ -67,7 +67,7 @@ async function renderAndAudit(ui: React.ReactElement) {
 }
 
 describe('All 6 page components — heading hierarchy & axe accessibility', () => {
-  let rafSpy: ReturnType<typeof vi.spyOn>;
+  let rafSpy: { mockRestore: () => void };
 
   beforeEach(() => {
     localStorage.clear();

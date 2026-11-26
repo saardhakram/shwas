@@ -5,8 +5,7 @@
  */
 
 import type { BestAirWindow, ForecastDataPoint } from '@shared/forecastWindow';
-
-type TranslateFn = (key: string, defaultValue: string, options?: Record<string, unknown>) => string;
+import type { TranslateFn } from '../types';
 
 const LOCALE_MAP: Record<string, string> = {
   en: 'en-IN',

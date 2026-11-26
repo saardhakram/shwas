@@ -4,6 +4,7 @@ import {
   sampleRoutePoints,
   type EvaluatedRouteOption,
 } from '../../lib/routeExposure';
+import type { TranslateFn } from '../../types';
 import {
   fetchRoutesForTrip,
   type PlaceSuggestion,
@@ -48,7 +49,7 @@ export async function fetchAndEvaluateRoutes(
   depDate: Date,
   providerMode: 'google' | 'leaflet',
   fallbackPm: number,
-  t: (key: string, defaultValue: string, options?: Record<string, unknown>) => string,
+  t: TranslateFn,
 ): Promise<{ evaluated: EvaluatedRouteOption[]; provider: RoutingProvider }> {
   const { routes, provider } = await fetchRoutesForTrip(
     { lat: orig.lat, lon: orig.lon },

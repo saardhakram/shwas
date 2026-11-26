@@ -1,4 +1,4 @@
-import type { ProfileFamilyMember } from '../../types';
+import type { ProfileFamilyMember, TranslateFn } from '../../types';
 import type { SpeechRecognitionConstructor } from '../../types/maps';
 
 export interface MiniCardData {
@@ -32,9 +32,7 @@ export function getSpeechRecognitionCtor(): SpeechRecognitionConstructor | null 
   return window.SpeechRecognition || window.webkitSpeechRecognition || null;
 }
 
-type TranslateFn = (key: string, defaultValue: string, options?: Record<string, unknown>) => string;
-
-const defaultT: TranslateFn = (_k, def, opts) =>
+const defaultT: TranslateFn = (_k: string, def: string, opts?: Record<string, unknown>) =>
   opts ? def.replace(/\{\{(\w+)\}\}/g, (_, k) => String(opts[k] ?? '')) : def;
 
 /**

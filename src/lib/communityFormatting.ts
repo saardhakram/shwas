@@ -4,7 +4,7 @@
 
 import type { AlertType } from './community';
 
-type TranslateFn = (key: string, defaultValue: string, options?: Record<string, unknown>) => string;
+import type { TranslateFn } from '../types';
 
 export const ALERT_TYPE_META: Record<
   AlertType,
@@ -46,7 +46,7 @@ export function formatRelativeTime(
 ): string {
   const tr: TranslateFn =
     t ||
-    ((_k, def, opts) =>
+    ((_k: string, def: string, opts?: Record<string, unknown>) =>
       opts ? def.replace(/\{\{(\w+)\}\}/g, (_, k) => String(opts[k] ?? '')) : def);
   const ts = new Date(isoTimestamp).getTime();
   if (isNaN(ts)) return tr('community.timeJustNow', 'just now');
