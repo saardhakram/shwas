@@ -65,9 +65,6 @@ function apiDevPlugin() {
                 if (env.GEMINI_FALLBACK_MODEL) {
                   process.env.GEMINI_FALLBACK_MODEL = env.GEMINI_FALLBACK_MODEL;
                 }
-                if (env.GEMINI_FALLBACK_MODEL) {
-                  process.env.GEMINI_FALLBACK_MODEL = env.GEMINI_FALLBACK_MODEL;
-                }
 
                 const result = await processScanRequest(parsedBody, apiKey);
                 res.setHeader('Content-Type', 'application/json');
@@ -75,6 +72,41 @@ function apiDevPlugin() {
                 res.end(JSON.stringify(result));
               } catch (err: any) {
                 console.error('[API Dev Server Scan Error]:', err);
+                res.statusCode = 500;
+                res.setHeader('Content-Type', 'application/json');
+                res.end(JSON.stringify({ error: err.message }));
+              }
+            });
+            return;
+          }
+        }
+
+        if (req.url?.startsWith('/api/ask')) {
+          if (req.method === 'POST') {
+            let body = '';
+            req.on('data', (chunk: any) => {
+              body += chunk;
+            });
+            req.on('end', async () => {
+              try {
+                const { processAskRequest } = await server.ssrLoadModule('/api/ask.ts');
+                const parsedBody = body ? JSON.parse(body) : {};
+                const env = loadEnv('development', process.cwd(), '');
+                const apiKey = env.GEMINI_API_KEY || process.env.GEMINI_API_KEY;
+                if (env.GEMINI_MODEL) {
+                  process.env.GEMINI_MODEL = env.GEMINI_MODEL;
+                }
+                if (env.GEMINI_FALLBACK_MODEL) {
+                  process.env.GEMINI_FALLBACK_MODEL = env.GEMINI_FALLBACK_MODEL;
+                }
+
+                const clientIp = req.socket?.remoteAddress || 'local';
+                const result = await processAskRequest(parsedBody, apiKey, clientIp);
+                res.setHeader('Content-Type', 'application/json');
+                res.statusCode = 200;
+                res.end(JSON.stringify(result));
+              } catch (err: any) {
+                console.error('[API Dev Server Ask Error]:', err);
                 res.statusCode = 500;
                 res.setHeader('Content-Type', 'application/json');
                 res.end(JSON.stringify({ error: err.message }));
