@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import {
+import handler, {
   processAskRequest,
   clearAskRateLimitForTesting,
   DAILY_QUESTION_LIMIT,
@@ -7,7 +7,12 @@ import {
 } from './ask.js';
 import type { UserProfile } from '../src/types/index.js';
 import type { ForecastDataPoint } from '../src/shared/forecastWindow.js';
-import type { GeminiGenerateContentRequest, GeminiGenerationConfig } from './_lib/types.js';
+import type {
+  ApiRequest,
+  ApiResponse,
+  GeminiGenerateContentRequest,
+  GeminiGenerationConfig,
+} from './_lib/types.js';
 
 describe('Serverless Ask Shwas API (/api/ask)', () => {
   const originalFetch = global.fetch;
@@ -214,5 +219,35 @@ describe('Serverless Ask Shwas API (/api/ask)', () => {
 
   it('returns null mini-card when no specific time is referenced', () => {
     expect(buildTimeMiniCard(null, null, null, sampleForecast, 180, 230)).toBeNull();
+  });
+
+  it('returns HTTP 400 when question is empty or exceeds max length', async () => {
+    const invoke = async (body: unknown) => {
+      let statusCode = 0;
+      let payload: unknown = null;
+      const req: ApiRequest = { method: 'POST', body };
+      const res: ApiResponse = {
+        setHeader: vi.fn(),
+        status: (code: number) => {
+          statusCode = code;
+          return {
+            json: (b: unknown) => {
+              payload = b;
+              return b;
+            },
+          };
+        },
+      };
+      await handler(req, res);
+      return { statusCode, payload };
+    };
+
+    const empty = await invoke({ question: '   ' });
+    expect(empty.statusCode).toBe(400);
+    expect(empty.payload).toMatchObject({ error: expect.stringContaining('question') });
+
+    const tooLong = await invoke({ question: 'a'.repeat(1001) });
+    expect(tooLong.statusCode).toBe(400);
+    expect(tooLong.payload).toMatchObject({ error: expect.stringContaining('1000') });
   });
 });

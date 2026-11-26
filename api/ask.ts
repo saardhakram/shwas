@@ -10,6 +10,7 @@ import { serverLogger } from './_lib/logger.js';
 import { GEMINI_ASK_BUDGET_MS, PM25_HOURS_PER_CIGARETTE } from '../src/shared/constants.js';
 import type { ApiRequest, ApiResponse } from './_lib/types.js';
 import { getErrorMessage, isRecord, parseRequestBody } from './_lib/types.js';
+import { validateAskRequestBody } from './_lib/validation.js';
 import type { UserProfile, RawPlanItem } from '../src/types/index.js';
 import type { ForecastDataPoint } from '../src/shared/forecastWindow.js';
 
@@ -402,7 +403,12 @@ export default async function handler(req: ApiRequest, res: ApiResponse) {
   }
 
   const apiKey = process.env.GEMINI_API_KEY;
-  const body = parseRequestBody(req.body) as AskRequestBody;
+  const rawBody = parseRequestBody(req.body);
+  const validationError = validateAskRequestBody(rawBody);
+  if (validationError) {
+    return res.status(400).json({ error: validationError });
+  }
+  const body = rawBody as AskRequestBody;
   const forwarded = req.headers?.['x-forwarded-for'];
   const clientIp =
     (typeof forwarded === 'string' ? forwarded.split(',')[0].trim() : req.socket?.remoteAddress) ||

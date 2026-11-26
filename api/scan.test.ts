@@ -1,6 +1,12 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { processScanRequest } from './scan.js';
-import type { GeminiGenerateContentRequest, GeminiInlineDataPart } from './_lib/types.js';
+import handler, { processScanRequest } from './scan.js';
+import { MAX_SCAN_IMAGE_CHARS } from './_lib/validation.js';
+import type {
+  ApiRequest,
+  ApiResponse,
+  GeminiGenerateContentRequest,
+  GeminiInlineDataPart,
+} from './_lib/types.js';
 
 describe('/api/scan serverless handler', () => {
   const originalFetch = global.fetch;
@@ -147,5 +153,35 @@ describe('/api/scan serverless handler', () => {
     expect(result.sources[0].id).toBe('other');
     expect(result.sources[0].box.x).toBe(0);
     expect(result.sources[0].box.y).toBe(1);
+  });
+
+  it('returns HTTP 400 when image is missing or exceeds 5 MB limit', async () => {
+    const invoke = async (body: unknown) => {
+      let statusCode = 0;
+      let payload: unknown = null;
+      const req: ApiRequest = { method: 'POST', body };
+      const res: ApiResponse = {
+        setHeader: vi.fn(),
+        status: (code: number) => {
+          statusCode = code;
+          return {
+            json: (b: unknown) => {
+              payload = b;
+              return b;
+            },
+          };
+        },
+      };
+      await handler(req, res);
+      return { statusCode, payload };
+    };
+
+    const missing = await invoke({});
+    expect(missing.statusCode).toBe(400);
+    expect(missing.payload).toMatchObject({ error: expect.stringContaining('image') });
+
+    const oversized = await invoke({ image: 'A'.repeat(MAX_SCAN_IMAGE_CHARS + 10) });
+    expect(oversized.statusCode).toBe(400);
+    expect(oversized.payload).toMatchObject({ error: expect.stringContaining('5 MB') });
   });
 });

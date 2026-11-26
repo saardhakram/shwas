@@ -1,8 +1,8 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { processPlanRequest, clearPlanCacheForTesting } from './plan.js';
+import handler, { processPlanRequest, clearPlanCacheForTesting } from './plan.js';
 import { serverLogger } from './_lib/logger.js';
 import type { UserProfile } from '../src/types/index.js';
-import type { GeminiGenerateContentRequest } from './_lib/types.js';
+import type { ApiRequest, ApiResponse, GeminiGenerateContentRequest } from './_lib/types.js';
 
 describe('Serverless Plan API (/api/plan)', () => {
   const profile: UserProfile = {
@@ -239,5 +239,27 @@ describe('Serverless Plan API (/api/plan)', () => {
     expect(loggedMessage).toContain('gemini-3.5-flash');
     expect(res.source).toBe('rule_based_fallback');
     expect(res.plan.length).toBeGreaterThanOrEqual(6);
+  });
+
+  it('returns HTTP 400 when request body fails validation', async () => {
+    let statusCode = 0;
+    let payload: unknown = null;
+    const req: ApiRequest = { method: 'POST', body: { forecast: 'not-an-array' } };
+    const res: ApiResponse = {
+      setHeader: vi.fn(),
+      status: (code: number) => {
+        statusCode = code;
+        return {
+          json: (body: unknown) => {
+            payload = body;
+            return body;
+          },
+        };
+      },
+    };
+
+    await handler(req, res);
+    expect(statusCode).toBe(400);
+    expect(payload).toMatchObject({ error: expect.stringContaining('forecast') });
   });
 });

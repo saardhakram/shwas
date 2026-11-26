@@ -14,6 +14,7 @@ import { callGeminiWithRetry } from './_lib/geminiClient.js';
 import { serverLogger } from './_lib/logger.js';
 import type { ApiRequest, ApiResponse, GeminiClientError } from './_lib/types.js';
 import { getErrorMessage, isRecord, parseRequestBody } from './_lib/types.js';
+import { validatePlanRequestBody } from './_lib/validation.js';
 
 interface CacheEntry {
   plan: RawPlanItem[];
@@ -189,7 +190,12 @@ export default async function handler(req: ApiRequest, res: ApiResponse) {
   }
 
   const apiKey = process.env.GEMINI_API_KEY;
-  const body = parseRequestBody(req.body) as {
+  const rawBody = parseRequestBody(req.body);
+  const validationError = validatePlanRequestBody(rawBody);
+  if (validationError) {
+    return res.status(400).json({ error: validationError });
+  }
+  const body = rawBody as {
     profile?: UserProfile;
     forecast?: ForecastDataPoint[];
   };

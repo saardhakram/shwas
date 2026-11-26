@@ -17,6 +17,7 @@ import { serverLogger } from './_lib/logger.js';
 import { GEMINI_SCAN_BUDGET_MS } from '../src/shared/constants.js';
 import type { ApiRequest, ApiResponse } from './_lib/types.js';
 import { isRecord, parseRequestBody } from './_lib/types.js';
+import { validateScanRequestBody } from './_lib/validation.js';
 
 export interface ScanRequestBody {
   image?: string; // base64 string or data URL
@@ -223,7 +224,12 @@ export default async function handler(req: ApiRequest, res: ApiResponse) {
   }
 
   const apiKey = process.env.GEMINI_API_KEY;
-  const body = parseRequestBody(req.body) as ScanRequestBody;
+  const rawBody = parseRequestBody(req.body);
+  const validationError = validateScanRequestBody(rawBody);
+  if (validationError) {
+    return res.status(400).json({ error: validationError });
+  }
+  const body = rawBody as ScanRequestBody;
   const result = await processScanRequest(body, apiKey);
   return res.status(200).json(result);
 }

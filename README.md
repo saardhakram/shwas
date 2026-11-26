@@ -25,30 +25,36 @@ Built with **Google Antigravity** for **PromptWars: Virtual — Challenge 06: Ur
 ## 2. Architecture
 
 ```text
-Browser (React 19 + Vite + Tailwind + i18next, hosted on Vercel)
- ├── /today       → Cigarette Counter + 48h Forecast + Gemini Daily Air Plan
- ├── /scan        → Client-side JPEG resize → POST /api/scan (Gemini Vision) → deterministic fixes
- ├── /routes      → Google Maps JS (dark theme) + Google Routes API
- │                  ↳ auto-fallback to Leaflet/OSM + OSRM + batched Open-Meteo PM2.5
- ├── /community   → Supabase Postgres + Realtime + RLS + RPC join_group_by_code + html-to-image
- └── /ask         → POST /api/ask (Gemini + Web Speech API + inline AQI/cigarette mini-cards)
+Browser (React 18 + Vite + Tailwind + i18next, hosted on Vercel)
+ ├── src/pages/      → Thin route shells (/onboarding, /today, /scan, /routes, /community, /ask)
+ ├── src/features/   → Feature modules (hooks + subcomponents) per screen:
+ │                     onboarding/, today/, scan/, routes/, community/, ask/
+ ├── src/shared/     → Pure browser- & Node-safe domain logic & constants (constants.ts, forecastWindow.ts, planRules.ts)
+ ├── src/lib/        → Client services (cigarettes, planGenerator, planFetcher, forecast, routeExposure,
+ │                     routeScoring, routingService, googleRouting, osrmRouting, community, communityService, logger)
+ └── src/components/ → Shared layout (AppLayout, atmosphere), navigation (BottomNav), map (RouteMap), and UI primitives
 
-Vercel Serverless Functions (api/*.ts, Node runtime)
- ├── api/geminiClient.ts → Shared Gemini SDK wrapper (gemini-3.5-flash primary + gemini-3.1-flash-lite fallback,
- │                         thinkingLevel: "minimal", retry + fallback budget reservation)
- ├── api/plan.ts         → Daily Air Plan generator + 6h server cache + rule-based fallback
- ├── api/scan.ts         → Gemini Vision indoor pollution hotspot detector
- └── api/ask.ts          → Grounded family Q&A + time-aware exposure mini-card + 20/day rate limit
+Vercel Serverless Functions (api/*.ts, Node ESM runtime)
+ ├── api/_lib/geminiClient.ts → Shared Gemini client (gemini-3.5-flash primary + gemini-3.1-flash-lite fallback,
+ │                              thinkingLevel: "minimal", retry + fallback budget reservation)
+ ├── api/_lib/validation.ts   → Runtime request payload validators (HTTP 400 on malformed/oversized inputs)
+ ├── api/_lib/logger.ts       → Structured server logger (silent in tests)
+ ├── api/health.ts            → Lightweight GET /api/health warmup endpoint
+ ├── api/plan.ts              → Daily Air Plan generator + 6h server cache + rule-based fallback
+ ├── api/scan.ts              → Gemini Vision indoor pollution hotspot detector (5 MB image limit)
+ └── api/ask.ts               → Grounded family Q&A + time-aware exposure mini-card + 20/day rate limit
 
 ML Serving Pipeline (Zero-cost, Zero-cold-start)
- └── GitHub Actions (.github/workflows/forecast.yml, every 6h)
+ └── GitHub Actions (.github/workflows/forecast.yml, off-peak cron :17 and :47)
       → fetches latest Delhi PM2.5 & weather → runs LightGBM (ml/model/shwas_lgbm.joblib)
       → upserts 48h predictions into Supabase `forecasts` table
-      → App reads fresh (<3h) ML predictions from Supabase, else falls back seamlessly to Open-Meteo
+      → App reads fresh (<6h) ML predictions from Supabase, else falls back seamlessly to Open-Meteo
 ```
 
 ### Security & Fallbacks
 - **Zero secrets in the browser**: `GEMINI_API_KEY` and `SUPABASE_SERVICE_ROLE_KEY` are strictly server-side / GitHub Actions only.
+- **HTTP Security Headers (`vercel.json`)**: `X-Content-Type-Options: nosniff`, `Referrer-Policy`, `X-Frame-Options: DENY`, `Permissions-Policy`, and `Content-Security-Policy-Report-Only` on all routes.
+- **Input Validation**: `/api/plan`, `/api/scan` (5 MB limit), and `/api/ask` validate request shapes and return `400 Bad Request` on invalid payloads.
 - **Supabase Row Level Security (RLS)**: Enabled across `profiles`, `forecasts`, `groups`, `group_members`, `daily_savings`, and `alerts`. Groups are only readable by members/creators; joining by code happens via `SECURITY DEFINER` RPC `join_group_by_code(code, display_name)` with `EXECUTE` revoked from `anon`.
 - **Every external service has an automatic fallback**:
   - Gemini Vision / Plan / Ask → automatic model fallback (`gemini-3.5-flash` → `gemini-3.1-flash-lite`) → deterministic offline plan/audit.
@@ -120,17 +126,25 @@ npm run dev
 ```
 Vite dev middleware automatically mounts `/api/plan`, `/api/scan`, and `/api/ask` locally on `http://localhost:5173`.
 
-### 3. Run Tests & Production Build
+### 3. Run Quality Checks, Tests & Production Build
 ```bash
-# TypeScript / Vitest suite (cigarettes, plan, fixes, routes, ask, community, forecast)
+# Run full Node quality gate (typecheck + ESLint --max-warnings 0 + Prettier + Vitest)
+npm run check
+
+# Individual scripts
+npm run typecheck
+npm run lint
+npm run format:check
 npm test
 
 # Production bundle check
 npm run build
 
-# ML feature & leakage tests (Python)
+# ML lint, formatting, and feature/leakage tests (Python)
 python -m venv ml/.venv
 ml/.venv/Scripts/pip install -r ml/requirements.txt   # or source ml/.venv/bin/activate on macOS/Linux
+ml/.venv/Scripts/ruff check ml
+ml/.venv/Scripts/ruff format --check ml
 ml/.venv/Scripts/pytest ml/test_features.py -v
 ```
 
@@ -172,3 +186,14 @@ Shwas includes full UI translations (`i18next`) and multilingual Gemini response
 - **தமிழ் — Tamil** (`ta`)
 - **বাংলা — Bengali** (`bn`)
 - **मराठी — Marathi** (`mr`)
+
+---
+
+## 7. Contributing & License
+
+Contributions are welcome! Before opening a pull request:
+1. Run `npm ci && npm run check && npm run build` and confirm **0 lint errors and 0 warnings**.
+2. If you modify `ml/`, run `ruff check ml`, `ruff format --check ml`, and `pytest ml/`.
+3. Keep all scientific cigarette/PM2.5/CO₂ arithmetic deterministic in code (`src/lib/` or `src/shared/`) rather than in LLM prompts, and never expose server keys (`GEMINI_API_KEY`, `SUPABASE_SERVICE_ROLE_KEY`) to client bundles.
+
+Licensed under the [MIT License](LICENSE).
