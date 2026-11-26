@@ -134,6 +134,8 @@ npm run dev
 Vite dev middleware automatically mounts `/api/plan`, `/api/scan`, and `/api/ask` locally on `http://localhost:5173`.
 
 ### 3. Run Quality Checks, Tests & Production Build
+Current suite: **140 Vitest tests** across 32 suites (~66.4% line/statement coverage, 60% CI coverage gate) + **6 pytest ML tests**.
+
 ```bash
 # Run full Node quality gate (typecheck + ESLint --max-warnings 0 + Prettier + Vitest)
 npm run check
@@ -143,6 +145,7 @@ npm run typecheck
 npm run lint
 npm run format:check
 npm test
+npm run test:coverage   # Enforces >= 60% line & statement coverage (v8)
 
 # Production bundle check
 npm run build
