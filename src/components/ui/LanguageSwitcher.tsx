@@ -73,7 +73,7 @@ export const LanguageSwitcher: React.FC<{ className?: string }> = ({ className =
         <div
           role="listbox"
           aria-label="Available languages"
-          className="absolute right-0 mt-1.5 w-44 rounded-xl bg-[#141C2E] border border-white/[0.14] shadow-2xl p-1.5 z-50"
+          className="absolute right-0 mt-1.5 w-44 rounded-xl bg-surface-elevated border border-white/[0.14] shadow-2xl p-1.5 z-50"
         >
           <div className="px-2 py-1 text-[10px] font-semibold tracking-wider text-slate-400 uppercase">
             Languages

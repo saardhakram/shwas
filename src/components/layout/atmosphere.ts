@@ -19,7 +19,7 @@ export interface AtmosphereTheme {
 export function getAtmosphereGradient(currentAqi: number, t: TFunction): AtmosphereTheme {
   if (currentAqi >= 300) {
     return {
-      bg: 'from-[#2a1711] via-[#1c1615] to-[#0c0d12]',
+      bg: 'from-haze-severe-from via-haze-severe-via to-haze-base-to',
       glow: 'rgba(180, 83, 9, 0.18)',
       badgeVariant: 'danger',
       label: t('aqi.severe', 'Severe Smog'),
@@ -27,7 +27,7 @@ export function getAtmosphereGradient(currentAqi: number, t: TFunction): Atmosph
   }
   if (currentAqi >= 200) {
     return {
-      bg: 'from-[#2b1810] via-[#1c1417] to-[#0c0d12]',
+      bg: 'from-haze-verypoor-from via-haze-verypoor-via to-haze-base-to',
       glow: 'rgba(239, 68, 68, 0.14)',
       badgeVariant: 'danger',
       label: t('aqi.veryPoor', 'Very Poor'),
@@ -35,14 +35,14 @@ export function getAtmosphereGradient(currentAqi: number, t: TFunction): Atmosph
   }
   if (currentAqi >= 100) {
     return {
-      bg: 'from-[#241a0d] via-[#16171c] to-[#0c0d12]',
+      bg: 'from-haze-poor-from via-haze-poor-via to-haze-base-to',
       glow: 'rgba(245, 158, 11, 0.12)',
       badgeVariant: 'warning',
       label: t('aqi.poor', 'Poor'),
     };
   }
   return {
-    bg: 'from-[#052222] via-[#091b22] to-[#0a0f18]',
+    bg: 'from-haze-good-from via-haze-good-via to-haze-good-to',
     glow: 'rgba(45, 212, 191, 0.18)',
     badgeVariant: 'mint',
     label: t('aqi.good', 'Clean Dawn Teal'),

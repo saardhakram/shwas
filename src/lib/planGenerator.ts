@@ -10,6 +10,7 @@
  */
 
 import type { RawPlanItem, AirPlanItem, ProfileFamilyMember, ProfileHome } from '../types/index.js';
+import { MAX_PLAN_SAVINGS_RATIO, PM25_HOURS_PER_CIGARETTE } from '../shared/constants.js';
 import { calculateFamilyExposure } from './cigarettes.js';
 export { generateRuleBasedPlan } from '../shared/planRules.js';
 
@@ -23,7 +24,7 @@ function rawPlanItemSavings(item: RawPlanItem, defaultHours = 2): number {
   const before = Number(item.before_pm25);
   const after = Number(item.after_pm25);
   const diff = Number.isFinite(before) && Number.isFinite(after) ? Math.max(0, before - after) : 0;
-  return (diff * hours) / 528;
+  return (diff * hours) / PM25_HOURS_PER_CIGARETTE;
 }
 
 /**
@@ -99,7 +100,8 @@ export function buildEnrichedPlan(
   if (typeof heroCigarettes !== 'number') {
     finalTenths = rawSavings.map((v) => Math.round(v * 10));
   } else {
-    const capTenths = heroCigarettes > 0 ? Math.floor(heroCigarettes * 0.7 * 10 + 1e-9) : 0;
+    const capTenths =
+      heroCigarettes > 0 ? Math.floor(heroCigarettes * MAX_PLAN_SAVINGS_RATIO * 10 + 1e-9) : 0;
     if (capTenths <= 0 || rawItems.length === 0) {
       finalTenths = rawItems.map(() => 0);
     } else if (rawTotal <= 0 || rawTotal * 10 > capTenths) {

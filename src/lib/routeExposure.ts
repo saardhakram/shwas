@@ -24,14 +24,17 @@
  *    - walk:        0.00 kg/km
  */
 
+import { PM25_HOURS_PER_CIGARETTE } from '../shared/constants';
+import { logger } from './logger';
+
+export { PM25_HOURS_PER_CIGARETTE };
+
 export interface LatLon {
   lat: number;
   lon: number;
 }
 
 export type RouteMode = 'car' | 'auto' | 'two_wheeler' | 'walk' | 'metro';
-
-export const PM25_HOURS_PER_CIGARETTE = 528; // 22 µg/m³ × 24 hours
 
 export const MODE_EXPOSURE_FACTORS: Record<RouteMode, number> = {
   car: 0.6,
@@ -222,7 +225,7 @@ export async function fetchRoutePointsPm25(
       return extractPm25ForTime(entry, departureTime, fallbackPm25);
     });
   } catch (err) {
-    console.warn('[routeExposure] Open-Meteo batch fetch failed, using fallback PM2.5:', err);
+    logger.warn('[routeExposure] Open-Meteo batch fetch failed, using fallback PM2.5:', err);
     return points.map(() => fallbackPm25);
   }
 }

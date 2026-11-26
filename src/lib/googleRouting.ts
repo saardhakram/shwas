@@ -5,6 +5,7 @@
 import type { LatLon, RawRouteGeometry } from './routeExposure';
 import type { GoogleGeocoderResult, GoogleLatLngLike, GoogleRouteInstance } from '../types/maps';
 import type { PlaceSuggestion } from './routingService';
+import { logger } from './logger';
 
 export async function searchGooglePlaces(
   query: string,
@@ -51,7 +52,7 @@ export async function searchGooglePlaces(
       };
     });
   } catch (err) {
-    console.warn('[routingService] Google place search failed, falling back to Nominatim:', err);
+    logger.warn('[routingService] Google place search failed, falling back to Nominatim:', err);
     return null;
   }
 }
@@ -181,7 +182,7 @@ export async function fetchGoogleRoutes(
 
     const RouteClass = routesLib?.Route;
     if (!RouteClass?.computeRoutes) {
-      console.warn(
+      logger.warn(
         '[routingService] google.maps.routes.Route.computeRoutes unavailable; using OSRM.',
       );
       return null;
@@ -224,13 +225,13 @@ export async function fetchGoogleRoutes(
 
     if (results.length > 0) return results;
 
-    console.warn(
+    logger.warn(
       '[routingService] Google Routes failed, falling back to OSRM:',
       firstError || 'No routes returned',
     );
     return null;
   } catch (err) {
-    console.warn('[routingService] Google Routes failed, falling back to OSRM:', err);
+    logger.warn('[routingService] Google Routes failed, falling back to OSRM:', err);
     return null;
   }
 }

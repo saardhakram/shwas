@@ -120,7 +120,7 @@ export const RoutesPage: React.FC = () => {
             {[1, 2, 3].map((k) => (
               <div
                 key={k}
-                className="h-28 rounded-2xl bg-[#131b2c]/90 border border-white/[0.08] animate-pulse"
+                className="h-28 rounded-2xl bg-surface-card/90 border border-white/[0.08] animate-pulse"
               />
             ))}
           </div>

@@ -54,7 +54,7 @@ export const RevealStep: React.FC<RevealStepProps> = ({
 
         <GlassCard
           variant="danger"
-          className="p-6 text-center space-y-3 bg-gradient-to-b from-[#2b1612]/90 to-[#1b1012]/90 border-red-500/30"
+          className="p-6 text-center space-y-3 bg-gradient-to-b from-surface-reveal-top/90 to-surface-reveal-bottom/90 border-red-500/30"
         >
           <div className="flex items-center justify-center gap-1.5 text-xs text-amber-300 font-medium">
             <Cigarette className="w-4 h-4 text-amber-400" aria-hidden="true" />

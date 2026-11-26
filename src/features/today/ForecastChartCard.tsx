@@ -17,6 +17,7 @@ import {
   type BestAirWindow,
   type ForecastDataPoint,
 } from '../../lib/forecast';
+import { CHART_COLORS } from '../../shared/constants';
 
 const ForecastTooltip = ({
   active,
@@ -28,7 +29,7 @@ const ForecastTooltip = ({
   if (!active || !payload?.length) return null;
   const data = payload[0].payload;
   return (
-    <div className="bg-[#0e1626]/95 border border-white/10 rounded-xl p-2.5 shadow-2xl backdrop-blur-xl text-xs space-y-0.5">
+    <div className="bg-surface-popover/95 border border-white/10 rounded-xl p-2.5 shadow-2xl backdrop-blur-xl text-xs space-y-0.5">
       <div className="font-semibold text-slate-200">
         {data.day} · {data.time}
       </div>
@@ -60,7 +61,7 @@ export const ForecastChartCard: React.FC<ForecastChartCardProps> = ({
   const { t } = useTranslation();
 
   return (
-    <GlassCard className="border-white/[0.08] bg-[#121927]/60 p-4">
+    <GlassCard className="border-white/[0.08] bg-surface-chart/60 p-4">
       <div className="flex items-start justify-between gap-2 mb-2">
         <div className="flex items-start gap-2 min-w-0">
           <Calendar className="w-4 h-4 text-teal-400 shrink-0 mt-0.5" aria-hidden="true" />
@@ -110,21 +111,21 @@ export const ForecastChartCard: React.FC<ForecastChartCardProps> = ({
           <AreaChart data={forecastPoints} margin={{ top: 8, right: 10, left: -22, bottom: 0 }}>
             <defs>
               <linearGradient id="forecastAreaGradient" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="5%" stopColor="#2DD4BF" stopOpacity={0.45} />
-                <stop offset="95%" stopColor="#2DD4BF" stopOpacity={0.02} />
+                <stop offset="5%" stopColor={CHART_COLORS.mint} stopOpacity={0.45} />
+                <stop offset="95%" stopColor={CHART_COLORS.mint} stopOpacity={0.02} />
               </linearGradient>
             </defs>
 
             <XAxis
               dataKey="time"
-              stroke="#64748B"
+              stroke={CHART_COLORS.axis}
               fontSize={10}
               tickLine={false}
               axisLine={false}
               interval={7}
             />
             <YAxis
-              stroke="#64748B"
+              stroke={CHART_COLORS.axis}
               fontSize={10}
               tickLine={false}
               axisLine={false}
@@ -136,9 +137,9 @@ export const ForecastChartCard: React.FC<ForecastChartCardProps> = ({
               <ReferenceArea
                 x1={bestWindow.chartStart}
                 x2={bestWindow.chartEnd}
-                fill="#2DD4BF"
+                fill={CHART_COLORS.mint}
                 fillOpacity={0.22}
-                stroke="#2DD4BF"
+                stroke={CHART_COLORS.mint}
                 strokeOpacity={0.6}
                 strokeDasharray="3 3"
               />
@@ -147,11 +148,11 @@ export const ForecastChartCard: React.FC<ForecastChartCardProps> = ({
             <Area
               type="monotone"
               dataKey="pm25"
-              stroke="#2DD4BF"
+              stroke={CHART_COLORS.mint}
               strokeWidth={2}
               fill="url(#forecastAreaGradient)"
               dot={false}
-              activeDot={{ r: 4, fill: '#2DD4BF' }}
+              activeDot={{ r: 4, fill: CHART_COLORS.mint }}
             />
           </AreaChart>
         </ResponsiveContainer>

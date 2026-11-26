@@ -34,7 +34,7 @@ const SuggestionDropdown: React.FC<{
 }> = ({ suggestions, pinColorClass, onSelect }) => {
   if (suggestions.length === 0) return null;
   return (
-    <div className="absolute left-0 right-0 mt-1 z-30 rounded-xl bg-[#0e1626] border border-white/15 shadow-2xl overflow-hidden">
+    <div className="absolute left-0 right-0 mt-1 z-30 rounded-xl bg-surface-popover border border-white/15 shadow-2xl overflow-hidden">
       {suggestions.map((s, idx) => (
         <button
           key={`${s.lat}-${s.lon}-${idx}`}
@@ -149,7 +149,7 @@ const DeparturePresetControl: React.FC<{
             value={customTime}
             onChange={(e) => onCustomTimeChange(e.target.value)}
             aria-label="Custom departure time"
-            className="bg-[#0B0F17] border border-white/15 rounded-lg px-2 py-1 text-xs text-white font-mono focus:outline-none focus:border-teal-400"
+            className="bg-surface-base border border-white/15 rounded-lg px-2 py-1 text-xs text-white font-mono focus:outline-none focus:border-teal-400"
           />
         </div>
       )}

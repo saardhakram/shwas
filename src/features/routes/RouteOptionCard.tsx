@@ -53,8 +53,8 @@ export const RouteOptionCard: React.FC<RouteOptionCardProps> = ({
     <div
       className={`relative rounded-2xl p-3.5 transition-colors space-y-2.5 border ${
         isSelected
-          ? 'bg-[#122531] border-teal-400/60 shadow-lg shadow-teal-500/10'
-          : 'bg-[#131b2c]/95 border-white/[0.1] hover:border-white/25'
+          ? 'bg-surface-selected border-teal-400/60 shadow-lg shadow-teal-500/10'
+          : 'bg-surface-card/95 border-white/[0.1] hover:border-white/25'
       }`}
     >
       <button

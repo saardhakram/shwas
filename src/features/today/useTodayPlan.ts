@@ -12,6 +12,7 @@ import {
   parsePlanCache,
 } from '../../lib/planGenerator';
 import { buildPlanDedupeKey, requestDailyPlanOnce } from '../../lib/planFetcher';
+import { CLIENT_PLAN_TIMEOUT_MS } from '../../shared/constants';
 import { upsertTodayDailySavings } from '../../lib/communityService';
 import type { RawPlanItem, UserProfile } from '../../types';
 
@@ -281,7 +282,7 @@ export function useTodayPlan() {
       profileReady: isProfileReady,
       forecastReady: forecast.isForecastReady,
       dateStr,
-      timeoutMs: 28000,
+      timeoutMs: CLIENT_PLAN_TIMEOUT_MS,
     });
 
     if (!promise) {

@@ -12,6 +12,7 @@ import { calculateFamilyExposure } from '../../lib/cigarettes';
 import { fetchOpenMeteoForecast } from '../../lib/forecast';
 import { buildEnrichedPlan, generateRuleBasedPlan } from '../../lib/planGenerator';
 import { upsertProfile } from '../../lib/supabase';
+import { logger } from '../../lib/logger';
 
 export const POPULAR_CITIES: ProfileLocation[] = [
   { name: 'Delhi NCR', lat: 28.6139, lon: 77.209 },
@@ -213,7 +214,7 @@ export function useOnboarding() {
         );
       }
     } catch (err) {
-      console.warn('City search error:', err);
+      logger.warn('City search error:', err);
     } finally {
       setIsSearching(false);
     }

@@ -1,5 +1,6 @@
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
 import { UserProfile } from '../types';
+import { logger } from './logger';
 
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || 'https://znjiyhfedmnweoycljys.supabase.co';
 const supabasePublishableKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY || '';
@@ -27,7 +28,7 @@ export const supabase: SupabaseClient = createClient(
  */
 export async function initAnonymousAuth() {
   if (!isSupabaseConfigured) {
-    console.info('[Shwas] Supabase publishable key not configured yet; continuing in guest mode.');
+    logger.info('[Shwas] Supabase publishable key not configured yet; continuing in guest mode.');
     return null;
   }
 
@@ -37,7 +38,7 @@ export async function initAnonymousAuth() {
       error: sessionError,
     } = await supabase.auth.getSession();
     if (sessionError) {
-      console.warn('[Shwas] Error fetching session:', sessionError.message);
+      logger.warn('[Shwas] Error fetching session:', sessionError.message);
     }
 
     if (session) {
@@ -46,13 +47,13 @@ export async function initAnonymousAuth() {
 
     const { data, error } = await supabase.auth.signInAnonymously();
     if (error) {
-      console.warn('[Shwas] Anonymous auth notice:', error.message);
+      logger.warn('[Shwas] Anonymous auth notice:', error.message);
       return null;
     }
 
     return data.user;
   } catch (err) {
-    console.warn('[Shwas] Supabase auth initialization handled gracefully:', err);
+    logger.warn('[Shwas] Supabase auth initialization handled gracefully:', err);
     return null;
   }
 }
@@ -80,7 +81,7 @@ export async function upsertProfile(profile: UserProfile): Promise<boolean> {
     }
 
     if (!user?.id) {
-      console.warn('[Shwas] Anonymous user ID not available for profile upsert.');
+      logger.warn('[Shwas] Anonymous user ID not available for profile upsert.');
       return false;
     }
 
@@ -95,13 +96,13 @@ export async function upsertProfile(profile: UserProfile): Promise<boolean> {
     const { error } = await supabase.from('profiles').upsert(payload, { onConflict: 'id' });
 
     if (error) {
-      console.warn('[Shwas] Notice on profile upsert:', error.message);
+      logger.warn('[Shwas] Notice on profile upsert:', error.message);
       return false;
     }
 
     return true;
   } catch (err) {
-    console.warn('[Shwas] Error during profile upsert:', err);
+    logger.warn('[Shwas] Error during profile upsert:', err);
     return false;
   }
 }
@@ -139,7 +140,7 @@ export async function fetchProfile(): Promise<UserProfile | null> {
       localStorage.setItem('shwas_profile', JSON.stringify(profile));
     }
   } catch (err) {
-    console.warn('[Shwas] Notice fetching profile from Supabase:', err);
+    logger.warn('[Shwas] Notice fetching profile from Supabase:', err);
   }
 
   return profile;

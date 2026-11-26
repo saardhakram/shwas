@@ -44,7 +44,7 @@ export const OnboardingPage: React.FC = () => {
               <div
                 className={`h-1.5 w-full rounded-full transition-all duration-300 ${
                   s === ob.step
-                    ? 'bg-teal-400 shadow-[0_0_10px_#2DD4BF]'
+                    ? 'bg-teal-400 shadow-[0_0_10px_theme(colors.mint.DEFAULT)]'
                     : s < ob.step
                       ? 'bg-teal-500/60'
                       : 'bg-white/10'

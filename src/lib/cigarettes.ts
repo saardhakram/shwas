@@ -7,6 +7,9 @@
  */
 
 import { ProfileFamilyMember, ProfileHome } from '../types';
+import { HOURS_PER_DAY, PM25_PER_CIGARETTE_24H } from '../shared/constants';
+
+export { PM25_PER_CIGARETTE_24H };
 
 export interface ExposureSegment {
   place: string;
@@ -21,8 +24,6 @@ export interface HomeCharacteristics {
   cookingFuel: 'lpg' | 'wood' | 'electric' | string;
   windowsShut: boolean;
 }
-
-export const PM25_PER_CIGARETTE_24H = 22;
 
 /**
  * Calculates total cigarettes equivalent for a day across different location segments.
@@ -40,7 +41,7 @@ export function cigarettesForDay(segments: ExposureSegment[]): number {
   const total = segments.reduce((sum, seg) => {
     const hours = Math.max(0, seg.hours || 0);
     const pm25 = Math.max(0, seg.pm25 || 0);
-    const cigs = (pm25 * hours) / (PM25_PER_CIGARETTE_24H * 24);
+    const cigs = (pm25 * hours) / (PM25_PER_CIGARETTE_24H * HOURS_PER_DAY);
     return sum + cigs;
   }, 0);
 

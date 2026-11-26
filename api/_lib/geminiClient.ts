@@ -20,6 +20,12 @@ import type {
   GeminiRequestPart,
 } from './types.js';
 import { getErrorMessage } from './types.js';
+import { serverLogger } from './logger.js';
+import {
+  GEMINI_DEFAULT_BUDGET_MS,
+  GEMINI_DEFAULT_FALLBACK_MODEL,
+  GEMINI_DEFAULT_PRIMARY_MODEL,
+} from '../../src/shared/constants.js';
 
 export interface GeminiCallOptions {
   apiKey: string;
@@ -177,7 +183,7 @@ async function tryPrimaryWithOptionalRetry(ctx: RetryContext): Promise<GeminiCal
     status: res1.status,
     error: (res1.error || '').slice(0, 200),
   });
-  console.warn(
+  serverLogger.warn(
     `[GeminiClient] Call 1 to ${ctx.primaryModel} failed (status: ${res1.status}). Error: ${res1.error}`,
   );
 
@@ -202,7 +208,7 @@ async function tryPrimaryWithOptionalRetry(ctx: RetryContext): Promise<GeminiCal
     status: res503.status,
     error: (res503.error || '').slice(0, 200),
   });
-  console.warn(
+  serverLogger.warn(
     `[GeminiClient] Retry after 503 to ${ctx.primaryModel} failed (status: ${res503.status}). Error: ${res503.error}`,
   );
   return null;
@@ -215,7 +221,7 @@ async function tryFallbackModel(
   if (ctx.getRemainingBudget() <= 1000 || ctx.totalCalls >= 3) return null;
 
   ctx.totalCalls++;
-  console.warn(
+  serverLogger.warn(
     `[GeminiClient] Switching to fallback model: ${fallbackModel} (Call ${ctx.totalCalls})`,
   );
   const rem = ctx.getRemainingBudget();
@@ -229,7 +235,7 @@ async function tryFallbackModel(
     status: fallbackRes.status,
     error: (fallbackRes.error || '').slice(0, 200),
   });
-  console.warn(
+  serverLogger.warn(
     `[GeminiClient] Fallback model ${fallbackModel} failed (status: ${fallbackRes.status}). Error: ${fallbackRes.error}`,
   );
   return null;
@@ -243,12 +249,13 @@ async function tryFallbackModel(
  * - Hard server budget (default 20s; configurable per route e.g. 35s for /api/ask)
  */
 export async function callGeminiWithRetry(options: GeminiCallOptions): Promise<GeminiCallResult> {
-  const primaryModel = options.primaryModel || process.env.GEMINI_MODEL || 'gemini-3.5-flash';
+  const primaryModel =
+    options.primaryModel || process.env.GEMINI_MODEL || GEMINI_DEFAULT_PRIMARY_MODEL;
   const fallbackModel =
-    options.fallbackModel || process.env.GEMINI_FALLBACK_MODEL || 'gemini-3.1-flash-lite';
+    options.fallbackModel || process.env.GEMINI_FALLBACK_MODEL || GEMINI_DEFAULT_FALLBACK_MODEL;
 
   const startTime = Date.now();
-  const totalBudgetMs = options.maxServerBudgetMs ?? 20000;
+  const totalBudgetMs = options.maxServerBudgetMs ?? GEMINI_DEFAULT_BUDGET_MS;
   const hasDistinctFallback = Boolean(fallbackModel && fallbackModel !== primaryModel);
   const fallbackReserveMs = hasDistinctFallback
     ? Math.min(10000, Math.floor(totalBudgetMs * 0.4))

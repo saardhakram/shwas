@@ -61,6 +61,7 @@ def detect_server_today() -> date:
 
 
 def _date_chunks(start: date, end: date, chunk_days: int = 180) -> list[tuple[date, date]]:
+    """Splits an inclusive date range into consecutive chunks of at most `chunk_days` days."""
     chunks: list[tuple[date, date]] = []
     cur = start
     while cur <= end:
@@ -71,6 +72,7 @@ def _date_chunks(start: date, end: date, chunk_days: int = 180) -> list[tuple[da
 
 
 def _request_json(url: str, params: dict, headers: dict | None = None, retries: int = 3) -> dict:
+    """Performs an HTTP GET with simple exponential backoff for transient errors and 429s."""
     last_err: Exception | None = None
     for attempt in range(retries):
         try:
@@ -262,6 +264,7 @@ def fetch_open_meteo_weather(station: StationConfig, start: date, end: date) -> 
 
 
 def collect_all(years: float = 2.5, force: bool = False) -> list[Path]:
+    """Downloads and merges PM2.5 + weather CSVs for all configured Delhi stations."""
     DATA_DIR.mkdir(parents=True, exist_ok=True)
     server_today = detect_server_today()
     end_date = server_today - timedelta(days=2)
@@ -313,6 +316,7 @@ def collect_all(years: float = 2.5, force: bool = False) -> list[Path]:
 
 
 def main() -> None:
+    """CLI entry point for historical data collection."""
     parser = argparse.ArgumentParser(description="Collect Delhi PM2.5 + weather history.")
     parser.add_argument("--years", type=float, default=2.5, help="Years of history (default 2.5)")
     parser.add_argument("--force", action="store_true", help="Re-download even if CSV exists")

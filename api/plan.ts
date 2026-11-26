@@ -7,9 +7,11 @@
  */
 
 import { generateRuleBasedPlan } from '../src/shared/planRules.js';
+import { GEMINI_PLAN_BUDGET_MS, PLAN_CACHE_TTL_MS } from '../src/shared/constants.js';
 import type { UserProfile, RawPlanItem } from '../src/types/index.js';
 import type { ForecastDataPoint } from '../src/shared/forecastWindow.js';
 import { callGeminiWithRetry } from './_lib/geminiClient.js';
+import { serverLogger } from './_lib/logger.js';
 import type { ApiRequest, ApiResponse, GeminiClientError } from './_lib/types.js';
 import { getErrorMessage, isRecord, parseRequestBody } from './_lib/types.js';
 
@@ -20,7 +22,6 @@ interface CacheEntry {
 }
 
 const PLAN_CACHE = new Map<string, CacheEntry>();
-const CACHE_TTL_MS = 6 * 60 * 60 * 1000;
 
 const DEFAULT_PROFILE: UserProfile = {
   language: 'en',
@@ -146,7 +147,7 @@ export async function processPlanRequest(
   const cacheKey = computeCacheKey(profile, new Date().toISOString().slice(0, 10));
 
   const cached = PLAN_CACHE.get(cacheKey);
-  if (cached && Date.now() - cached.timestamp < CACHE_TTL_MS) {
+  if (cached && Date.now() - cached.timestamp < PLAN_CACHE_TTL_MS) {
     return { plan: cached.plan, source: cached.source };
   }
 
@@ -162,7 +163,7 @@ export async function processPlanRequest(
       maxOutputTokens: 900,
       thinkingLevel: 'minimal',
       responseMimeType: 'application/json',
-      maxServerBudgetMs: 25000,
+      maxServerBudgetMs: GEMINI_PLAN_BUDGET_MS,
     });
 
     const validated = parseValidatedPlanItems(geminiResult.text);
@@ -170,7 +171,7 @@ export async function processPlanRequest(
     return { plan: validated, source: 'gemini' };
   } catch (err: unknown) {
     const message = getErrorMessage(err);
-    console.warn(
+    serverLogger.warn(
       `[api/plan] Gemini failure (${formatAttemptDetails(err)}) — falling back to rule-based plan. Error: ${message}`,
     );
     return {

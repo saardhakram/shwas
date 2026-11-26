@@ -19,6 +19,7 @@ from features import (
 
 
 def _make_synthetic_hourly(start: str, periods: int, base_pm25: float = 150.0) -> pd.DataFrame:
+    """Builds a synthetic hourly Delhi station DataFrame for deterministic unit tests."""
     ts = pd.date_range(start=start, periods=periods, freq="1h", tz=IST_TZ)
     hours = np.arange(periods)
     pm25 = base_pm25 + 40.0 * np.sin(2 * np.pi * hours / 24.0) + (hours % 7) * 2.0
@@ -41,7 +42,8 @@ def _make_synthetic_hourly(start: str, periods: int, base_pm25: float = 150.0) -
     )
 
 
-def test_clean_drops_sensor_errors_and_flatlines_over_6h():
+def test_clean_drops_sensor_errors_and_flatlines_over_6h() -> None:
+    """Verifies negative, >999, and >6h flatline readings are masked while <=3h gaps interpolate."""
     df = _make_synthetic_hourly("2024-11-01 00:00:00", periods=48)
     # Inject negative, >999, 8h flatline (>6h -> drop), 4h flatline (<=6h -> keep)
     df.loc[5, "pm25"] = -12.0
@@ -63,7 +65,8 @@ def test_clean_drops_sensor_errors_and_flatlines_over_6h():
     assert (cleaned.loc[25:28, "pm25"] == 111.0).all()
 
 
-def test_mask_flatlines_boundary_6h_vs_7h():
+def test_mask_flatlines_boundary_6h_vs_7h() -> None:
+    """Verifies 6 consecutive identical values stay intact while 7 identical values are masked."""
     s = pd.Series(
         [
             10.0,
@@ -91,7 +94,8 @@ def test_mask_flatlines_boundary_6h_vs_7h():
     assert masked.iloc[8:15].isna().all()
 
 
-def test_features_flags_diwali_stubble_and_lags():
+def test_features_flags_diwali_stubble_and_lags() -> None:
+    """Verifies lag features plus Diwali, stubble season, and weekend calendar indicators."""
     # Diwali 2024 was 2024-10-31 (Thursday); Nov 2 is Saturday (weekend + stubble season)
     df = _make_synthetic_hourly("2024-10-29 00:00:00", periods=120)
     cleaned = clean_station_df(df)
@@ -112,7 +116,8 @@ def test_features_flags_diwali_stubble_and_lags():
     assert (sat_rows["origin_is_weekend"] == 1).all()
 
 
-def test_horizon_dataset_has_no_leakage_and_temporal_split_is_strict():
+def test_horizon_dataset_has_no_leakage_and_temporal_split_is_strict() -> None:
+    """Verifies multi-horizon alignment and strict 48h embargo across train/val/test splits."""
     df = _make_synthetic_hourly("2024-09-01 00:00:00", periods=24 * 60)  # 60 days
     cleaned = clean_station_df(df)
     featured = add_origin_features(cleaned, location_idx=0)
@@ -133,7 +138,8 @@ def test_horizon_dataset_has_no_leakage_and_temporal_split_is_strict():
     assert (val["origin_time"].min() - train["origin_time"].max()) >= pd.Timedelta(hours=48)
 
 
-def test_inference_features_builds_48_horizons():
+def test_inference_features_builds_48_horizons() -> None:
+    """Verifies inference feature generation produces 48 non-NaN horizon rows."""
     hist = clean_station_df(_make_synthetic_hourly("2024-11-10 00:00:00", periods=48))
     future_wx = _make_synthetic_hourly("2024-11-11 00:00:00", periods=72)
     inf_df = build_inference_features(hist, future_wx, location_idx=1)
@@ -142,7 +148,8 @@ def test_inference_features_builds_48_horizons():
     assert not inf_df[FEATURE_COLUMNS].isna().any().any()
 
 
-def test_pm25_to_aqi_category():
+def test_pm25_to_aqi_category() -> None:
+    """Verifies PM2.5 threshold mapping into US AQI category labels."""
     assert pm25_to_aqi_category(10.0) == "Good"
     assert pm25_to_aqi_category(40.0) == "Poor"
     assert pm25_to_aqi_category(200.0) == "Severe"

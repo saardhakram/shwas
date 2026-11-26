@@ -15,6 +15,7 @@ import {
   type PlaceSuggestion,
   type RoutingProvider,
 } from '../../lib/routingService';
+import { logger } from '../../lib/logger';
 
 export type DeparturePreset = 'now' | 'plus1h' | 'custom';
 
@@ -126,7 +127,7 @@ function useRouteEvaluation(params: {
       })
       .catch((err) => {
         if (!active) return;
-        console.warn('[RoutesPage] Failed to compute routes:', err);
+        logger.warn('[RoutesPage] Failed to compute routes:', err);
         setRouteError(
           'Could not load route comparison right now. Please try another destination or retry.',
         );

@@ -36,6 +36,7 @@
  */
 
 import { ProfileHome, UserProfile } from '../types';
+import { PM25_HOURS_PER_CIGARETTE } from '../shared/constants';
 import { estimateIndoorPm25, savingFromAction } from './cigarettes';
 
 export type PollutionSourceId =
@@ -296,8 +297,8 @@ export function computeFixImpact(
   const afterIndoor = Math.max(10, Math.round(baselineIndoor * (1 - reductionFraction)));
 
   // Cigarettes equivalent before and after fix for indoor exposure hours
-  const beforeCigs = (baselineIndoor * indoorHours) / 528;
-  const afterCigs = (afterIndoor * indoorHours) / 528;
+  const beforeCigs = (baselineIndoor * indoorHours) / PM25_HOURS_PER_CIGARETTE;
+  const afterCigs = (afterIndoor * indoorHours) / PM25_HOURS_PER_CIGARETTE;
   const cigsSaved = savingFromAction(beforeCigs, afterCigs);
 
   return {
@@ -333,8 +334,8 @@ function computeMaxIndoorSavings(
     cookingFuel: home?.cookingFuel ?? 'lpg',
     windowsShut: home?.windowsShut ?? true,
   });
-  const baselineIndoorCigs = (baselineIndoor * indoorHours) / 528;
-  const cleanTargetCigs = (15 * indoorHours) / 528;
+  const baselineIndoorCigs = (baselineIndoor * indoorHours) / PM25_HOURS_PER_CIGARETTE;
+  const cleanTargetCigs = (15 * indoorHours) / PM25_HOURS_PER_CIGARETTE;
   return savingFromAction(baselineIndoorCigs, cleanTargetCigs);
 }
 

@@ -13,6 +13,8 @@
  */
 
 import { callGeminiWithRetry } from './_lib/geminiClient.js';
+import { serverLogger } from './_lib/logger.js';
+import { GEMINI_SCAN_BUDGET_MS } from '../src/shared/constants.js';
 import type { ApiRequest, ApiResponse } from './_lib/types.js';
 import { isRecord, parseRequestBody } from './_lib/types.js';
 
@@ -148,7 +150,7 @@ CRITICAL REQUIREMENTS:
       },
       temperature: 0.1,
       responseMimeType: 'application/json',
-      maxServerBudgetMs: 20000,
+      maxServerBudgetMs: GEMINI_SCAN_BUDGET_MS,
     });
 
     const candidateText = geminiResult.text;
@@ -203,7 +205,7 @@ CRITICAL REQUIREMENTS:
       source: 'gemini',
     };
   } catch (err: unknown) {
-    console.error('[api/scan] Failed to scan image:', err);
+    serverLogger.error('[api/scan] Failed to scan image:', err);
     return {
       room: 'other',
       sources: [],

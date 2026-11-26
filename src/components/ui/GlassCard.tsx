@@ -15,10 +15,10 @@ export const GlassCard: React.FC<GlassCardProps> = ({
   ...props
 }) => {
   const variantStyles = {
-    default: 'bg-[#121826]/70 border-white/[0.08] shadow-lg shadow-black/40',
-    mint: 'bg-[#102424]/75 border-teal-500/30 shadow-lg shadow-teal-950/40',
-    danger: 'bg-[#291314]/75 border-red-500/30 shadow-lg shadow-red-950/40',
-    warning: 'bg-[#281b10]/75 border-amber-500/30 shadow-lg shadow-amber-950/40',
+    default: 'bg-surface-panel/70 border-white/[0.08] shadow-lg shadow-black/40',
+    mint: 'bg-surface-mint-card/75 border-teal-500/30 shadow-lg shadow-teal-950/40',
+    danger: 'bg-surface-danger-card/75 border-red-500/30 shadow-lg shadow-red-950/40',
+    warning: 'bg-surface-warning-card/75 border-amber-500/30 shadow-lg shadow-amber-950/40',
     subtle: 'bg-white/[0.03] border-white/[0.05] shadow-md',
   };
 

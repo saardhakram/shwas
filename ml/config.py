@@ -20,6 +20,8 @@ HORIZONS = list(range(1, 49))  # 1..48 hours ahead
 
 @dataclass(frozen=True)
 class StationConfig:
+    """Configuration metadata for a monitored Delhi air quality station."""
+
     id: str
     name: str
     lat: float

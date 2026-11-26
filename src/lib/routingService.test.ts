@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { fetchRoutesForTrip } from './routingService';
+import { logger } from './logger';
 import type { GoogleNamespace, GoogleRoutesComputeRequest } from '../types/maps';
 
 interface TestWindowHolder {
@@ -78,7 +79,7 @@ describe('routingService.ts (Google Routes -> OSRM)', () => {
   });
 
   it('logs at most one warning on Google Routes failure and falls back directly to OSRM (no DirectionsService)', async () => {
-    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    const warnSpy = vi.spyOn(logger, 'warn').mockImplementation(() => {});
     const directionsSpy = vi.fn();
 
     globalHolder.window = {

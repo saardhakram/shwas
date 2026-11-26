@@ -74,7 +74,7 @@ export const LocationStep: React.FC<LocationStepProps> = ({
     </form>
 
     {searchResults.length > 0 && (
-      <div className="bg-[#141C2E] border border-white/10 rounded-xl p-1 space-y-1 shadow-2xl">
+      <div className="bg-surface-elevated border border-white/10 rounded-xl p-1 space-y-1 shadow-2xl">
         {searchResults.map((res, i) => (
           <button
             key={i}

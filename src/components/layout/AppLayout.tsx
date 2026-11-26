@@ -7,6 +7,7 @@ import LanguageSwitcher from '../ui/LanguageSwitcher';
 import FamilyChips, { FamilyMemberOption } from '../ui/FamilyChips';
 import Badge from '../ui/Badge';
 import { initAnonymousAuth } from '../../lib/supabase';
+import { logger } from '../../lib/logger';
 import { UserProfile } from '../../types';
 import { buildFamilyChips, getAtmosphereGradient } from './atmosphere';
 
@@ -48,7 +49,7 @@ function readStoredProfile(): UserProfile | null {
       return JSON.parse(stored) as UserProfile;
     }
   } catch (err) {
-    console.warn('Profile read error:', err);
+    logger.warn('Profile read error:', err);
   }
   return null;
 }
@@ -160,7 +161,7 @@ export const AppLayout: React.FC = () => {
       // ignore warmup errors when offline
     });
     initAnonymousAuth().catch((err) => {
-      console.warn('Anonymous auth init handled:', err);
+      logger.warn('Anonymous auth init handled:', err);
     });
   }, []);
 

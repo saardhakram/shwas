@@ -5,6 +5,7 @@
 import { haversineDistanceKm, type LatLon, type RawRouteGeometry } from './routeExposure';
 import type { NominatimSearchResult, OsrmResponse, OsrmRouteItem } from '../types/maps';
 import type { PlaceSuggestion } from './routingService';
+import { logger } from './logger';
 
 export async function searchNominatimPlaces(
   query: string,
@@ -31,7 +32,7 @@ export async function searchNominatimPlaces(
       };
     });
   } catch (err) {
-    console.warn('[routingService] Nominatim search failed:', err);
+    logger.warn('[routingService] Nominatim search failed:', err);
     return [];
   }
 }

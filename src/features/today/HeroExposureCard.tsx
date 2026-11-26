@@ -26,7 +26,7 @@ export const HeroExposureCard: React.FC<HeroExposureCardProps> = ({
   const { t } = useTranslation();
 
   return (
-    <GlassCard className="relative overflow-hidden py-5 px-4 border-white/[0.1] bg-gradient-to-b from-[#182030]/80 to-[#101624]/90">
+    <GlassCard className="relative overflow-hidden py-5 px-4 border-white/[0.1] bg-gradient-to-b from-surface-hero-top/80 to-surface-hero-bottom/90">
       <div className="flex items-center justify-between gap-2 mb-2">
         <div className="flex items-center gap-1.5 text-xs text-slate-400 font-medium min-w-0">
           <Cigarette className="w-4 h-4 text-amber-400 shrink-0" aria-hidden="true" />

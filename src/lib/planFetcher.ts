@@ -8,6 +8,8 @@
 
 import type { UserProfile, RawPlanItem } from '../types/index.js';
 import type { ForecastDataPoint } from '../shared/forecastWindow.js';
+import { CLIENT_PLAN_TIMEOUT_MS } from '../shared/constants.js';
+import { logger } from './logger.js';
 import { generateRuleBasedPlan, parsePlanCache, serializePlanCache } from './planGenerator.js';
 
 export interface DailyPlanFetchResult {
@@ -109,7 +111,7 @@ async function fetchPlanFromServer(
     return { items, source: resolvedSource, fromCache: false };
   } catch (err) {
     clearTimeout(timer);
-    console.warn('[TodayPage] Plan fetch dropped to rule generator fallback:', err);
+    logger.warn('[TodayPage] Plan fetch dropped to rule generator fallback:', err);
     return { items: generateRuleBasedPlan(profile, forecast), source: 'offline', fromCache: false };
   }
 }
@@ -127,7 +129,7 @@ export function requestDailyPlanOnce(
     profileReady,
     forecastReady,
     dateStr = new Date().toISOString().slice(0, 10),
-    timeoutMs = 28000,
+    timeoutMs = CLIENT_PLAN_TIMEOUT_MS,
     fetchImpl = fetch,
     storage = typeof localStorage !== 'undefined' ? localStorage : null,
   } = params;

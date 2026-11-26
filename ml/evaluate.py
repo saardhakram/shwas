@@ -14,6 +14,7 @@ import json
 from datetime import UTC, datetime
 
 import joblib
+import lightgbm as lgb
 import matplotlib
 
 matplotlib.use("Agg")
@@ -29,6 +30,7 @@ from train import load_all_station_datasets
 
 
 def compute_metrics(y_true: np.ndarray, y_pred: np.ndarray) -> dict[str, float]:
+    """Computes MAE, RMSE, and 6-class US AQI category accuracy percentage."""
     mae = float(mean_absolute_error(y_true, y_pred))
     rmse = float(root_mean_squared_error(y_true, y_pred))
     true_cat = pm25_to_aqi_category(y_true)
@@ -42,6 +44,7 @@ def compute_metrics(y_true: np.ndarray, y_pred: np.ndarray) -> dict[str, float]:
 
 
 def _style_dark_axes(ax: plt.Axes) -> None:
+    """Applies dark-theme colors and grid styling to a Matplotlib Axes object."""
     ax.set_facecolor("#111827")
     ax.tick_params(colors="#CBD5E1", labelsize=9)
     for spine in ax.spines.values():
@@ -115,6 +118,7 @@ def plot_predicted_vs_actual(test_df: pd.DataFrame, preds: np.ndarray) -> None:
 
 
 def plot_error_by_horizon(horizon_df: pd.DataFrame) -> None:
+    """Plots LightGBM vs baseline MAE across forecast horizons 1–48h."""
     fig, ax = plt.subplots(figsize=(9.5, 4.6), facecolor="#0B0F17")
     _style_dark_axes(ax)
     ax.plot(
@@ -155,7 +159,10 @@ def plot_error_by_horizon(horizon_df: pd.DataFrame) -> None:
     plt.close(fig)
 
 
-def plot_shap_importance(model, test_df: pd.DataFrame) -> list[tuple[str, float]]:
+def plot_shap_importance(
+    model: lgb.LGBMRegressor, test_df: pd.DataFrame
+) -> list[tuple[str, float]]:
+    """Computes and plots the top 15 mean absolute SHAP feature importances."""
     sample = test_df[FEATURE_COLUMNS].sample(n=min(1500, len(test_df)), random_state=42)
     explainer = shap.TreeExplainer(model)
     shap_values = explainer.shap_values(sample)
@@ -192,6 +199,7 @@ def plot_shap_importance(model, test_df: pd.DataFrame) -> list[tuple[str, float]
 
 
 def main() -> None:
+    """Evaluates the trained LightGBM model against baselines and writes reports/charts."""
     REPORTS_DIR.mkdir(parents=True, exist_ok=True)
     model_path = MODEL_DIR / "shwas_lgbm.joblib"
     meta_path = MODEL_DIR / "metadata.json"

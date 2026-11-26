@@ -10,15 +10,20 @@
  */
 
 import { isSupabaseConfigured, supabase } from './supabase.js';
+import { logger } from './logger.js';
 import mlMetrics from '../data/mlMetrics.json';
 import { formatHourShort, formatHourFull, computeBestWindow } from '../shared/forecastWindow.js';
 import type { ForecastDataPoint, BestAirWindow } from '../shared/forecastWindow.js';
+import { ML_FORECAST_MAX_AGE_MS, ML_STATION_MAX_DISTANCE_KM } from '../shared/constants.js';
 
-export { formatHourShort, formatHourFull, computeBestWindow };
+export {
+  formatHourShort,
+  formatHourFull,
+  computeBestWindow,
+  ML_FORECAST_MAX_AGE_MS,
+  ML_STATION_MAX_DISTANCE_KM,
+};
 export type { ForecastDataPoint, BestAirWindow };
-
-export const ML_FORECAST_MAX_AGE_MS = 6 * 60 * 60 * 1000; // 6 hours
-export const ML_STATION_MAX_DISTANCE_KM = 60;
 
 export interface SupabaseForecastRow {
   location_id: string;
@@ -157,7 +162,7 @@ export async function fetchOpenMeteoForecast(
 
     return parseOpenMeteoHourly(hourly as OpenMeteoHourlyPayload, new Date());
   } catch (err) {
-    console.warn('[Shwas] Open-Meteo live request failed, using offline fallback:', err);
+    logger.warn('[Shwas] Open-Meteo live request failed, using offline fallback:', err);
     return getOfflineFallbackForecast();
   }
 }
@@ -320,7 +325,7 @@ export async function fetchSmartForecast(
       : null;
     if (mlResult) return mlResult;
   } catch (err) {
-    console.warn('[Shwas] Supabase ML forecast lookup failed, falling back to Open-Meteo:', err);
+    logger.warn('[Shwas] Supabase ML forecast lookup failed, falling back to Open-Meteo:', err);
   }
 
   return fallbackFn(latitude, longitude);

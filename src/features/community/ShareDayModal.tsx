@@ -51,7 +51,7 @@ export const ShareDayModal: React.FC<ShareDayModalProps> = ({
         className="fixed inset-0 bg-black/75 backdrop-blur-sm cursor-default"
       />
 
-      <div className="relative z-10 w-full max-w-sm rounded-2xl bg-[#0e1626] border border-white/15 p-4 space-y-4 shadow-2xl">
+      <div className="relative z-10 w-full max-w-sm rounded-2xl bg-surface-popover border border-white/15 p-4 space-y-4 shadow-2xl">
         <div className="flex items-center justify-between">
           <h3 id="share-day-modal-title" className="text-sm font-bold text-white">
             Share My Day
@@ -68,7 +68,7 @@ export const ShareDayModal: React.FC<ShareDayModalProps> = ({
 
         <div
           ref={shareCardRef}
-          className="rounded-2xl p-5 bg-gradient-to-br from-[#0f292e] via-[#101828] to-[#1e1522] border border-teal-400/40 text-center space-y-3 shadow-xl"
+          className="rounded-2xl p-5 bg-gradient-to-br from-surface-share-from via-surface-share-via to-surface-share-to border border-teal-400/40 text-center space-y-3 shadow-xl"
         >
           <div className="flex items-center justify-center gap-1.5 text-teal-300 text-xs font-bold tracking-wide uppercase">
             <Wind className="w-4 h-4 text-teal-400" aria-hidden="true" />

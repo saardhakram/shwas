@@ -103,6 +103,7 @@ def fetch_live_station_inputs(station: StationConfig) -> tuple[pd.DataFrame, pd.
 
 
 def upsert_forecasts_to_supabase(rows: list[dict], supabase_url: str, service_key: str) -> None:
+    """Upserts predicted forecast rows into Supabase `public.forecasts` via PostgREST."""
     endpoint = f"{supabase_url.rstrip('/')}/rest/v1/forecasts?on_conflict=location_id,horizon_hour"
     headers = {
         "apikey": service_key,
@@ -116,6 +117,7 @@ def upsert_forecasts_to_supabase(rows: list[dict], supabase_url: str, service_ke
 
 
 def run_predictions(dry_run: bool = False) -> list[dict]:
+    """Generates 48h PM2.5 forecasts for all stations and optionally writes them to Supabase."""
     model_path = MODEL_DIR / "shwas_lgbm.joblib"
     meta_path = MODEL_DIR / "metadata.json"
     if not model_path.exists():
@@ -173,6 +175,7 @@ def run_predictions(dry_run: bool = False) -> list[dict]:
 
 
 def main() -> None:
+    """CLI entry point for hourly forecast inference."""
     parser = argparse.ArgumentParser(
         description="Generate 48h ML PM2.5 forecasts and push to Supabase."
     )

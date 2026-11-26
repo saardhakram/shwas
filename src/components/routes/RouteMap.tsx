@@ -14,6 +14,8 @@ import {
   markGoogleMapsAuthFailed,
 } from './googleMapsLoader';
 import { drawGoogleMapOverlays, drawLeafletMapOverlays } from './mapRenderers';
+import { CHART_COLORS } from '../../shared/constants';
+import { logger } from '../../lib/logger';
 
 interface RouteMapProps {
   origin: LatLon;
@@ -112,7 +114,7 @@ export const RouteMap: React.FC<RouteMapProps> = ({
           styles: DARK_GOOGLE_MAP_STYLES,
           disableDefaultUI: true,
           zoomControl: true,
-          backgroundColor: '#0B0F17',
+          backgroundColor: CHART_COLORS.surfaceBase,
         });
       }
 
@@ -127,7 +129,7 @@ export const RouteMap: React.FC<RouteMapProps> = ({
         onSelectRoute,
       });
     } catch (err) {
-      console.warn('[RouteMap] Google Maps runtime error, falling back to Leaflet:', err);
+      logger.warn('[RouteMap] Google Maps runtime error, falling back to Leaflet:', err);
       setProvider('leaflet');
       onMapProviderChange?.('leaflet');
     }
@@ -189,7 +191,7 @@ export const RouteMap: React.FC<RouteMapProps> = ({
 
   return (
     <div
-      className="relative isolate rounded-2xl overflow-hidden border border-white/[0.1] bg-[#0B0F17] shadow-xl"
+      className="relative isolate rounded-2xl overflow-hidden border border-white/[0.1] bg-surface-base shadow-xl"
       style={{ isolation: 'isolate', contain: 'layout paint' }}
     >
       {provider === 'google' ? (
@@ -210,19 +212,19 @@ export const RouteMap: React.FC<RouteMapProps> = ({
         </div>
       )}
 
-      <div className="absolute top-2.5 right-2.5 z-[400] px-2 py-0.5 rounded-full bg-[#0B0F17]/85 border border-white/15 backdrop-blur-md text-[10px] font-mono text-slate-300 pointer-events-none">
+      <div className="absolute top-2.5 right-2.5 z-[400] px-2 py-0.5 rounded-full bg-surface-base/85 border border-white/15 backdrop-blur-md text-[10px] font-mono text-slate-300 pointer-events-none">
         {provider === 'google' ? 'Google Maps' : 'OSM · Leaflet'}
       </div>
 
-      <div className="absolute bottom-2.5 left-2.5 z-[400] flex items-center gap-2.5 px-2.5 py-1 rounded-full bg-[#0B0F17]/85 border border-white/10 backdrop-blur-md text-[10px] text-slate-300 pointer-events-none">
+      <div className="absolute bottom-2.5 left-2.5 z-[400] flex items-center gap-2.5 px-2.5 py-1 rounded-full bg-surface-base/85 border border-white/10 backdrop-blur-md text-[10px] text-slate-300 pointer-events-none">
         <span className="flex items-center gap-1">
-          <span className="w-2 h-2 rounded-full bg-[#2DD4BF]" /> Cleanest
+          <span className="w-2 h-2 rounded-full bg-mint" /> Cleanest
         </span>
         <span className="flex items-center gap-1">
-          <span className="w-2 h-2 rounded-full bg-[#F59E0B]" /> Moderate
+          <span className="w-2 h-2 rounded-full bg-aqi-amber" /> Moderate
         </span>
         <span className="flex items-center gap-1">
-          <span className="w-2 h-2 rounded-full bg-[#EF4444]" /> Highest
+          <span className="w-2 h-2 rounded-full bg-aqi-verypoor" /> Highest
         </span>
       </div>
     </div>

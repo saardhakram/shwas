@@ -72,7 +72,7 @@ export const PlanTimeline: React.FC<PlanTimelineProps> = ({
             onClick={() => onToggleItem(item.id)}
             className={`w-full text-left relative backdrop-blur-xl rounded-2xl border flex items-start gap-3 p-3 cursor-pointer transition-all duration-200 select-none focus:outline-none focus-visible:ring-2 focus-visible:ring-teal-400 ${
               item.completed
-                ? 'bg-[#102424]/75 border-teal-500/40 shadow-sm shadow-teal-500/10'
+                ? 'bg-surface-mint-card/75 border-teal-500/40 shadow-sm shadow-teal-500/10'
                 : 'bg-white/[0.03] border-white/[0.05] shadow-md hover:border-white/15'
             }`}
           >

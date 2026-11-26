@@ -23,6 +23,7 @@ import {
   setActiveCommunityGroup,
 } from '../../lib/communityService';
 import { isSupabaseConfigured, supabase } from '../../lib/supabase';
+import { logger } from '../../lib/logger';
 
 function useShareCard(shareText: string, myTodaySaved: number) {
   const [showShareModal, setShowShareModal] = useState<boolean>(false);
@@ -52,7 +53,7 @@ function useShareCard(shareText: string, myTodaySaved: number) {
           setShareImageUrl(dataUrl);
         }
       } catch (err) {
-        console.warn('[Community] Share card PNG render notice:', err);
+        logger.warn('[Community] Share card PNG render notice:', err);
       } finally {
         setIsGeneratingShare(false);
       }
@@ -135,7 +136,7 @@ function useCommunitySnapshot(activeGroup: CommunityGroup | null) {
       setAlerts(snap.alerts);
       setSnapshotNow(new Date());
     } catch (err) {
-      console.warn('[CommunityPage] Snapshot load error:', err);
+      logger.warn('[CommunityPage] Snapshot load error:', err);
       setLoadError('Could not refresh group data. Showing cached snapshot.');
     } finally {
       setIsLoading(false);

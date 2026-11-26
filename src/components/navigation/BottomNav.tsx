@@ -37,7 +37,7 @@ export const BottomNav: React.FC = () => {
   return (
     <nav
       aria-label="Primary navigation"
-      className="fixed bottom-0 left-0 right-0 z-40 bg-[#0d121c]/95 backdrop-blur-xl border-t border-white/[0.08] shadow-[0_-8px_30px_rgba(0,0,0,0.5)]"
+      className="fixed bottom-0 left-0 right-0 z-40 bg-surface-nav/95 backdrop-blur-xl border-t border-white/[0.08] shadow-[0_-8px_30px_rgba(0,0,0,0.5)]"
     >
       <div className="max-w-md mx-auto px-2 py-2 flex items-center justify-around">
         {navItems.map((item) => {
@@ -68,7 +68,7 @@ export const BottomNav: React.FC = () => {
                     {isActive && (
                       <span
                         aria-hidden="true"
-                        className="absolute -top-0.5 -right-0.5 w-1.5 h-1.5 rounded-full bg-teal-400 shadow-[0_0_8px_#2DD4BF]"
+                        className="absolute -top-0.5 -right-0.5 w-1.5 h-1.5 rounded-full bg-teal-400 shadow-[0_0_8px_theme(colors.mint.DEFAULT)]"
                       />
                     )}
                   </div>

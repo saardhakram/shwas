@@ -6,6 +6,8 @@
  */
 
 import { callGeminiWithRetry } from './_lib/geminiClient.js';
+import { serverLogger } from './_lib/logger.js';
+import { GEMINI_ASK_BUDGET_MS, PM25_HOURS_PER_CIGARETTE } from '../src/shared/constants.js';
 import type { ApiRequest, ApiResponse } from './_lib/types.js';
 import { getErrorMessage, isRecord, parseRequestBody } from './_lib/types.js';
 import type { UserProfile, RawPlanItem } from '../src/types/index.js';
@@ -114,7 +116,7 @@ export function buildTimeMiniCard(
   const matched = forecast.find((pt) => pt.hour === targetHour);
   const pm25 = Math.round(matched?.pm25 ?? currentPm25 ?? 150);
   const aqi = Math.round(matched?.usAqi ?? matched?.aqi ?? currentAqi ?? 180);
-  const cigarettes = Number(((Math.max(0, pm25) * hours) / 528).toFixed(2));
+  const cigarettes = Number(((Math.max(0, pm25) * hours) / PM25_HOURS_PER_CIGARETTE).toFixed(2));
 
   return {
     timeLabel: timeMentioned?.trim() || formatHour12(targetHour),
@@ -359,7 +361,7 @@ export async function processAskRequest(
       maxOutputTokens: 500,
       thinkingLevel: 'minimal',
       responseMimeType: 'application/json',
-      maxServerBudgetMs: 35000,
+      maxServerBudgetMs: GEMINI_ASK_BUDGET_MS,
     });
 
     const parsed = parseGeminiAskReply(geminiRes.text, question);
@@ -381,7 +383,7 @@ export async function processAskRequest(
     };
   } catch (err: unknown) {
     const message = getErrorMessage(err);
-    console.warn('[api/ask] Gemini request failed:', message);
+    serverLogger.warn('[api/ask] Gemini request failed:', message);
     return {
       answer: getFriendlyFallbackMessage(language),
       source: 'offline',

@@ -4,6 +4,7 @@ import { useAirQuality } from '../../components/layout/AppLayout';
 import { resizeImageForUpload } from '../../lib/imageUtils';
 import { computeScanResults, type ComputedFix, type DetectedSource } from '../../lib/fixes';
 import { parsePlanCache, serializePlanCache } from '../../lib/planGenerator';
+import { logger } from '../../lib/logger';
 import type { RawPlanItem } from '../../types';
 
 const OFFLINE_DEMO_SOURCES: DetectedSource[] = [
@@ -97,7 +98,7 @@ export function useRoomScan() {
       if (!res.ok) throw new Error(`Scan server error: ${res.status}`);
       applyScanData((await res.json()) as ScanApiResponse);
     } catch (err: unknown) {
-      console.error('[ScanPage error]:', err);
+      logger.error('[ScanPage error]:', err);
       setErrorMessage('Could not analyze image. Please try again.');
       setScanSource('offline');
     } finally {
@@ -129,7 +130,7 @@ export function useRoomScan() {
 
       setAddedFixIds((prev) => ({ ...prev, [fix.id]: true }));
     } catch (e) {
-      console.error('Failed to add fix to plan:', e);
+      logger.error('Failed to add fix to plan:', e);
     }
   };
 

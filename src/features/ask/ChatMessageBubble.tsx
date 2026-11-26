@@ -38,7 +38,7 @@ export const ChatMessageBubble: React.FC<ChatMessageBubbleProps> = ({ message })
         <p className="whitespace-pre-wrap">{message.text}</p>
 
         {!isUser && message.miniCard && (
-          <div className="mt-2 p-2.5 rounded-xl bg-[#0B0F17]/75 border border-white/[0.1] space-y-1.5">
+          <div className="mt-2 p-2.5 rounded-xl bg-surface-base/75 border border-white/[0.1] space-y-1.5">
             <div className="flex items-center justify-between gap-2 text-[10px] text-slate-400">
               <span className="flex items-center gap-1 font-semibold text-slate-200">
                 <Clock className="w-3 h-3 text-teal-400" aria-hidden="true" />

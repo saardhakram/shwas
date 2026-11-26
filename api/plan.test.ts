@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { processPlanRequest, clearPlanCacheForTesting } from './plan.js';
+import { serverLogger } from './_lib/logger.js';
 import type { UserProfile } from '../src/types/index.js';
 import type { GeminiGenerateContentRequest } from './_lib/types.js';
 
@@ -220,7 +221,7 @@ describe('Serverless Plan API (/api/plan)', () => {
   });
 
   it('logs status and error body on non-200 response and returns fallback plan', async () => {
-    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    const warnSpy = vi.spyOn(serverLogger, 'warn').mockImplementation(() => {});
 
     globalThis.fetch = vi.fn().mockImplementation(async () => {
       return {

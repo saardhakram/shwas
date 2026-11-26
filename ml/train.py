@@ -127,6 +127,7 @@ def tune_and_train(
 
 
 def main() -> None:
+    """Trains, validates, and serializes the best LightGBM model and split metadata."""
     MODEL_DIR.mkdir(parents=True, exist_ok=True)
 
     # Use 2h origin stride so 3 stations x 2.5y x 48h stays compact (~750k rows) and trains <60s

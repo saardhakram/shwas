@@ -84,7 +84,7 @@ export const CommunityPage: React.FC = () => {
 
       <GlassCard
         variant="mint"
-        className="p-5 text-center space-y-3 bg-gradient-to-b from-teal-950/50 to-[#0f172a]/85 border-teal-400/30"
+        className="p-5 text-center space-y-3 bg-gradient-to-b from-teal-950/50 to-surface-slate-deep/85 border-teal-400/30"
       >
         <div className="text-[11px] uppercase tracking-wider font-semibold text-teal-300">
           Collective Impact

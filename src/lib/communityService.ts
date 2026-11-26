@@ -7,6 +7,7 @@
  */
 
 import { isSupabaseConfigured, supabase, initAnonymousAuth } from './supabase';
+import { logger } from './logger';
 import {
   AlertType,
   CommunityAlert,
@@ -86,7 +87,7 @@ export async function createCommunityGroup(
           );
       }
     } catch (err) {
-      console.warn('[Community] Supabase createGroup fell back to local:', err);
+      logger.warn('[Community] Supabase createGroup fell back to local:', err);
     }
   }
 
@@ -142,7 +143,7 @@ async function joinViaSupabaseRpc(
       return { group: null, notFound: true };
     }
   } catch (err) {
-    console.warn('[Community] Supabase join_group_by_code RPC notice:', err);
+    logger.warn('[Community] Supabase join_group_by_code RPC notice:', err);
   }
   return { group: null };
 }
@@ -230,7 +231,7 @@ export async function loadCommunitySnapshot(group: CommunityGroup): Promise<{
         return { members, savings, alerts };
       }
     } catch (err) {
-      console.warn('[Community] Snapshot fallback to local store:', err);
+      logger.warn('[Community] Snapshot fallback to local store:', err);
     }
   }
 
@@ -298,7 +299,7 @@ export async function upsertTodayDailySavings(
         { onConflict: 'user_id,group_id,day' },
       );
     } catch (err) {
-      console.warn('[Community] daily_savings Supabase upsert notice:', err);
+      logger.warn('[Community] daily_savings Supabase upsert notice:', err);
     }
   }
 }
@@ -338,7 +339,7 @@ export async function reportLocalAlert(
         savedAlert = data as CommunityAlert;
       }
     } catch (err) {
-      console.warn('[Community] Supabase reportAlert fell back to local:', err);
+      logger.warn('[Community] Supabase reportAlert fell back to local:', err);
     }
   }
 

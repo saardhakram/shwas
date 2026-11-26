@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next';
 import { useAirQuality } from '../../components/layout/AppLayout';
 import { fetchSmartForecast, type ForecastDataPoint } from '../../lib/forecast';
 import { parsePlanCache } from '../../lib/planGenerator';
+import { CLIENT_ASK_TIMEOUT_MS } from '../../shared/constants';
 import type { RawPlanItem, UserProfile } from '../../types';
 import type { SpeechRecognitionInstance, SpeechRecognitionResultEvent } from '../../types/maps';
 import {
@@ -188,7 +189,7 @@ export function useAskShwas() {
 
     const stillThinkingTimer = setTimeout(() => setIsStillThinking(true), 8000);
     const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 40000);
+    const timeout = setTimeout(() => controller.abort(), CLIENT_ASK_TIMEOUT_MS);
 
     try {
       const data = await postAskApi({

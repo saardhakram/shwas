@@ -92,7 +92,7 @@ export const LocalAlertsCard: React.FC<LocalAlertsCardProps> = ({
             placeholder="Where is it? e.g. Near Block C park gate"
             aria-label="Alert location and details"
             maxLength={240}
-            className="w-full bg-[#0B0F17]/80 border border-white/[0.12] rounded-xl px-3 py-2 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-amber-400/50"
+            className="w-full bg-surface-base/80 border border-white/[0.12] rounded-xl px-3 py-2 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-amber-400/50"
           />
 
           <button
