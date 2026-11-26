@@ -12,6 +12,7 @@ import { calculateFamilyExposure } from '../../lib/cigarettes';
 import { fetchOpenMeteoForecast } from '../../lib/forecast';
 import { buildEnrichedPlan, generateRuleBasedPlan } from '../../lib/planGenerator';
 import { upsertProfile } from '../../lib/supabase';
+import { STORAGE_KEYS, storage } from '../../lib/storage';
 import { logger } from '../../lib/logger';
 
 export const POPULAR_CITIES: ProfileLocation[] = [
@@ -184,7 +185,7 @@ export function useOnboarding() {
   const handleSelectLanguage = (code: string) => {
     setLanguage(code);
     i18n.changeLanguage(code);
-    localStorage.setItem('shwas_lang', code);
+    storage.setItem(STORAGE_KEYS.LANGUAGE, code);
   };
 
   const handleUseMyLocation = () => {

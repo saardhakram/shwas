@@ -10,6 +10,7 @@ import type { UserProfile, RawPlanItem } from '../types/index.js';
 import type { ForecastDataPoint } from '../shared/forecastWindow.js';
 import { CLIENT_PLAN_TIMEOUT_MS } from '../shared/constants.js';
 import { logger } from './logger.js';
+import { STORAGE_KEYS, storage as defaultStorage } from './storage.js';
 import { generateRuleBasedPlan, parsePlanCache, serializePlanCache } from './planGenerator.js';
 
 export interface DailyPlanFetchResult {
@@ -131,7 +132,7 @@ export function requestDailyPlanOnce(
     dateStr = new Date().toISOString().slice(0, 10),
     timeoutMs = CLIENT_PLAN_TIMEOUT_MS,
     fetchImpl = fetch,
-    storage = typeof localStorage !== 'undefined' ? localStorage : null,
+    storage = defaultStorage,
   } = params;
 
   if (!profileReady || !forecastReady) return null;
@@ -141,7 +142,7 @@ export function requestDailyPlanOnce(
     profile.location?.name || 'city',
     dateStr,
   );
-  const cacheKey = `shwas_plan_${dedupeKey}`;
+  const cacheKey = STORAGE_KEYS.planCache(dedupeKey);
 
   const cachedHit = readCachedGeminiPlan(storage, cacheKey);
   if (cachedHit) {

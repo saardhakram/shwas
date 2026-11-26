@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next';
 import { useAirQuality } from '../../components/layout/AppLayout';
 import { fetchSmartForecast, type ForecastDataPoint } from '../../lib/forecast';
 import { parsePlanCache } from '../../lib/planGenerator';
+import { STORAGE_KEYS, storage } from '../../lib/storage';
 import { CLIENT_ASK_TIMEOUT_MS } from '../../shared/constants';
 import type { RawPlanItem, UserProfile } from '../../types';
 import type { SpeechRecognitionInstance, SpeechRecognitionResultEvent } from '../../types/maps';
@@ -21,13 +22,11 @@ const WELCOME_MESSAGE: ChatMessage = {
 };
 
 function readCachedTodayPlan(lang: string, locName: string): RawPlanItem[] {
-  try {
-    const dateStr = new Date().toISOString().slice(0, 10);
-    const cached = parsePlanCache(localStorage.getItem(`shwas_plan_${dateStr}_${lang}_${locName}`));
-    return cached?.items?.length ? cached.items : [];
-  } catch {
-    return [];
-  }
+  const dateStr = new Date().toISOString().slice(0, 10);
+  const cached = parsePlanCache(
+    storage.getItem(STORAGE_KEYS.planCache(`${dateStr}_${lang}_${locName}`)),
+  );
+  return cached?.items?.length ? cached.items : [];
 }
 
 interface AskApiResult {

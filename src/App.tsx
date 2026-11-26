@@ -7,14 +7,15 @@ import RoutesPage from './pages/RoutesPage';
 import CommunityPage from './pages/CommunityPage';
 import AskPage from './pages/AskPage';
 import OnboardingPage from './pages/OnboardingPage';
+import { STORAGE_KEYS, storage } from './lib/storage';
 
 /**
  * Root route redirect handler:
- * If a profile exists in localStorage, redirect to /today;
+ * If a profile exists in storage, redirect to /today;
  * otherwise redirect to /onboarding for first-time profile creation.
  */
 const RootRedirect: React.FC = () => {
-  const profileRaw = localStorage.getItem('shwas_profile');
+  const profileRaw = storage.getItem(STORAGE_KEYS.PROFILE);
   const hasProfile = Boolean(profileRaw);
 
   return hasProfile ? <Navigate to="/today" replace /> : <Navigate to="/onboarding" replace />;

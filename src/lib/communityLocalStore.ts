@@ -3,10 +3,7 @@
  */
 
 import type { CommunityAlert, CommunityGroup, CommunityMember, DailySavingRow } from './community';
-
-const ACTIVE_GROUP_KEY = 'shwas_community_active_group';
-const LOCAL_STORE_KEY = 'shwas_community_local_store';
-const LOCAL_USER_ID_KEY = 'shwas_local_user_id';
+import { STORAGE_KEYS, storage } from './storage';
 
 export interface LocalCommunityStore {
   groups: Record<string, CommunityGroup>;
@@ -16,61 +13,43 @@ export interface LocalCommunityStore {
 }
 
 export function readLocalStore(): LocalCommunityStore {
-  try {
-    const raw = localStorage.getItem(LOCAL_STORE_KEY);
-    if (raw) {
-      const parsed = JSON.parse(raw);
-      return {
-        groups: parsed.groups || {},
-        members: parsed.members || {},
-        savings: parsed.savings || {},
-        alerts: parsed.alerts || {},
-      };
-    }
-  } catch {
-    // ignore corrupted local store
+  const parsed = storage.getJson<Partial<LocalCommunityStore>>(STORAGE_KEYS.COMMUNITY_LOCAL_STORE);
+  if (parsed) {
+    return {
+      groups: parsed.groups || {},
+      members: parsed.members || {},
+      savings: parsed.savings || {},
+      alerts: parsed.alerts || {},
+    };
   }
   return { groups: {}, members: {}, savings: {}, alerts: {} };
 }
 
 export function writeLocalStore(store: LocalCommunityStore): void {
-  try {
-    localStorage.setItem(LOCAL_STORE_KEY, JSON.stringify(store));
-  } catch {
-    // ignore storage quota errors
-  }
+  storage.setJson(STORAGE_KEYS.COMMUNITY_LOCAL_STORE, store);
 }
 
 export function getOrCreateLocalUserId(): string {
-  let localId = localStorage.getItem(LOCAL_USER_ID_KEY);
+  let localId = storage.getItem(STORAGE_KEYS.LOCAL_USER_ID);
   if (!localId) {
     localId =
       typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function'
         ? crypto.randomUUID()
         : `local_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
-    localStorage.setItem(LOCAL_USER_ID_KEY, localId);
+    storage.setItem(STORAGE_KEYS.LOCAL_USER_ID, localId);
   }
   return localId;
 }
 
 export function getActiveCommunityGroup(): CommunityGroup | null {
-  try {
-    const raw = localStorage.getItem(ACTIVE_GROUP_KEY);
-    return raw ? (JSON.parse(raw) as CommunityGroup) : null;
-  } catch {
-    return null;
-  }
+  return storage.getJson<CommunityGroup>(STORAGE_KEYS.COMMUNITY_ACTIVE_GROUP);
 }
 
 export function setActiveCommunityGroup(group: CommunityGroup | null): void {
-  try {
-    if (!group) {
-      localStorage.removeItem(ACTIVE_GROUP_KEY);
-    } else {
-      localStorage.setItem(ACTIVE_GROUP_KEY, JSON.stringify(group));
-    }
-  } catch {
-    // ignore
+  if (!group) {
+    storage.removeItem(STORAGE_KEYS.COMMUNITY_ACTIVE_GROUP);
+  } else {
+    storage.setJson(STORAGE_KEYS.COMMUNITY_ACTIVE_GROUP, group);
   }
 }
 

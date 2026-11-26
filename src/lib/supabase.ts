@@ -1,6 +1,7 @@
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
 import { UserProfile } from '../types';
 import { logger } from './logger';
+import { STORAGE_KEYS, storage } from './storage';
 
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || 'https://znjiyhfedmnweoycljys.supabase.co';
 const supabasePublishableKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY || '';
@@ -63,8 +64,8 @@ export async function initAnonymousAuth() {
  * columns: id (uuid = auth user id), language (text), location (jsonb), family (jsonb), home (jsonb)
  */
 export async function upsertProfile(profile: UserProfile): Promise<boolean> {
-  // Always persist to localStorage first so app state works offline and synchronously
-  localStorage.setItem('shwas_profile', JSON.stringify({ ...profile, onboardingCompleted: true }));
+  // Always persist to storage first so app state works offline and synchronously
+  storage.setJson(STORAGE_KEYS.PROFILE, { ...profile, onboardingCompleted: true });
   if (typeof window !== 'undefined') {
     window.dispatchEvent(new Event('shwas-profile-updated'));
   }
@@ -111,8 +112,7 @@ export async function upsertProfile(profile: UserProfile): Promise<boolean> {
  * Fetches the user profile from Supabase or localStorage fallback
  */
 export async function fetchProfile(): Promise<UserProfile | null> {
-  const local = localStorage.getItem('shwas_profile');
-  let profile: UserProfile | null = local ? JSON.parse(local) : null;
+  let profile: UserProfile | null = storage.getJson<UserProfile>(STORAGE_KEYS.PROFILE);
 
   if (!isSupabaseConfigured) {
     return profile;
@@ -137,7 +137,7 @@ export async function fetchProfile(): Promise<UserProfile | null> {
         home: data.home,
         onboardingCompleted: true,
       };
-      localStorage.setItem('shwas_profile', JSON.stringify(profile));
+      storage.setJson(STORAGE_KEYS.PROFILE, profile);
     }
   } catch (err) {
     logger.warn('[Shwas] Notice fetching profile from Supabase:', err);

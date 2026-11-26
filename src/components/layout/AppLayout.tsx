@@ -8,6 +8,7 @@ import FamilyChips, { FamilyMemberOption } from '../ui/FamilyChips';
 import Badge from '../ui/Badge';
 import { initAnonymousAuth } from '../../lib/supabase';
 import { logger } from '../../lib/logger';
+import { STORAGE_KEYS, storage } from '../../lib/storage';
 import { UserProfile } from '../../types';
 import { buildFamilyChips, getAtmosphereGradient } from './atmosphere';
 
@@ -42,16 +43,7 @@ const AirQualityContext = createContext<AirQualityContextType>({
 export const useAirQuality = () => useContext(AirQualityContext);
 
 function readStoredProfile(): UserProfile | null {
-  try {
-    if (typeof localStorage === 'undefined') return null;
-    const stored = localStorage.getItem('shwas_profile');
-    if (stored) {
-      return JSON.parse(stored) as UserProfile;
-    }
-  } catch (err) {
-    logger.warn('Profile read error:', err);
-  }
-  return null;
+  return storage.getJson<UserProfile>(STORAGE_KEYS.PROFILE);
 }
 
 const AppHeader: React.FC<{

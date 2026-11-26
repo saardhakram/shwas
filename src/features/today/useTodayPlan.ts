@@ -12,6 +12,7 @@ import {
   parsePlanCache,
 } from '../../lib/planGenerator';
 import { buildPlanDedupeKey, requestDailyPlanOnce } from '../../lib/planFetcher';
+import { STORAGE_KEYS, storage } from '../../lib/storage';
 import { CLIENT_PLAN_TIMEOUT_MS } from '../../shared/constants';
 import { upsertTodayDailySavings } from '../../lib/communityService';
 import type { RawPlanItem, UserProfile } from '../../types';
@@ -53,12 +54,7 @@ const FALLBACK_PROFILE: UserProfile = {
 };
 
 function readCompletedMap(dateStr: string): Record<string, boolean> {
-  try {
-    const raw = localStorage.getItem(`shwas_plan_completed_${dateStr}`);
-    return raw ? (JSON.parse(raw) as Record<string, boolean>) : {};
-  } catch {
-    return {};
-  }
+  return storage.getJson<Record<string, boolean>>(STORAGE_KEYS.planCompleted(dateStr)) ?? {};
 }
 
 function getInitialPlanState(
@@ -71,18 +67,14 @@ function getInitialPlanState(
     profile.location?.name || 'city',
     dateStr,
   );
-  try {
-    const cached = parsePlanCache(localStorage.getItem(`shwas_plan_${dedupeKey}`));
-    if (cached && cached.items.length >= 5) {
-      return {
-        items: cached.items,
-        source: cached.source,
-        isLoading: cached.source !== 'gemini',
-        cachedKey: cached.source === 'gemini' ? dedupeKey : null,
-      };
-    }
-  } catch {
-    // ignore storage errors
+  const cached = parsePlanCache(storage.getItem(STORAGE_KEYS.planCache(dedupeKey)));
+  if (cached && cached.items.length >= 5) {
+    return {
+      items: cached.items,
+      source: cached.source,
+      isLoading: cached.source !== 'gemini',
+      cachedKey: cached.source === 'gemini' ? dedupeKey : null,
+    };
   }
   return {
     items: generateRuleBasedPlan(profile, initialForecast),
@@ -255,7 +247,7 @@ export function useTodayPlan() {
     let active = true;
     const dateStr = new Date().toISOString().slice(0, 10);
     const dedupeKey = buildPlanDedupeKey(planLang, planLocName, dateStr);
-    const cachedEntry = parsePlanCache(localStorage.getItem(`shwas_plan_${dedupeKey}`));
+    const cachedEntry = parsePlanCache(storage.getItem(STORAGE_KEYS.planCache(dedupeKey)));
 
     if (cachedEntry?.source === 'gemini' && cachedEntry.items.length >= 5) {
       requestedPlanKeyRef.current = dedupeKey;
@@ -310,7 +302,7 @@ export function useTodayPlan() {
       const updated = { ...prev, [id]: !prev[id] };
       if (!updated[id]) delete updated[id];
       const dateStr = new Date().toISOString().slice(0, 10);
-      localStorage.setItem(`shwas_plan_completed_${dateStr}`, JSON.stringify(updated));
+      storage.setJson(STORAGE_KEYS.planCompleted(dateStr), updated);
       return updated;
     });
   };

@@ -4,6 +4,7 @@ import { useAirQuality } from '../../components/layout/AppLayout';
 import { resizeImageForUpload } from '../../lib/imageUtils';
 import { computeScanResults, type ComputedFix, type DetectedSource } from '../../lib/fixes';
 import { parsePlanCache, serializePlanCache } from '../../lib/planGenerator';
+import { STORAGE_KEYS, storage } from '../../lib/storage';
 import { logger } from '../../lib/logger';
 import type { RawPlanItem } from '../../types';
 
@@ -114,7 +115,7 @@ export function useRoomScan() {
       const dateStr = new Date().toISOString().slice(0, 10);
       const lang = userProfile?.language || 'en';
       const loc = userProfile?.location?.name || 'city';
-      const cacheKey = `shwas_plan_${dateStr}_${lang}_${loc}`;
+      const cacheKey = STORAGE_KEYS.planCache(`${dateStr}_${lang}_${loc}`);
 
       const newPlanItem: RawPlanItem = {
         time: 'Immediate',
@@ -126,10 +127,10 @@ export function useRoomScan() {
         after_pm25: fix.afterPm25,
       };
 
-      const existingCache = parsePlanCache(localStorage.getItem(cacheKey));
+      const existingCache = parsePlanCache(storage.getItem(cacheKey));
       const list: RawPlanItem[] = [newPlanItem, ...(existingCache?.items || [])];
       const preservedSource = existingCache?.source || 'offline';
-      localStorage.setItem(cacheKey, serializePlanCache(preservedSource, list));
+      storage.setItem(cacheKey, serializePlanCache(preservedSource, list));
 
       setAddedFixIds((prev) => ({ ...prev, [fix.id]: true }));
     } catch (e) {

@@ -1,6 +1,8 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Globe, ChevronDown, Check } from 'lucide-react';
+import { STORAGE_KEYS, storage } from '../../lib/storage';
+import type { UserProfile } from '../../types';
 
 export const LANGUAGES = [
   { code: 'en', label: 'English', native: 'English' },
@@ -39,17 +41,12 @@ export const LanguageSwitcher: React.FC<{ className?: string }> = ({ className =
 
   const handleSelect = (code: string) => {
     i18n.changeLanguage(code);
-    localStorage.setItem('shwas_lang', code);
+    storage.setItem(STORAGE_KEYS.LANGUAGE, code);
     // Keep saved profile language in sync so Gemini replies match selected language
-    try {
-      const stored = localStorage.getItem('shwas_profile');
-      if (stored) {
-        const parsed = JSON.parse(stored);
-        localStorage.setItem('shwas_profile', JSON.stringify({ ...parsed, language: code }));
-        window.dispatchEvent(new Event('shwas-profile-updated'));
-      }
-    } catch {
-      // ignore storage errors
+    const stored = storage.getJson<UserProfile>(STORAGE_KEYS.PROFILE);
+    if (stored) {
+      storage.setJson(STORAGE_KEYS.PROFILE, { ...stored, language: code });
+      window.dispatchEvent(new Event('shwas-profile-updated'));
     }
     setIsOpen(false);
   };

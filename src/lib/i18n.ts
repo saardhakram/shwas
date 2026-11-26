@@ -6,6 +6,7 @@ import teTranslation from '../locales/te.json';
 import taTranslation from '../locales/ta.json';
 import bnTranslation from '../locales/bn.json';
 import mrTranslation from '../locales/mr.json';
+import { STORAGE_KEYS, storage } from './storage';
 
 const resources = {
   en: { translation: enTranslation },
@@ -16,8 +17,7 @@ const resources = {
   mr: { translation: mrTranslation },
 };
 
-const savedLanguage =
-  typeof window !== 'undefined' ? localStorage.getItem('shwas_lang') || 'en' : 'en';
+const savedLanguage = storage.getItem(STORAGE_KEYS.LANGUAGE) || 'en';
 
 function syncDocumentLang(lang: string): void {
   if (typeof document !== 'undefined') {
