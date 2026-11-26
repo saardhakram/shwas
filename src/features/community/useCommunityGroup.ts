@@ -121,6 +121,7 @@ function useCommunitySnapshot(activeGroup: CommunityGroup | null) {
   const [members, setMembers] = useState<CommunityMember[]>([]);
   const [savings, setSavings] = useState<DailySavingRow[]>([]);
   const [alerts, setAlerts] = useState<CommunityAlert[]>([]);
+  const [snapshotNow, setSnapshotNow] = useState<Date>(() => new Date());
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [loadError, setLoadError] = useState<string | null>(null);
 
@@ -132,6 +133,7 @@ function useCommunitySnapshot(activeGroup: CommunityGroup | null) {
       setMembers(snap.members);
       setSavings(snap.savings);
       setAlerts(snap.alerts);
+      setSnapshotNow(new Date());
     } catch (err) {
       console.warn('[CommunityPage] Snapshot load error:', err);
       setLoadError('Could not refresh group data. Showing cached snapshot.');
@@ -142,9 +144,16 @@ function useCommunitySnapshot(activeGroup: CommunityGroup | null) {
 
   useEffect(() => {
     if (!activeGroup) return;
-    refreshSnapshot(activeGroup);
+    let active = true;
+    Promise.resolve().then(() => {
+      if (active) refreshSnapshot(activeGroup);
+    });
 
-    if (!isSupabaseConfigured || activeGroup.id.startsWith('demo-')) return;
+    if (!isSupabaseConfigured || activeGroup.id.startsWith('demo-')) {
+      return () => {
+        active = false;
+      };
+    }
 
     const channel = supabase
       .channel(`community_${activeGroup.id}`)
@@ -166,6 +175,7 @@ function useCommunitySnapshot(activeGroup: CommunityGroup | null) {
       .subscribe();
 
     return () => {
+      active = false;
       supabase.removeChannel(channel);
     };
   }, [activeGroup, refreshSnapshot]);
@@ -176,7 +186,7 @@ function useCommunitySnapshot(activeGroup: CommunityGroup | null) {
     setAlerts([]);
   };
 
-  return { members, savings, alerts, setAlerts, isLoading, loadError, clearSnapshot };
+  return { members, savings, alerts, snapshotNow, setAlerts, isLoading, loadError, clearSnapshot };
 }
 
 export function useCommunityGroup() {
@@ -211,8 +221,8 @@ export function useCommunityGroup() {
   }, []);
 
   const weeklyStats = useMemo(
-    () => aggregateWeeklyCommunityStats(snapshot.members, snapshot.savings, new Date()),
-    [snapshot.members, snapshot.savings],
+    () => aggregateWeeklyCommunityStats(snapshot.members, snapshot.savings, snapshot.snapshotNow),
+    [snapshot.members, snapshot.savings, snapshot.snapshotNow],
   );
 
   const myTodaySaved = useMemo(() => {

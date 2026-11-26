@@ -60,21 +60,55 @@ function readCompletedMap(dateStr: string): Record<string, boolean> {
   }
 }
 
+function getInitialPlanState(
+  profile: UserProfile,
+  initialForecast: ForecastDataPoint[],
+): { items: RawPlanItem[]; source: string; isLoading: boolean; cachedKey: string | null } {
+  const dateStr = new Date().toISOString().slice(0, 10);
+  const dedupeKey = buildPlanDedupeKey(
+    profile.language || 'en',
+    profile.location?.name || 'city',
+    dateStr,
+  );
+  try {
+    const cached = parsePlanCache(localStorage.getItem(`shwas_plan_${dedupeKey}`));
+    if (cached && cached.items.length >= 5) {
+      return {
+        items: cached.items,
+        source: cached.source,
+        isLoading: cached.source !== 'gemini',
+        cachedKey: cached.source === 'gemini' ? dedupeKey : null,
+      };
+    }
+  } catch {
+    // ignore storage errors
+  }
+  return {
+    items: generateRuleBasedPlan(profile, initialForecast),
+    source: 'loading',
+    isLoading: true,
+    cachedKey: null,
+  };
+}
+
 export function useAnimatedNumber(target: number, resetKey: number, duration = 300): number {
   const [state, setState] = useState({ value: target, resetKey });
   const currentRef = useRef(target);
 
   useEffect(() => {
+    let animationFrameId: number;
+
     if (state.resetKey !== resetKey || Math.abs(target - currentRef.current) < 0.01) {
-      currentRef.current = target;
-      setState({ value: target, resetKey });
-      return;
+      animationFrameId = requestAnimationFrame(() => {
+        currentRef.current = target;
+        setState({ value: target, resetKey });
+      });
+      return () => cancelAnimationFrame(animationFrameId);
     }
 
     let startTimestamp: number | null = null;
     const startValue = currentRef.current;
     const diff = target - startValue;
-    let animationFrameId: number;
 
     const step = (timestamp: number) => {
       if (!startTimestamp) startTimestamp = timestamp;
@@ -116,6 +150,7 @@ function useSmartForecastLoader(
   const [forecastPoints, setForecastPoints] = useState<ForecastDataPoint[]>(
     () => getOfflineFallbackForecast().points,
   );
+  const [forecastNow, setForecastNow] = useState<Date>(() => new Date());
   const [isForecastReady, setIsForecastReady] = useState<boolean>(false);
   const [isSampleData, setIsSampleData] = useState<boolean>(true);
   const [isMlForecast, setIsMlForecast] = useState<boolean>(false);
@@ -125,12 +160,13 @@ function useSmartForecastLoader(
 
   useEffect(() => {
     let active = true;
-    setCityName(profileLocName);
 
     fetchSmartForecast(profileLat, profileLon)
       .then((res) => {
         if (!active) return;
+        setCityName(profileLocName);
         setForecastPoints(res.points);
+        setForecastNow(new Date());
         setIsSampleData(res.isSampleData);
         setIsMlForecast(Boolean(res.isMlForecast));
         setModelMae(typeof res.modelMae === 'number' ? res.modelMae : null);
@@ -149,6 +185,7 @@ function useSmartForecastLoader(
 
   return {
     forecastPoints,
+    forecastNow,
     isForecastReady,
     isSampleData,
     isMlForecast,
@@ -169,6 +206,10 @@ export function useTodayPlan() {
     setCityName,
   } = useAirQuality();
 
+  const effectiveProfile: UserProfile = useMemo(() => {
+    return userProfile?.family?.length ? userProfile : FALLBACK_PROFILE;
+  }, [userProfile]);
+
   const forecast = useSmartForecastLoader(
     userProfile?.location?.lat || 28.6139,
     userProfile?.location?.lon || 77.209,
@@ -177,20 +218,19 @@ export function useTodayPlan() {
     setCityName,
   );
 
-  const [rawPlanItems, setRawPlanItems] = useState<RawPlanItem[]>([]);
+  const [initialPlan] = useState(() =>
+    getInitialPlanState(effectiveProfile, forecast.forecastPoints),
+  );
+  const [rawPlanItems, setRawPlanItems] = useState<RawPlanItem[]>(initialPlan.items);
   const [completedMap, setCompletedMap] = useState<Record<string, boolean>>(() =>
     readCompletedMap(new Date().toISOString().slice(0, 10)),
   );
-  const [planSource, setPlanSource] = useState<string>('loading');
-  const [isPlanLoading, setIsPlanLoading] = useState<boolean>(false);
+  const [planSource, setPlanSource] = useState<string>(initialPlan.source);
+  const [isPlanLoading, setIsPlanLoading] = useState<boolean>(initialPlan.isLoading);
   const [isStillThinking, setIsStillThinking] = useState<boolean>(false);
-  const requestedPlanKeyRef = useRef<string | null>(null);
+
+  const requestedPlanKeyRef = useRef<string | null>(initialPlan.cachedKey);
   const latestForecastRef = useRef<ForecastDataPoint[]>(forecast.forecastPoints);
-
-  const effectiveProfile: UserProfile = useMemo(() => {
-    return userProfile?.family?.length ? userProfile : FALLBACK_PROFILE;
-  }, [userProfile]);
-
   const effectiveProfileRef = useRef<UserProfile>(effectiveProfile);
 
   useEffect(() => {
@@ -202,51 +242,35 @@ export function useTodayPlan() {
   }, [effectiveProfile]);
 
   const bestWindow = useMemo(
-    () => computeBestWindow(forecast.forecastPoints, new Date()),
-    [forecast.forecastPoints],
+    () => computeBestWindow(forecast.forecastPoints, forecast.forecastNow),
+    [forecast.forecastPoints, forecast.forecastNow],
   );
 
   const planLang = effectiveProfile.language || 'en';
   const planLocName = effectiveProfile.location?.name || 'city';
 
   useEffect(() => {
+    if (!isProfileReady || !forecast.isForecastReady) return;
     let active = true;
     const dateStr = new Date().toISOString().slice(0, 10);
     const dedupeKey = buildPlanDedupeKey(planLang, planLocName, dateStr);
     const cachedEntry = parsePlanCache(localStorage.getItem(`shwas_plan_${dedupeKey}`));
 
-    setCompletedMap(readCompletedMap(dateStr));
-
-    if (cachedEntry && cachedEntry.items.length >= 5) {
-      setRawPlanItems(cachedEntry.items);
-      setPlanSource(cachedEntry.source);
-      if (cachedEntry.source === 'gemini') {
-        requestedPlanKeyRef.current = dedupeKey;
+    if (cachedEntry?.source === 'gemini' && cachedEntry.items.length >= 5) {
+      requestedPlanKeyRef.current = dedupeKey;
+      Promise.resolve().then(() => {
+        if (!active) return;
+        setRawPlanItems(cachedEntry.items);
+        setPlanSource('gemini');
         setIsPlanLoading(false);
         setIsStillThinking(false);
-        return;
-      }
-    } else {
-      setRawPlanItems((prev) =>
-        prev.length > 0
-          ? prev
-          : generateRuleBasedPlan(effectiveProfileRef.current, latestForecastRef.current),
-      );
-      setPlanSource((prev) => (prev === 'gemini' ? prev : 'loading'));
+      });
+      return () => {
+        active = false;
+      };
     }
 
-    if (!isProfileReady || !forecast.isForecastReady) {
-      setIsPlanLoading(true);
-      return;
-    }
-
-    const alreadyRequested = requestedPlanKeyRef.current === dedupeKey;
     requestedPlanKeyRef.current = dedupeKey;
-    if (!alreadyRequested) {
-      setIsPlanLoading(true);
-      setIsStillThinking(false);
-    }
-
     const stillThinkingTimer = setTimeout(() => {
       if (active) setIsStillThinking(true);
     }, 6000);

@@ -92,7 +92,8 @@ function useRevealCalculation(
   family: ProfileFamilyMember[],
   home: ProfileHome,
 ) {
-  const [isCalculating, setIsCalculating] = useState<boolean>(true);
+  const runKey = `${language}|${location.lat}|${location.lon}|${family.length}|${home.purifier}|${home.chimney}|${home.windowsFacingRoad}|${home.cookingFuel}`;
+  const [completedKey, setCompletedKey] = useState<string | null>(null);
   const [outdoorPm25, setOutdoorPm25] = useState<number>(240);
   const [revealedCigarettes, setRevealedCigarettes] = useState<number>(9);
   const [targetCigarettes, setTargetCigarettes] = useState<number>(5);
@@ -100,7 +101,6 @@ function useRevealCalculation(
   useEffect(() => {
     if (step !== 5) return;
     let active = true;
-    setIsCalculating(true);
 
     fetchOpenMeteoForecast(location.lat, location.lon)
       .then((res) => {
@@ -127,15 +127,16 @@ function useRevealCalculation(
       })
       .finally(() => {
         setTimeout(() => {
-          if (active) setIsCalculating(false);
+          if (active) setCompletedKey(runKey);
         }, 600);
       });
 
     return () => {
       active = false;
     };
-  }, [step, language, location, home, family]);
+  }, [step, runKey, language, location, home, family]);
 
+  const isCalculating = step === 5 && completedKey !== runKey;
   return { isCalculating, outdoorPm25, revealedCigarettes, targetCigarettes };
 }
 

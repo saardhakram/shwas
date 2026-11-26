@@ -46,6 +46,7 @@ export const LanguageSwitcher: React.FC<{ className?: string }> = ({ className =
       if (stored) {
         const parsed = JSON.parse(stored);
         localStorage.setItem('shwas_profile', JSON.stringify({ ...parsed, language: code }));
+        window.dispatchEvent(new Event('shwas-profile-updated'));
       }
     } catch {
       // ignore storage errors

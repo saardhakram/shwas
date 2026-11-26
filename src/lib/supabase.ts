@@ -64,6 +64,9 @@ export async function initAnonymousAuth() {
 export async function upsertProfile(profile: UserProfile): Promise<boolean> {
   // Always persist to localStorage first so app state works offline and synchronously
   localStorage.setItem('shwas_profile', JSON.stringify({ ...profile, onboardingCompleted: true }));
+  if (typeof window !== 'undefined') {
+    window.dispatchEvent(new Event('shwas-profile-updated'));
+  }
 
   if (!isSupabaseConfigured) {
     return true;

@@ -46,7 +46,7 @@ function useMapProvider(onMapProviderChange?: (provider: 'google' | 'leaflet') =
     };
 
     if (!apiKey || hasGoogleMapsAuthFailed()) {
-      fallbackToLeaflet();
+      onMapProviderChange?.('leaflet');
       return;
     }
 

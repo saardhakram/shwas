@@ -18,8 +18,11 @@ import {
 
 export type DeparturePreset = 'now' | 'plus1h' | 'custom';
 
-export function buildDepartureDate(preset: DeparturePreset, customTime: string): Date {
-  const now = new Date();
+export function buildDepartureDate(
+  preset: DeparturePreset,
+  customTime: string,
+  now: Date = new Date(),
+): Date {
   if (preset === 'now') return now;
   if (preset === 'plus1h') return new Date(now.getTime() + 60 * 60 * 1000);
 
@@ -96,46 +99,46 @@ function useRouteEvaluation(params: {
     livePm25Ref.current = livePm25 || 150;
   }, [livePm25]);
 
-  const computeRoutes = useCallback(
-    async (
-      orig: PlaceSuggestion,
-      dest: PlaceSuggestion,
-      depDate: Date,
-      providerMode: 'google' | 'leaflet',
-    ) => {
-      setIsLoadingRoutes(true);
-      setRouteError(null);
-      try {
-        const { evaluated, provider } = await fetchAndEvaluateRoutes(
-          orig,
-          dest,
-          depDate,
-          providerMode,
-          livePm25Ref.current,
-        );
-        setRoutingProvider(provider);
-        setEvaluatedRoutes(evaluated);
-        const rec = evaluated.find((r) => r.recommended) || evaluated[0];
-        setSelectedRouteId(rec ? rec.id : null);
-      } catch (err) {
-        console.warn('[RoutesPage] Failed to compute routes:', err);
-        setRouteError(
-          'Could not load route comparison right now. Please try another destination or retry.',
-        );
-      } finally {
-        setIsLoadingRoutes(false);
-      }
-    },
-    [],
-  );
-
   useEffect(() => {
     if (!destination || mapProvider === 'loading') return;
     const fetchKey = `${origin.lat.toFixed(4)},${origin.lon.toFixed(4)}|${destination.lat.toFixed(4)},${destination.lon.toFixed(4)}|${departurePreset}|${departurePreset === 'custom' ? customTime : ''}|${mapProvider}`;
     if (lastFetchKeyRef.current === fetchKey) return;
     lastFetchKeyRef.current = fetchKey;
-    computeRoutes(origin, destination, departureDate, mapProvider);
-  }, [origin, destination, departurePreset, customTime, departureDate, mapProvider, computeRoutes]);
+
+    let active = true;
+    Promise.resolve()
+      .then(async () => {
+        if (!active) return;
+        setIsLoadingRoutes(true);
+        setRouteError(null);
+        const { evaluated, provider } = await fetchAndEvaluateRoutes(
+          origin,
+          destination,
+          departureDate,
+          mapProvider,
+          livePm25Ref.current,
+        );
+        if (!active) return;
+        setRoutingProvider(provider);
+        setEvaluatedRoutes(evaluated);
+        const rec = evaluated.find((r) => r.recommended) || evaluated[0];
+        setSelectedRouteId(rec ? rec.id : null);
+      })
+      .catch((err) => {
+        if (!active) return;
+        console.warn('[RoutesPage] Failed to compute routes:', err);
+        setRouteError(
+          'Could not load route comparison right now. Please try another destination or retry.',
+        );
+      })
+      .finally(() => {
+        if (active) setIsLoadingRoutes(false);
+      });
+
+    return () => {
+      active = false;
+    };
+  }, [origin, destination, departurePreset, customTime, departureDate, mapProvider]);
 
   return {
     routingProvider,
@@ -156,23 +159,22 @@ export function useCleanRoutes() {
   );
   const quickPresets = useMemo(() => getQuickDestinations(savedHome), [savedHome]);
 
-  const [origin, setOrigin] = useState<PlaceSuggestion>(quickPresets.home);
-  const [originInput, setOriginInput] = useState<string>(quickPresets.home.name);
+  const [originOverride, setOriginOverride] = useState<PlaceSuggestion | null>(null);
+  const [originInputOverride, setOriginInputOverride] = useState<string | null>(null);
   const [originSuggestions, setOriginSuggestions] = useState<PlaceSuggestion[]>([]);
   const [destination, setDestination] = useState<PlaceSuggestion | null>(quickPresets.office);
   const [destInput, setDestInput] = useState<string>(quickPresets.office.name);
   const [destSuggestions, setDestSuggestions] = useState<PlaceSuggestion[]>([]);
   const [isSearchingTo, setIsSearchingTo] = useState<boolean>(false);
 
-  const [departurePreset, setDeparturePreset] = useState<DeparturePreset>('now');
-  const [customTime, setCustomTime] = useState<string>('14:30');
+  const [departurePreset, setDeparturePresetState] = useState<DeparturePreset>('now');
+  const [customTime, setCustomTimeState] = useState<string>('14:30');
+  const [referenceNow, setReferenceNow] = useState<Date>(() => new Date());
   const [mapProvider, setMapProvider] = useState<'loading' | 'google' | 'leaflet'>('loading');
   const [forecastPoints, setForecastPoints] = useState<ForecastDataPoint[]>([]);
 
-  useEffect(() => {
-    setOrigin(quickPresets.home);
-    setOriginInput(quickPresets.home.name);
-  }, [quickPresets.home]);
+  const origin = originOverride ?? quickPresets.home;
+  const originInput = originInputOverride ?? quickPresets.home.name;
 
   useEffect(() => {
     let active = true;
@@ -185,8 +187,8 @@ export function useCleanRoutes() {
   }, [origin.lat, origin.lon]);
 
   const departureDate = useMemo(
-    () => buildDepartureDate(departurePreset, customTime),
-    [departurePreset, customTime],
+    () => buildDepartureDate(departurePreset, customTime, referenceNow),
+    [departurePreset, customTime, referenceNow],
   );
   const departureTip = useMemo(
     () => computeDepartureTip(forecastPoints, departureDate, departurePreset === 'now'),
@@ -203,6 +205,16 @@ export function useCleanRoutes() {
     livePm25,
   });
 
+  const setDeparturePreset = (preset: DeparturePreset) => {
+    setReferenceNow(new Date());
+    setDeparturePresetState(preset);
+  };
+
+  const setCustomTime = (time: string) => {
+    setReferenceNow(new Date());
+    setCustomTimeState(time);
+  };
+
   const handleDestSearch = async (query: string) => {
     setDestInput(query);
     if (query.trim().length < 2) return setDestSuggestions([]);
@@ -214,7 +226,7 @@ export function useCleanRoutes() {
   };
 
   const handleOriginSearch = async (query: string) => {
-    setOriginInput(query);
+    setOriginInputOverride(query);
     if (query.trim().length < 2) return setOriginSuggestions([]);
     setOriginSuggestions(
       await searchPlaces(
@@ -227,8 +239,8 @@ export function useCleanRoutes() {
 
   const handleChipClick = (chip: 'home' | 'school' | 'office') => {
     if (chip === 'home') {
-      setOrigin(quickPresets.home);
-      setOriginInput(quickPresets.home.name);
+      setOriginOverride(null);
+      setOriginInputOverride(null);
       setOriginSuggestions([]);
       return;
     }
@@ -241,8 +253,9 @@ export function useCleanRoutes() {
   const handleApplyTipTime = () => {
     const parsed = departureTip ? parseTipTimeTo24h(departureTip.bestTimeLabel) : null;
     if (!parsed) return;
-    setCustomTime(parsed);
-    setDeparturePreset('custom');
+    setReferenceNow(new Date());
+    setCustomTimeState(parsed);
+    setDeparturePresetState('custom');
   };
 
   const handleMapProviderChange = useCallback((p: 'google' | 'leaflet') => setMapProvider(p), []);
@@ -250,9 +263,9 @@ export function useCleanRoutes() {
   return {
     quickPresets,
     origin,
-    setOrigin,
+    setOrigin: setOriginOverride,
     originInput,
-    setOriginInput,
+    setOriginInput: setOriginInputOverride,
     originSuggestions,
     setOriginSuggestions,
     destination,

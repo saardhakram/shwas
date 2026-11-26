@@ -31,9 +31,13 @@ const ScanFixCard: React.FC<ScanFixCardProps> = ({
           ? 'border-amber-400/50 bg-amber-500/5 shadow-lg shadow-amber-500/5'
           : 'border-white/10'
       }`}
-      onClick={() => onSelect(item.id)}
     >
-      <div className="flex items-start justify-between gap-2">
+      <button
+        type="button"
+        aria-pressed={isSelected}
+        onClick={() => onSelect(item.id)}
+        className="w-full text-left flex items-start justify-between gap-2 focus:outline-none focus-visible:ring-2 focus-visible:ring-teal-400 rounded-lg"
+      >
         <div className="flex items-center gap-2">
           <span className="w-5 h-5 rounded-full bg-teal-400/20 border border-teal-400/40 text-teal-300 text-[10px] font-bold flex items-center justify-center shrink-0">
             {index + 1}
@@ -49,7 +53,7 @@ const ScanFixCard: React.FC<ScanFixCardProps> = ({
         <Badge variant="mint" size="sm" className="whitespace-nowrap shrink-0">
           −{item.reductionPercent}% indoor PM2.5 · −{item.cigarettesSaved} cigs
         </Badge>
-      </div>
+      </button>
 
       <div className="text-xs text-slate-300 leading-relaxed bg-white/5 p-2 rounded-lg border border-white/5">
         <span className="text-slate-400 font-medium">Why it matters: </span>

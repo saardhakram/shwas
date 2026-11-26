@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect, useMemo } from 'react';
+import React, { createContext, useCallback, useContext, useState, useEffect, useMemo } from 'react';
 import { Outlet, useLocation } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { Wind, ShieldAlert, Sparkles } from 'lucide-react';
@@ -53,6 +53,79 @@ function readStoredProfile(): UserProfile | null {
   return null;
 }
 
+const AppHeader: React.FC<{
+  cityName: string;
+  aqi: number;
+  atmosphere: ReturnType<typeof getAtmosphereGradient>;
+  selectedFamilyId: string;
+  familyChips: FamilyMemberOption[];
+  onToggleDemoAqi: () => void;
+  onSelectFamily: (id: string) => void;
+}> = ({
+  cityName,
+  aqi,
+  atmosphere,
+  selectedFamilyId,
+  familyChips,
+  onToggleDemoAqi,
+  onSelectFamily,
+}) => (
+  <header className="flex flex-col gap-3 pb-3 border-b border-white/[0.06] mb-4">
+    <div className="flex items-center justify-between gap-2">
+      <div className="flex items-center gap-2 min-w-0">
+        <div
+          aria-hidden="true"
+          className="w-8 h-8 rounded-xl bg-teal-500/15 border border-teal-500/30 flex items-center justify-center text-teal-300 shadow-sm shadow-teal-500/20 shrink-0"
+        >
+          <Wind className="w-4 h-4 animate-pulse-subtle" />
+        </div>
+        <div className="min-w-0">
+          <div className="flex items-center gap-1.5 leading-none">
+            <span className="font-display font-bold text-base tracking-tight text-white">
+              Shwas
+            </span>
+            <span className="text-[11px] font-normal text-teal-400/80" aria-hidden="true">
+              श्वास
+            </span>
+          </div>
+          <span className="text-[10px] text-slate-400 font-medium tracking-wider truncate max-w-[120px] inline-block">
+            {cityName}
+          </span>
+        </div>
+      </div>
+
+      <div className="flex items-center gap-2 shrink-0">
+        <button
+          type="button"
+          onClick={onToggleDemoAqi}
+          title="Click to toggle between Severe Smog and Clean Dawn Teal demo atmosphere"
+          aria-label={`Current AQI ${aqi}, ${atmosphere.label}. Activate to preview severe vs clean air atmosphere`}
+          className="group rounded-full focus:outline-none focus-visible:ring-2 focus-visible:ring-teal-400"
+        >
+          <Badge
+            variant={atmosphere.badgeVariant}
+            size="sm"
+            icon={
+              aqi >= 300 ? (
+                <ShieldAlert className="w-3 h-3 text-red-400" aria-hidden="true" />
+              ) : (
+                <Sparkles className="w-3 h-3 text-teal-300" aria-hidden="true" />
+              )
+            }
+            className="cursor-pointer transition-transform group-hover:scale-105 font-mono"
+          >
+            {aqi} {atmosphere.label}
+          </Badge>
+        </button>
+
+        <LanguageSwitcher />
+      </div>
+    </div>
+
+    <FamilyChips selectedId={selectedFamilyId} onSelect={onSelectFamily} members={familyChips} />
+  </header>
+);
+
 export const AppLayout: React.FC = () => {
   const { t } = useTranslation();
   const location = useLocation();
@@ -65,7 +138,7 @@ export const AppLayout: React.FC = () => {
   const [selectedFamilyId, setSelectedFamilyId] = useState<string>('all');
   const [isProfileReady, setIsProfileReady] = useState<boolean>(true);
 
-  const reloadProfile = () => {
+  const reloadProfile = useCallback(() => {
     const parsed = readStoredProfile();
     if (parsed) {
       setUserProfile(parsed);
@@ -74,21 +147,33 @@ export const AppLayout: React.FC = () => {
       }
     }
     setIsProfileReady(true);
-  };
+  }, []);
 
-  // Warm up Vercel serverless functions immediately on initial app load
+  const handleSetAirQuality = useCallback((newAqi: number, newPm25: number) => {
+    setAqi(newAqi);
+    setPm25(newPm25);
+  }, []);
+
+  // Warm up Vercel serverless functions and initialize anonymous auth on initial load
   useEffect(() => {
     fetch('/api/health', { method: 'GET' }).catch(() => {
       // ignore warmup errors when offline
     });
-  }, []);
-
-  useEffect(() => {
-    reloadProfile();
     initAnonymousAuth().catch((err) => {
       console.warn('Anonymous auth init handled:', err);
     });
-  }, [location.pathname]);
+  }, []);
+
+  // Keep profile state in sync when onboarding or language switcher updates localStorage
+  useEffect(() => {
+    const onProfileChange = () => reloadProfile();
+    window.addEventListener('shwas-profile-updated', onProfileChange);
+    window.addEventListener('storage', onProfileChange);
+    return () => {
+      window.removeEventListener('shwas-profile-updated', onProfileChange);
+      window.removeEventListener('storage', onProfileChange);
+    };
+  }, [reloadProfile]);
 
   const atmosphere = getAtmosphereGradient(aqi, t);
   const isOnboarding = location.pathname === '/onboarding';
@@ -108,12 +193,9 @@ export const AppLayout: React.FC = () => {
         userProfile,
         isProfileReady,
         setSelectedFamilyId,
-        setAqi: (newAqi) => setAqi(newAqi),
-        setAirQuality: (newAqi, newPm25) => {
-          setAqi(newAqi);
-          setPm25(newPm25);
-        },
-        setCityName: (name) => setCityName(name),
+        setAqi,
+        setAirQuality: handleSetAirQuality,
+        setCityName,
         reloadProfile,
       }}
     >
@@ -140,67 +222,15 @@ export const AppLayout: React.FC = () => {
         {/* Central mobile frame container */}
         <div className="relative z-10 w-full max-w-md mx-auto min-h-screen flex flex-col px-4 pt-3 pb-24">
           {!isOnboarding && (
-            <header className="flex flex-col gap-3 pb-3 border-b border-white/[0.06] mb-4">
-              <div className="flex items-center justify-between gap-2">
-                {/* Brand / Logo & Real Location */}
-                <div className="flex items-center gap-2 min-w-0">
-                  <div
-                    aria-hidden="true"
-                    className="w-8 h-8 rounded-xl bg-teal-500/15 border border-teal-500/30 flex items-center justify-center text-teal-300 shadow-sm shadow-teal-500/20 shrink-0"
-                  >
-                    <Wind className="w-4 h-4 animate-pulse-subtle" />
-                  </div>
-                  <div className="min-w-0">
-                    <div className="flex items-center gap-1.5 leading-none">
-                      <span className="font-display font-bold text-base tracking-tight text-white">
-                        Shwas
-                      </span>
-                      <span className="text-[11px] font-normal text-teal-400/80" aria-hidden="true">
-                        श्वास
-                      </span>
-                    </div>
-                    <span className="text-[10px] text-slate-400 font-medium tracking-wider truncate max-w-[120px] inline-block">
-                      {cityName}
-                    </span>
-                  </div>
-                </div>
-
-                {/* Right controls: AQI pill & Language */}
-                <div className="flex items-center gap-2 shrink-0">
-                  <button
-                    type="button"
-                    onClick={() => setAqi(aqi >= 300 ? 45 : 342)}
-                    title="Click to toggle between Severe Smog and Clean Dawn Teal demo atmosphere"
-                    aria-label={`Current AQI ${aqi}, ${atmosphere.label}. Activate to preview severe vs clean air atmosphere`}
-                    className="group rounded-full focus:outline-none focus-visible:ring-2 focus-visible:ring-teal-400"
-                  >
-                    <Badge
-                      variant={atmosphere.badgeVariant}
-                      size="sm"
-                      icon={
-                        aqi >= 300 ? (
-                          <ShieldAlert className="w-3 h-3 text-red-400" aria-hidden="true" />
-                        ) : (
-                          <Sparkles className="w-3 h-3 text-teal-300" aria-hidden="true" />
-                        )
-                      }
-                      className="cursor-pointer transition-transform group-hover:scale-105 font-mono"
-                    >
-                      {aqi} {atmosphere.label}
-                    </Badge>
-                  </button>
-
-                  <LanguageSwitcher />
-                </div>
-              </div>
-
-              {/* Family member chips from real user profile */}
-              <FamilyChips
-                selectedId={selectedFamilyId}
-                onSelect={(id) => setSelectedFamilyId(id)}
-                members={dynamicFamilyChips}
-              />
-            </header>
+            <AppHeader
+              cityName={cityName}
+              aqi={aqi}
+              atmosphere={atmosphere}
+              selectedFamilyId={selectedFamilyId}
+              familyChips={dynamicFamilyChips}
+              onToggleDemoAqi={() => setAqi(aqi >= 300 ? 45 : 342)}
+              onSelectFamily={setSelectedFamilyId}
+            />
           )}
 
           {/* Main Route Content */}

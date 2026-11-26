@@ -1,7 +1,6 @@
 import React from 'react';
 import { useTranslation } from 'react-i18next';
 import { CheckCircle2, Circle, Sparkle } from 'lucide-react';
-import GlassCard from '../../components/ui/GlassCard';
 import Badge from '../../components/ui/Badge';
 import type { AirPlanItem } from '../../types';
 
@@ -64,39 +63,26 @@ export const PlanTimeline: React.FC<PlanTimelineProps> = ({
 
       <div className="space-y-2">
         {planItems.map((item) => (
-          <GlassCard
+          <button
             key={item.id}
-            variant={item.completed ? 'mint' : 'subtle'}
+            type="button"
+            role="checkbox"
+            aria-checked={item.completed}
+            aria-label={`${item.completed ? 'Mark incomplete' : 'Mark complete'}: ${item.action}`}
             onClick={() => onToggleItem(item.id)}
-            className={`flex items-start gap-3 p-3 cursor-pointer transition-all duration-200 select-none ${
+            className={`w-full text-left relative backdrop-blur-xl rounded-2xl border flex items-start gap-3 p-3 cursor-pointer transition-all duration-200 select-none focus:outline-none focus-visible:ring-2 focus-visible:ring-teal-400 ${
               item.completed
-                ? 'border-teal-500/40 shadow-sm shadow-teal-500/10'
-                : 'hover:border-white/15'
+                ? 'bg-[#102424]/75 border-teal-500/40 shadow-sm shadow-teal-500/10'
+                : 'bg-white/[0.03] border-white/[0.05] shadow-md hover:border-white/15'
             }`}
           >
-            <button
-              type="button"
-              role="checkbox"
-              aria-checked={item.completed}
-              onClick={(e) => {
-                e.stopPropagation();
-                onToggleItem(item.id);
-              }}
-              className="mt-0.5 shrink-0 rounded-full focus:outline-none focus-visible:ring-2 focus-visible:ring-teal-400"
-              aria-label={`${item.completed ? 'Mark incomplete' : 'Mark complete'}: ${item.action}`}
-            >
+            <span className="mt-0.5 shrink-0 rounded-full" aria-hidden="true">
               {item.completed ? (
-                <CheckCircle2
-                  className="w-5 h-5 text-teal-400 transition-transform active:scale-90"
-                  aria-hidden="true"
-                />
+                <CheckCircle2 className="w-5 h-5 text-teal-400 transition-transform active:scale-90" />
               ) : (
-                <Circle
-                  className="w-5 h-5 text-slate-500 hover:text-slate-300 transition-transform active:scale-90"
-                  aria-hidden="true"
-                />
+                <Circle className="w-5 h-5 text-slate-500 hover:text-slate-300 transition-transform active:scale-90" />
               )}
-            </button>
+            </span>
 
             <div className="flex-1 min-w-0">
               <div className="flex items-start justify-between gap-2">
@@ -104,13 +90,13 @@ export const PlanTimeline: React.FC<PlanTimelineProps> = ({
                   <span className="text-[10px] font-mono text-teal-300/90 font-medium shrink-0">
                     {item.time}
                   </span>
-                  <h4
+                  <span
                     className={`text-xs font-semibold leading-tight min-w-0 ${
                       item.completed ? 'text-teal-200 line-through opacity-85' : 'text-slate-100'
                     }`}
                   >
                     {item.action}
-                  </h4>
+                  </span>
                 </div>
 
                 {item.cigarettesSaved > 0 && (
@@ -126,7 +112,7 @@ export const PlanTimeline: React.FC<PlanTimelineProps> = ({
 
               <p className="text-[11px] text-slate-400 mt-1 leading-snug">{item.reason}</p>
             </div>
-          </GlassCard>
+          </button>
         ))}
       </div>
 

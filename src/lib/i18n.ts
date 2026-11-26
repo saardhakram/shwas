@@ -19,6 +19,12 @@ const resources = {
 const savedLanguage =
   typeof window !== 'undefined' ? localStorage.getItem('shwas_lang') || 'en' : 'en';
 
+function syncDocumentLang(lang: string): void {
+  if (typeof document !== 'undefined') {
+    document.documentElement.lang = lang || 'en';
+  }
+}
+
 i18n.use(initReactI18next).init({
   resources,
   lng: savedLanguage,
@@ -27,5 +33,8 @@ i18n.use(initReactI18next).init({
     escapeValue: false, // React already escapes values
   },
 });
+
+syncDocumentLang(savedLanguage);
+i18n.on('languageChanged', syncDocumentLang);
 
 export default i18n;
