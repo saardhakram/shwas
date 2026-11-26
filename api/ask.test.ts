@@ -79,11 +79,13 @@ describe('Serverless Ask Shwas API (/api/ask)', () => {
   it('sends profile, forecast, plan, and safety instructions to Gemini and computes inline mini-card in code', async () => {
     let capturedPrompt = '';
     let capturedHeaders: Record<string, string> = {};
+    let capturedGenConfig: Record<string, any> = {};
 
     global.fetch = vi.fn().mockImplementation(async (_url: string, opts: any) => {
       capturedHeaders = opts.headers;
       const body = JSON.parse(opts.body);
       capturedPrompt = body.contents[0].parts[0].text;
+      capturedGenConfig = body.generationConfig;
 
       return {
         ok: true,
@@ -133,9 +135,11 @@ describe('Serverless Ask Shwas API (/api/ask)', () => {
     );
 
     expect(capturedHeaders['x-goog-api-key']).toBe('mock-gemini-key');
+    expect(capturedGenConfig.maxOutputTokens).toBe(500);
+    expect(capturedGenConfig.thinkingConfig).toEqual({ thinkingLevel: 'minimal' });
     expect(capturedPrompt).toContain('Dadi (age 72, heart condition');
     expect(capturedPrompt).toContain('Aarav (age 8, asthma');
-    expect(capturedPrompt).toContain('6:00 PM (Today): PM2.5 264');
+    expect(capturedPrompt).toContain('6:00 PM(Today):PM2.5=264,AQI=314');
     expect(capturedPrompt).toContain('Air out rooms during clean window');
     expect(capturedPrompt).toContain('NEVER give medical diagnoses');
     expect(capturedPrompt).toContain('Politely refuse unrelated topics');

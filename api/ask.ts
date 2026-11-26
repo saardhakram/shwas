@@ -220,64 +220,63 @@ export async function processAskRequest(
       ? `windows facing road: ${profile.home.windowsFacingRoad}, purifier: ${profile.home.purifier}, chimney: ${profile.home.chimney}, fuel: ${profile.home.cookingFuel}, commute: ${profile.home.commuteMode}`
       : 'Standard urban apartment';
 
+    // Compact forecast: sample at most 8 points (every 3h) to keep prompt fast & concise
+    const sampledForecast =
+      forecast.length > 8
+        ? forecast.filter((_, idx) => idx % 3 === 0).slice(0, 8)
+        : forecast;
     const forecastSummary =
-      forecast.length > 0
-        ? forecast
-            .map((p) => `${p.fullTime || p.time} (${p.day}): PM2.5 ${p.pm25} µg/m³, AQI ${p.usAqi}`)
-            .join('\n')
-        : `Current: PM2.5 ${currentPm25} µg/m³, AQI ${currentAqi}`;
+      sampledForecast.length > 0
+        ? sampledForecast
+            .map((p) => `${p.fullTime || p.time}(${p.day}):PM2.5=${p.pm25},AQI=${p.usAqi}`)
+            .join(' | ')
+        : `Now:PM2.5=${currentPm25},AQI=${currentAqi}`;
 
+    // Compact plan: short one-line items
     const planSummary =
       plan.length > 0
-        ? plan.map((p) => `- ${p.time}: ${p.action}`).join('\n')
-        : 'No custom plan items loaded.';
+        ? plan
+            .slice(0, 8)
+            .map((p) => `${p.time}: ${String(p.action || '').slice(0, 72)}`)
+            .join(' | ')
+        : 'None';
 
+    // Last 4 chat turns only
     const historyText =
       Array.isArray(body.history) && body.history.length > 0
         ? body.history
             .slice(-4)
-            .map((h) => `${h.role === 'user' ? 'User' : 'Shwas'}: ${h.text}`)
+            .map((h) => `${h.role === 'user' ? 'U' : 'A'}: ${String(h.text || '').slice(0, 160)}`)
             .join('\n')
         : '';
 
     const prompt = `SYSTEM INSTRUCTIONS:
-You are Shwas, a warm, practical urban air quality assistant helping families in India protect their lungs.
-Follow these strict rules:
-1. Answer briefly (2 to 4 short sentences) and practically about air quality, smog exposure, outdoor timing, masks, home ventilation, purifiers, and family routines.
-2. Always respond strictly in the user's language: "${language}" (e.g. if "hi", write natural Hindi; if "en", write clear English).
-3. NEVER give medical diagnoses or prescribe medications. If the user mentions symptoms (coughing, wheezing, chest pain, breathlessness, asthma attack, dizziness), clearly advise seeing a doctor.
-4. Politely refuse unrelated topics (e.g. coding, sports scores, politics, trivia) and redirect to air quality and breathing health.
-5. Ground your timing advice in the provided 24-hour forecast and today's plan. Do not invent fake AQI numbers.
+You are Shwas, a practical urban air quality assistant in India.
+1. Answer briefly (2–3 short sentences) about air quality, masks, outdoor timing, ventilation, and family routines in "${language}".
+2. NEVER give medical diagnoses; advise seeing a doctor for any symptoms.
+3. Politely refuse unrelated topics and steer back to air quality.
+4. Use only the provided forecast and plan numbers.
 
-USER CONTEXT:
-- City: ${profile?.location?.name || 'Delhi NCR'}
-- Current Air: PM2.5 ${currentPm25} µg/m³, US AQI ${currentAqi}
-- Family: ${familySummary}
-- Home: ${homeSummary}
+CONTEXT:
+City: ${profile?.location?.name || 'Delhi NCR'} | Now: PM2.5 ${currentPm25} µg/m³, AQI ${currentAqi}
+Family: ${familySummary}
+Home: ${homeSummary}
+Next 24h (3h steps): ${forecastSummary}
+Today's plan: ${planSummary}
+${historyText ? `Recent chat:\n${historyText}\n` : ''}
+QUESTION: "${question}"
 
-NEXT 24-HOUR FORECAST:
-${forecastSummary}
-
-TODAY'S AIR PLAN:
-${planSummary}
-${historyText ? `\nRECENT SESSION CHAT:\n${historyText}\n` : ''}
-USER QUESTION:
-"${question}"
-
-OUTPUT FORMAT (STRICT JSON ONLY, no markdown):
-{
-  "answer": "your concise, practical answer in ${language}",
-  "timeMentioned": "6:00 PM" or null (if user asked about a specific time of day or outing window),
-  "targetHour": 18 or null (integer 0-23 matching the time asked about, else null),
-  "durationHours": 1 or null (estimated outing duration in hours if relevant, e.g. 0.5 or 1, else null)
-}`;
+Return STRICT JSON only:
+{"answer":"short reply in ${language}","timeMentioned":"6:00 PM" or null,"targetHour":18 or null,"durationHours":1 or null}`;
 
     const geminiRes = await callGeminiWithRetry({
       apiKey,
       prompt,
       temperature: 0.3,
+      maxOutputTokens: 500,
+      thinkingLevel: 'minimal',
       responseMimeType: 'application/json',
-      maxServerBudgetMs: 20000,
+      maxServerBudgetMs: 35000,
     });
 
     const cleaned = geminiRes.text

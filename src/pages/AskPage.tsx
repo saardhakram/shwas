@@ -16,7 +16,7 @@ import Badge from '../components/ui/Badge';
 import { useAirQuality } from '../components/layout/AppLayout';
 import { fetchSmartForecast, ForecastDataPoint } from '../lib/forecast';
 import { parsePlanCache } from '../lib/planGenerator';
-import { RawPlanItem } from '../types';
+import { ProfileFamilyMember, RawPlanItem } from '../types';
 
 interface MiniCardData {
   timeLabel: string;
@@ -35,11 +35,49 @@ interface ChatMessage {
   source?: 'gemini' | 'offline' | 'rate_limited';
 }
 
-const DEFAULT_SUGGESTIONS = [
-  'Can Dadi walk at 6 PM?',
-  'Is it safe for Aarav to play outside?',
-  'Best mask for kids?',
-];
+/**
+ * Builds personalized suggestion chips from the real family names & ages in the user profile.
+ */
+function buildSuggestionChips(family?: ProfileFamilyMember[]): string[] {
+  if (!family || family.length === 0) {
+    return [
+      'Can I walk at 6 PM?',
+      'Best time to open windows today?',
+      'Best mask for outdoor commute?',
+    ];
+  }
+
+  const chips: string[] = [];
+
+  // 1. Senior / older member (age >= 55) or first non-self adult
+  const senior =
+    family.find((m) => m.age >= 55) ||
+    family.find((m) => m.flags?.heart) ||
+    family.find((m) => m.id !== 'me' && m.name.toLowerCase() !== 'me' && m.age >= 18);
+
+  if (senior) {
+    chips.push(`Can ${senior.name} walk at 6 PM?`);
+  } else {
+    const first = family[0];
+    const label = first.name.toLowerCase() === 'me' ? 'I' : first.name;
+    chips.push(`Can ${label} walk at 6 PM?`);
+  }
+
+  // 2. Child (age <= 16) or member with asthma
+  const child =
+    family.find((m) => m.age <= 16) ||
+    family.find((m) => m.flags?.asthma && m.id !== senior?.id);
+
+  if (child) {
+    chips.push(`Is it safe for ${child.name} to play outside?`);
+    chips.push(`Best mask for ${child.name} (${child.age} yrs)?`);
+  } else {
+    chips.push('Best time to open windows today?');
+    chips.push('Best N95 mask for heavy smog?');
+  }
+
+  return chips.slice(0, 3);
+}
 
 const SPEECH_LOCALE_MAP: Record<string, string> = {
   en: 'en-IN',
@@ -83,7 +121,13 @@ export const AskPage: React.FC = () => {
   ]);
   const [input, setInput] = useState('');
   const [isSending, setIsSending] = useState(false);
+  const [isStillThinking, setIsStillThinking] = useState(false);
   const [remainingToday, setRemainingToday] = useState<number>(20);
+
+  const suggestionChips = useMemo(
+    () => buildSuggestionChips(userProfile?.family),
+    [userProfile?.family]
+  );
 
   // Voice (Web Speech API) state — button hidden completely if unsupported
   const speechSupported = useMemo(() => Boolean(getSpeechRecognitionCtor()), []);
@@ -151,17 +195,22 @@ export const AskPage: React.FC = () => {
 
     const nextHistory = [...messages, userMsg]
       .filter((m) => m.id !== 'welcome')
-      .slice(-6)
+      .slice(-4)
       .map((m) => ({ role: m.role, text: m.text }));
 
     setMessages((prev) => [...prev, userMsg]);
     setInput('');
     setIsSending(true);
+    setIsStillThinking(false);
+
+    const stillThinkingTimer = setTimeout(() => {
+      setIsStillThinking(true);
+    }, 8000);
+
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 40000);
 
     try {
-      const controller = new AbortController();
-      const timeout = setTimeout(() => controller.abort(), 25000);
-
       const res = await fetch('/api/ask', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -189,6 +238,7 @@ export const AskPage: React.FC = () => {
         signal: controller.signal,
       });
 
+      clearTimeout(stillThinkingTimer);
       clearTimeout(timeout);
 
       if (!res.ok) {
@@ -213,6 +263,8 @@ export const AskPage: React.FC = () => {
         },
       ]);
     } catch {
+      clearTimeout(stillThinkingTimer);
+      clearTimeout(timeout);
       setMessages((prev) => [
         ...prev,
         {
@@ -223,7 +275,10 @@ export const AskPage: React.FC = () => {
         },
       ]);
     } finally {
+      clearTimeout(stillThinkingTimer);
+      clearTimeout(timeout);
       setIsSending(false);
+      setIsStillThinking(false);
     }
   };
 
@@ -290,9 +345,9 @@ export const AskPage: React.FC = () => {
         </Badge>
       </div>
 
-      {/* Suggestion Chips */}
+      {/* Suggestion Chips (dynamic from real family profile) */}
       <div className="flex gap-1.5 overflow-x-auto no-scrollbar pb-0.5">
-        {DEFAULT_SUGGESTIONS.map((chip) => (
+        {suggestionChips.map((chip) => (
           <button
             key={chip}
             type="button"
@@ -381,7 +436,7 @@ export const AskPage: React.FC = () => {
             <div className="flex items-start gap-2.5">
               <ShwasWindAvatar spinning />
               <div className="rounded-2xl rounded-tl-sm bg-white/[0.05] border border-white/[0.08] px-3.5 py-2.5 text-xs text-teal-300 animate-pulse">
-                Checking forecast & thinking…
+                {isStillThinking ? 'Still thinking…' : 'Checking forecast & thinking…'}
               </div>
             </div>
           )}
