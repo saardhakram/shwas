@@ -196,130 +196,152 @@ function decodeGooglePolyline(encoded: string): LatLon[] {
   return points;
 }
 
+export type RoutingProvider = 'google_routes' | 'google_directions' | 'osrm' | 'estimate';
+
 /**
  * Attempts to fetch routes via the Google Maps Routes library (`google.maps.routes`)
- * with alternatives, falling back to `DirectionsService` if `Route.computeRoutes` is unavailable.
+ * with alternatives; logs exact errors and tries `DirectionsService` before OSRM.
  */
 async function fetchGoogleRoutes(
   origin: LatLon,
   destination: LatLon,
   departureTime: Date
-): Promise<RawRouteGeometry[] | null> {
+): Promise<{ routes: RawRouteGeometry[]; provider: 'google_routes' | 'google_directions' } | null> {
   if (!window.google?.maps) return null;
 
-  try {
-    const routesLib = window.google.maps.importLibrary
-      ? await window.google.maps.importLibrary('routes')
-      : window.google.maps;
+  let routesLib: any = window.google.maps;
+  if (window.google.maps.importLibrary) {
+    try {
+      routesLib = await window.google.maps.importLibrary('routes');
+    } catch (err) {
+      console.warn('[routingService] google.maps.importLibrary("routes") failed:', err);
+      routesLib = window.google.maps;
+    }
+  }
 
+  // 1. Try modern google.maps.routes.Route.computeRoutes when available
+  if (routesLib?.Route?.computeRoutes) {
     const results: RawRouteGeometry[] = [];
-
-    // Prefer modern google.maps.routes.Route.computeRoutes when present
-    if (routesLib?.Route?.computeRoutes) {
-      const computeForTravelMode = async (
-        travelMode: 'DRIVING' | 'TWO_WHEELER' | 'WALKING'
-      ): Promise<any[]> => {
-        try {
-          const resp = await routesLib.Route.computeRoutes({
-            origin: { lat: origin.lat, lng: origin.lon },
-            destination: { lat: destination.lat, lng: destination.lon },
-            travelMode,
-            computeAlternativeRoutes: true,
-            fields: ['path', 'distanceMeters', 'durationMillis', 'description', 'polyline'],
-            ...(travelMode !== 'WALKING' && departureTime.getTime() > Date.now()
-              ? { departureTime }
-              : {}),
-          });
-          return Array.isArray(resp?.routes) ? resp.routes : [];
-        } catch {
-          return [];
-        }
-      };
-
-      const [driveRoutes, twoWheelerRoutes, walkRoutes] = await Promise.all([
-        computeForTravelMode('DRIVING'),
-        computeForTravelMode('TWO_WHEELER'),
-        computeForTravelMode('WALKING'),
-      ]);
-
-      const extractPath = (r: any): LatLon[] => {
-        if (Array.isArray(r.path) && r.path.length >= 2) {
-          return r.path.map((p: any) => ({
-            lat: typeof p.lat === 'function' ? p.lat() : p.lat,
-            lon: typeof p.lng === 'function' ? p.lng() : p.lng,
-          }));
-        }
-        if (r.polyline?.encodedPolyline) {
-          return decodeGooglePolyline(r.polyline.encodedPolyline);
-        }
-        return [origin, destination];
-      };
-
-      driveRoutes.slice(0, 2).forEach((r, idx) => {
-        const distKm = Number(((r.distanceMeters || 0) / 1000).toFixed(1));
-        const durMin = Math.max(1, Math.round((r.durationMillis || 600000) / 60000));
-        results.push({
-          id: idx === 0 ? 'car_main' : `car_alt_${idx}`,
-          mode: 'car',
-          label: idx === 0 ? 'Car (AC / windows shut)' : `Car Alt ${idx}`,
-          summary: r.description || (idx === 0 ? 'Fastest driving route' : 'Alternate route'),
-          distanceKm: distKm,
-          durationMin: durMin,
-          path: extractPath(r),
-          isAlternative: idx > 0,
+    const computeForTravelMode = async (
+      travelMode: 'DRIVING' | 'TWO_WHEELER' | 'WALKING'
+    ): Promise<any[]> => {
+      try {
+        const resp = await routesLib.Route.computeRoutes({
+          origin: { lat: origin.lat, lng: origin.lon },
+          destination: { lat: destination.lat, lng: destination.lon },
+          travelMode,
+          computeAlternativeRoutes: true,
+          fields: ['path', 'distanceMeters', 'durationMillis', 'description', 'polyline'],
+          ...(travelMode !== 'WALKING' && departureTime.getTime() > Date.now()
+            ? { departureTime }
+            : {}),
         });
+        return Array.isArray(resp?.routes) ? resp.routes : [];
+      } catch (err) {
+        console.warn(
+          `[routingService] google.maps.routes.Route.computeRoutes(${travelMode}) failed:`,
+          err
+        );
+        return [];
+      }
+    };
+
+    const [driveRoutes, twoWheelerRoutes, walkRoutes] = await Promise.all([
+      computeForTravelMode('DRIVING'),
+      computeForTravelMode('TWO_WHEELER'),
+      computeForTravelMode('WALKING'),
+    ]);
+
+    const extractPath = (r: any): LatLon[] => {
+      if (Array.isArray(r.path) && r.path.length >= 2) {
+        return r.path.map((p: any) => ({
+          lat: typeof p.lat === 'function' ? p.lat() : p.lat,
+          lon: typeof p.lng === 'function' ? p.lng() : p.lng,
+        }));
+      }
+      if (r.polyline?.encodedPolyline) {
+        return decodeGooglePolyline(r.polyline.encodedPolyline);
+      }
+      return [origin, destination];
+    };
+
+    driveRoutes.slice(0, 2).forEach((r, idx) => {
+      const distKm = Number(((r.distanceMeters || 0) / 1000).toFixed(1));
+      const durMin = Math.max(1, Math.round((r.durationMillis || 600000) / 60000));
+      results.push({
+        id: idx === 0 ? 'car_main' : `car_alt_${idx}`,
+        mode: 'car',
+        label: idx === 0 ? 'Car (AC / windows shut)' : `Car Alt ${idx}`,
+        summary: r.description || (idx === 0 ? 'Fastest driving route' : 'Alternate route'),
+        distanceKm: distKm,
+        durationMin: durMin,
+        path: extractPath(r),
+        isAlternative: idx > 0,
       });
+    });
 
-      const bikeSource = twoWheelerRoutes.length > 0 ? twoWheelerRoutes : driveRoutes;
-      if (bikeSource.length > 0) {
-        const r = bikeSource[0];
-        const distKm = Number(((r.distanceMeters || 0) / 1000).toFixed(1));
-        const baseMin = Math.max(1, Math.round((r.durationMillis || 600000) / 60000));
-        const path = extractPath(r);
-        results.push({
-          id: 'two_wheeler_main',
-          mode: 'two_wheeler',
-          label: 'Two-wheeler',
-          summary: r.description || 'Direct road route',
-          distanceKm: distKm,
-          durationMin: Math.max(2, Math.round(baseMin * 0.9)),
-          path,
-        });
-        results.push({
-          id: 'auto_main',
-          mode: 'auto',
-          label: 'Auto-rickshaw',
-          summary: r.description || 'Open-sided road route',
-          distanceKm: distKm,
-          durationMin: Math.max(3, Math.round(baseMin * 1.05)),
-          path,
-        });
-      }
-
-      if (walkRoutes.length > 0) {
-        const r = walkRoutes[0];
-        results.push({
-          id: 'walk_main',
-          mode: 'walk',
-          label: 'Walk',
-          summary: r.description || 'Footpath route',
-          distanceKm: Number(((r.distanceMeters || 0) / 1000).toFixed(1)),
-          durationMin: Math.max(2, Math.round((r.durationMillis || 1200000) / 60000)),
-          path: extractPath(r),
-        });
-      }
-
-      if (results.length > 0) return results;
+    const bikeSource = twoWheelerRoutes.length > 0 ? twoWheelerRoutes : driveRoutes;
+    if (bikeSource.length > 0) {
+      const r = bikeSource[0];
+      const distKm = Number(((r.distanceMeters || 0) / 1000).toFixed(1));
+      const baseMin = Math.max(1, Math.round((r.durationMillis || 600000) / 60000));
+      const path = extractPath(r);
+      results.push({
+        id: 'two_wheeler_main',
+        mode: 'two_wheeler',
+        label: 'Two-wheeler',
+        summary: r.description || 'Direct road route',
+        distanceKm: distKm,
+        durationMin: Math.max(2, Math.round(baseMin * 0.9)),
+        path,
+      });
+      results.push({
+        id: 'auto_main',
+        mode: 'auto',
+        label: 'Auto-rickshaw',
+        summary: r.description || 'Open-sided road route',
+        distanceKm: distKm,
+        durationMin: Math.max(3, Math.round(baseMin * 1.05)),
+        path,
+      });
     }
 
-    // Fallback inside Google SDK: DirectionsService
-    if (routesLib?.DirectionsService || window.google.maps.DirectionsService) {
-      const ServiceCtor = routesLib?.DirectionsService || window.google.maps.DirectionsService;
+    if (walkRoutes.length > 0) {
+      const r = walkRoutes[0];
+      results.push({
+        id: 'walk_main',
+        mode: 'walk',
+        label: 'Walk',
+        summary: r.description || 'Footpath route',
+        distanceKm: Number(((r.distanceMeters || 0) / 1000).toFixed(1)),
+        durationMin: Math.max(2, Math.round((r.durationMillis || 1200000) / 60000)),
+        path: extractPath(r),
+      });
+    }
+
+    if (results.length > 0) {
+      return { routes: results, provider: 'google_routes' };
+    }
+    console.warn('[routingService] google.maps.routes returned no routes; trying DirectionsService.');
+  } else {
+    console.warn(
+      '[routingService] google.maps.routes.Route.computeRoutes unavailable on this key; trying DirectionsService.'
+    );
+  }
+
+  // 2. Fallback inside Google Maps JS SDK: DirectionsService before OSRM
+  const ServiceCtor = routesLib?.DirectionsService || window.google.maps.DirectionsService;
+  if (ServiceCtor) {
+    try {
       const service = new ServiceCtor();
+      const results: RawRouteGeometry[] = [];
 
       const requestMode = (travelMode: string): Promise<any[]> =>
         new Promise((resolve) => {
-          const timer = setTimeout(() => resolve([]), 5000);
+          const timer = setTimeout(() => {
+            console.warn(`[routingService] DirectionsService(${travelMode}) timed out`);
+            resolve([]);
+          }, 5000);
           service.route(
             {
               origin: { lat: origin.lat, lng: origin.lon },
@@ -332,6 +354,10 @@ async function fetchGoogleRoutes(
               if (status === 'OK' && Array.isArray(res?.routes)) {
                 resolve(res.routes);
               } else {
+                console.warn(
+                  `[routingService] DirectionsService(${travelMode}) failed with status:`,
+                  status
+                );
                 resolve([]);
               }
             }
@@ -346,6 +372,13 @@ async function fetchGoogleRoutes(
       const extractDirPath = (r: any): LatLon[] => {
         if (Array.isArray(r.overview_path) && r.overview_path.length >= 2) {
           return r.overview_path.map((p: any) => ({ lat: p.lat(), lon: p.lng() }));
+        }
+        if (r.overview_polyline) {
+          const encoded =
+            typeof r.overview_polyline === 'string'
+              ? r.overview_polyline
+              : r.overview_polyline.points;
+          if (encoded) return decodeGooglePolyline(encoded);
         }
         return [origin, destination];
       };
@@ -404,14 +437,17 @@ async function fetchGoogleRoutes(
         });
       }
 
-      if (results.length > 0) return results;
+      if (results.length > 0) {
+        return { routes: results, provider: 'google_directions' };
+      }
+    } catch (err) {
+      console.warn('[routingService] Google DirectionsService error:', err);
     }
-
-    return null;
-  } catch (err) {
-    console.warn('[routingService] Google Routes failed, will fall back to OSRM:', err);
-    return null;
+  } else {
+    console.warn('[routingService] Google DirectionsService not available; falling back to OSRM.');
   }
+
+  return null;
 }
 
 /**
@@ -581,21 +617,22 @@ function buildOfflineFallbackRoutes(
 
 /**
  * Fetches all mode routes (Car, Two-wheeler, Auto, Walk, plus Metro estimate)
- * using Google Routes first, then OSRM fallback, then geometric fallback.
+ * using Google Routes first, then Google Directions, then OSRM fallback, then geometric fallback.
  */
 export async function fetchRoutesForTrip(
   origin: LatLon,
   destination: LatLon,
   departureTime: Date,
   googleMapsReady = false
-): Promise<{ routes: RawRouteGeometry[]; provider: 'google' | 'osrm' | 'estimate' }> {
+): Promise<{ routes: RawRouteGeometry[]; provider: RoutingProvider }> {
   let baseRoutes: RawRouteGeometry[] | null = null;
-  let provider: 'google' | 'osrm' | 'estimate' = 'estimate';
+  let provider: RoutingProvider = 'estimate';
 
   if (googleMapsReady) {
-    baseRoutes = await fetchGoogleRoutes(origin, destination, departureTime);
-    if (baseRoutes && baseRoutes.length > 0) {
-      provider = 'google';
+    const googleRes = await fetchGoogleRoutes(origin, destination, departureTime);
+    if (googleRes && googleRes.routes.length > 0) {
+      baseRoutes = googleRes.routes;
+      provider = googleRes.provider;
     }
   }
 

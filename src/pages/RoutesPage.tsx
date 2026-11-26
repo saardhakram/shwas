@@ -35,6 +35,7 @@ import {
 } from '../lib/routeExposure';
 import {
   PlaceSuggestion,
+  RoutingProvider,
   getQuickDestinations,
   searchPlaces,
   fetchRoutesForTrip,
@@ -106,7 +107,7 @@ export const RoutesPage: React.FC = () => {
 
   // Map & routing state
   const [mapProvider, setMapProvider] = useState<'google' | 'leaflet'>('leaflet');
-  const [routingProvider, setRoutingProvider] = useState<'google' | 'osrm' | 'estimate'>('osrm');
+  const [routingProvider, setRoutingProvider] = useState<RoutingProvider>('osrm');
   const [evaluatedRoutes, setEvaluatedRoutes] = useState<EvaluatedRouteOption[]>([]);
   const [selectedRouteId, setSelectedRouteId] = useState<string | null>(null);
   const [isLoadingRoutes, setIsLoadingRoutes] = useState<boolean>(false);
@@ -262,11 +263,13 @@ export const RoutesPage: React.FC = () => {
           </p>
         </div>
         <Badge variant="mint" size="sm" className="whitespace-nowrap shrink-0">
-          {routingProvider === 'google'
+          {routingProvider === 'google_routes'
             ? 'Google Routes'
-            : routingProvider === 'osrm'
-              ? 'OSRM + Open-Meteo'
-              : 'Estimate'}
+            : routingProvider === 'google_directions'
+              ? 'Google Directions'
+              : routingProvider === 'osrm'
+                ? 'OSRM (Fallback)'
+                : 'Offline Estimate'}
         </Badge>
       </div>
 
@@ -524,16 +527,18 @@ export const RoutesPage: React.FC = () => {
                   : 'border-white/[0.08] hover:border-white/20'
               }`}
             >
-              {/* Recommended Ribbon */}
+              {/* Recommended Ribbon with Reason */}
               {route.recommended && (
-                <div className="absolute top-0 right-0 px-2.5 py-0.5 rounded-bl-xl bg-teal-400 text-slate-950 text-[10px] font-bold tracking-wide uppercase flex items-center gap-1 shadow-md">
-                  <Sparkles className="w-2.5 h-2.5" />
-                  <span>Recommended</span>
+                <div className="mb-1 inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-teal-400 text-slate-950 text-[10px] font-bold tracking-wide shadow-md">
+                  <Sparkles className="w-2.5 h-2.5 shrink-0" />
+                  <span>
+                    Recommended · {route.recommendedReason || 'cleanest for you and the city'}
+                  </span>
                 </div>
               )}
 
               {/* Header Row */}
-              <div className="flex items-start justify-between gap-2 pr-20">
+              <div className="flex items-start justify-between gap-2">
                 <div className="flex items-center gap-2.5 min-w-0">
                   <div
                     className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0 border"
@@ -566,7 +571,34 @@ export const RoutesPage: React.FC = () => {
                 </div>
               </div>
 
-              {/* Metrics Row: Time · Cigarettes · CO2 */}
+              {/* Relative Smog Bar & Comparison */}
+              <div className="space-y-1">
+                <div className="flex items-center justify-between gap-2 text-[11px]">
+                  <div className="flex items-center gap-1.5">
+                    <Badge variant={badgeVariant} size="sm" className="font-mono whitespace-nowrap">
+                      <Cigarette className="w-3 h-3 mr-1 inline" />
+                      {route.cigarettes.toFixed(2)} cigs
+                    </Badge>
+                    <span
+                      className="text-[11px] font-medium"
+                      style={{ color: route.strokeColor }}
+                    >
+                      {route.relativeSmogLabel}
+                    </span>
+                  </div>
+                </div>
+                <div className="w-full h-1.5 rounded-full bg-white/[0.06] overflow-hidden">
+                  <div
+                    className="h-full rounded-full transition-all duration-300"
+                    style={{
+                      width: `${route.smogBarPercent}%`,
+                      backgroundColor: route.strokeColor,
+                    }}
+                  />
+                </div>
+              </div>
+
+              {/* Metrics Row: Time · Distance · CO2 */}
               <div className="grid grid-cols-3 gap-2 pt-1 border-t border-white/[0.06]">
                 <div className="bg-white/[0.03] rounded-xl px-2.5 py-1.5">
                   <div className="text-[10px] text-slate-400 flex items-center gap-1">
@@ -575,17 +607,14 @@ export const RoutesPage: React.FC = () => {
                   <div className="text-xs font-numbers font-bold text-white mt-0.5">
                     {route.durationMin} min
                   </div>
-                  <div className="text-[10px] text-slate-500">{route.distanceKm} km</div>
                 </div>
 
                 <div className="bg-white/[0.03] rounded-xl px-2.5 py-1.5">
                   <div className="text-[10px] text-slate-400 flex items-center gap-1">
-                    <Cigarette className="w-3 h-3 text-amber-400" /> Smog
+                    <Navigation className="w-3 h-3 text-slate-400" /> Distance
                   </div>
-                  <div className="mt-0.5">
-                    <Badge variant={badgeVariant} size="sm" className="font-mono whitespace-nowrap">
-                      {route.cigarettes.toFixed(2)} cigs
-                    </Badge>
+                  <div className="text-xs font-numbers font-bold text-slate-200 mt-0.5">
+                    {route.distanceKm} km
                   </div>
                 </div>
 
@@ -596,7 +625,6 @@ export const RoutesPage: React.FC = () => {
                   <div className="text-xs font-numbers font-bold text-slate-200 mt-0.5">
                     {route.co2Kg === 0 ? '0 kg' : `${route.co2Kg.toFixed(2)} kg`}
                   </div>
-                  <div className="text-[10px] text-slate-500">per trip</div>
                 </div>
               </div>
 

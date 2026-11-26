@@ -54,6 +54,7 @@ export const CO2_KG_PER_KM: Record<RouteMode, number> = {
 export const METRO_SPEED_KMH = 35;
 export const METRO_WALK_MIN_DEFAULT = 12; // total walk to & from stations
 export const RECOMMENDED_MAX_EXTRA_MINUTES = 15;
+export const SMOG_TIE_THRESHOLD_CIGS = 0.02; // prefer lower CO2 if within 0.02 cigarettes
 
 export interface RawRouteGeometry {
   id: string;
@@ -77,6 +78,9 @@ export interface EvaluatedRouteOption extends RawRouteGeometry {
   exposureLevel: ExposureLevel;
   strokeColor: string;
   recommended: boolean;
+  recommendedReason?: string;
+  relativeSmogLabel: string;
+  smogBarPercent: number;
 }
 
 export interface DepartureTip {
@@ -315,13 +319,44 @@ export function estimateMetroRoute(
   };
 }
 
+const SUSTAINABLE_MODES = new Set<RouteMode>(['metro', 'walk', 'two_wheeler']);
+
+function getShortModeName(mode: RouteMode): string {
+  switch (mode) {
+    case 'metro':
+      return 'Metro';
+    case 'car':
+      return 'Car';
+    case 'auto':
+      return 'Auto';
+    case 'two_wheeler':
+      return 'Two-wheeler';
+    case 'walk':
+      return 'Walk';
+  }
+}
+
+export interface RecommendationResult {
+  id: string;
+  reason: string;
+}
+
 /**
- * Selects the "Recommended" option: the lowest-cigarette option within 15 minutes
- * of the fastest available option.
+ * Selects the "Recommended" option balancing personal smog exposure AND city sustainability:
+ * 1. Only considers options within 15 minutes of the fastest option.
+ * 2. If two options differ by less than 0.02 cigarettes, prefers the one with lower CO2.
+ * 3. Never recommends Car when Metro, Walk, or Two-wheeler is within 0.02 cigarettes
+ *    of the cleanest eligible option and within 15 minutes of the fastest option.
  */
 export function selectRecommendedOption(
-  options: Array<{ id: string; durationMin: number; cigarettes: number }>
-): string | null {
+  options: Array<{
+    id: string;
+    mode?: RouteMode;
+    durationMin: number;
+    cigarettes: number;
+    co2Kg?: number;
+  }>
+): RecommendationResult | null {
   if (!options || options.length === 0) return null;
 
   const fastestMin = Math.min(...options.map((o) => o.durationMin));
@@ -329,15 +364,47 @@ export function selectRecommendedOption(
     (o) => o.durationMin <= fastestMin + RECOMMENDED_MAX_EXTRA_MINUTES
   );
 
-  if (eligible.length === 0) return options[0].id;
+  if (eligible.length === 0) {
+    return { id: options[0].id, reason: 'fastest available option' };
+  }
 
-  // Sort by lowest cigarettes first, tie-break by fastest duration
-  eligible.sort((a, b) => {
-    if (a.cigarettes !== b.cigarettes) return a.cigarettes - b.cigarettes;
+  const minCigs = Math.min(...eligible.map((o) => o.cigarettes));
+
+  // All eligible options within 0.02 cigarettes of the cleanest eligible option
+  let candidates = eligible.filter(
+    (o) => o.cigarettes - minCigs <= SMOG_TIE_THRESHOLD_CIGS + 1e-9
+  );
+
+  // Never recommend Car if Metro, Walk, or Two-wheeler is in the 0.02-cig band (and already within 15 min)
+  const hasSustainableAlternative = candidates.some(
+    (c) => c.mode && SUSTAINABLE_MODES.has(c.mode)
+  );
+  if (hasSustainableAlternative) {
+    candidates = candidates.filter((c) => c.mode !== 'car');
+  }
+
+  // Within the 0.02-cigarette band, prefer lower CO2, then lower cigarettes, then faster time
+  candidates.sort((a, b) => {
+    const co2A = a.co2Kg ?? (a.mode ? CO2_KG_PER_KM[a.mode] : 0);
+    const co2B = b.co2Kg ?? (b.mode ? CO2_KG_PER_KM[b.mode] : 0);
+    if (Math.abs(co2A - co2B) > 1e-6) return co2A - co2B;
+    if (Math.abs(a.cigarettes - b.cigarettes) > 1e-6) return a.cigarettes - b.cigarettes;
     return a.durationMin - b.durationMin;
   });
 
-  return eligible[0].id;
+  const winner = candidates[0];
+  let reason = 'cleanest for you and the city';
+  if (winner.mode === 'walk') {
+    reason = 'cleanest for you · zero emissions';
+  } else if (winner.mode === 'metro') {
+    reason = 'cleanest for you and the city';
+  } else if (winner.mode === 'car') {
+    reason = 'lowest personal smog exposure';
+  } else if (winner.mode === 'two_wheeler' || winner.mode === 'auto') {
+    reason = 'cleanest & lower emissions';
+  }
+
+  return { id: winner.id, reason };
 }
 
 /**
@@ -368,9 +435,16 @@ export function classifyExposureColor(
   return { exposureLevel: 'high', strokeColor: '#EF4444' };
 }
 
+function formatMultiplier(ratio: number): string {
+  if (ratio >= 9.95) return `${Math.round(ratio)}×`;
+  const rounded = Number(ratio.toFixed(1));
+  return Number.isInteger(rounded) ? `${rounded}×` : `${rounded.toFixed(1)}×`;
+}
+
 /**
  * Evaluates a batch of raw routes with their corresponding average PM2.5 values,
- * computes cigarettes, CO2, exposure colours, and marks the Recommended option.
+ * computes cigarettes, CO2, exposure colours, relative smog labels, bar widths,
+ * and marks the Recommended option with its reason.
  */
 export function evaluateRouteOptions(
   routes: RawRouteGeometry[],
@@ -389,11 +463,20 @@ export function evaluateRouteOptions(
   const minCigs = Math.min(...cigsList);
   const maxCigs = Math.max(...cigsList);
 
-  const recommendedId = selectRecommendedOption(
+  // Pick cleanest baseline option (preferring lowest CO2 on ties) for relative comparison text
+  const cleanestBaseline = [...preliminary].sort((a, b) => {
+    if (Math.abs(a.cigarettes - b.cigarettes) > 1e-6) return a.cigarettes - b.cigarettes;
+    return a.co2Kg - b.co2Kg;
+  })[0];
+  const baselineName = getShortModeName(cleanestBaseline.route.mode);
+
+  const recommendation = selectRecommendedOption(
     preliminary.map((p) => ({
       id: p.route.id,
+      mode: p.route.mode,
       durationMin: p.route.durationMin,
       cigarettes: p.cigarettes,
+      co2Kg: p.co2Kg,
     }))
   );
 
@@ -403,6 +486,26 @@ export function evaluateRouteOptions(
       minCigs,
       maxCigs
     );
+
+    let relativeSmogLabel: string;
+    if (route.id === cleanestBaseline.route.id || cigarettes <= minCigs + 0.005) {
+      relativeSmogLabel = 'Cleanest option';
+    } else if (minCigs > 0) {
+      const ratio = cigarettes / minCigs;
+      if (ratio >= 1.15) {
+        relativeSmogLabel = `${formatMultiplier(ratio)} more smog than ${baselineName}`;
+      } else {
+        relativeSmogLabel = `Similar smog to ${baselineName}`;
+      }
+    } else {
+      relativeSmogLabel = `More smog than ${baselineName}`;
+    }
+
+    const smogBarPercent =
+      maxCigs > 0 ? Math.max(8, Math.min(100, Math.round((cigarettes / maxCigs) * 100))) : 8;
+
+    const isRec = recommendation?.id === route.id;
+
     return {
       ...route,
       avgPm25,
@@ -410,7 +513,10 @@ export function evaluateRouteOptions(
       co2Kg,
       exposureLevel,
       strokeColor,
-      recommended: route.id === recommendedId,
+      recommended: isRec,
+      recommendedReason: isRec ? recommendation?.reason : undefined,
+      relativeSmogLabel,
+      smogBarPercent,
     };
   });
 }

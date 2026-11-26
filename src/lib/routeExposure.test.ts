@@ -120,16 +120,51 @@ describe('routeExposure.ts (Clean Routes Exposure & CO2 Engine)', () => {
 
   it('recommends the lowest-cigarette option within 15 minutes of the fastest option', () => {
     const options = [
-      { id: 'two_wheeler', durationMin: 20, cigarettes: 0.9 }, // fastest (20 min)
-      { id: 'metro', durationMin: 32, cigarettes: 0.22 }, // +12 min (within 15 min), cleanest!
-      { id: 'car', durationMin: 24, cigarettes: 0.35 },
-      { id: 'walk', durationMin: 95, cigarettes: 0.15 }, // cleaner, but +75 min (> 15 min)
+      { id: 'two_wheeler', mode: 'two_wheeler' as const, durationMin: 20, cigarettes: 0.9, co2Kg: 0.4 }, // fastest (20 min)
+      { id: 'metro', mode: 'metro' as const, durationMin: 32, cigarettes: 0.22, co2Kg: 0.24 }, // +12 min (within 15 min), cleanest!
+      { id: 'car', mode: 'car' as const, durationMin: 24, cigarettes: 0.35, co2Kg: 1.36 },
+      { id: 'walk', mode: 'walk' as const, durationMin: 95, cigarettes: 0.15, co2Kg: 0 }, // cleaner, but +75 min (> 15 min)
     ];
 
-    expect(selectRecommendedOption(options)).toBe('metro');
+    const rec = selectRecommendedOption(options);
+    expect(rec?.id).toBe('metro');
+    expect(rec?.reason).toContain('cleanest for you and the city');
   });
 
-  it('colours routes mint (cleanest) -> amber -> red (dirtiest) and marks recommended', () => {
+  it('prefers lower CO2 when two options differ by less than 0.02 cigarettes', () => {
+    const options = [
+      { id: 'metro', mode: 'metro' as const, durationMin: 18, cigarettes: 0.09, co2Kg: 0.12 },
+      { id: 'walk', mode: 'walk' as const, durationMin: 24, cigarettes: 0.10, co2Kg: 0 }, // diff 0.01 < 0.02, lower CO2, within 15m
+      { id: 'car', mode: 'car' as const, durationMin: 14, cigarettes: 0.10, co2Kg: 0.68 },
+    ];
+
+    const rec = selectRecommendedOption(options);
+    expect(rec?.id).toBe('walk');
+    expect(rec?.reason).toContain('zero emissions');
+  });
+
+  it('never recommends Car when Metro, Walk, or Two-wheeler is within 0.02 cigarettes and 15 min', () => {
+    // Car has slightly fewer cigarettes (0.10 vs Metro 0.115 -> diff 0.015 <= 0.02),
+    // and Metro is within 15 min of fastest (26 <= 16 + 15) -> must recommend Metro, NOT Car!
+    const options = [
+      { id: 'car', mode: 'car' as const, durationMin: 16, cigarettes: 0.10, co2Kg: 1.36 },
+      { id: 'metro', mode: 'metro' as const, durationMin: 26, cigarettes: 0.115, co2Kg: 0.24 },
+      { id: 'auto', mode: 'auto' as const, durationMin: 20, cigarettes: 0.25, co2Kg: 0.64 },
+    ];
+
+    const rec = selectRecommendedOption(options);
+    expect(rec?.id).toBe('metro');
+    expect(rec?.id).not.toBe('car');
+
+    // Also test Two-wheeler within 0.02 cigs & 15 min beating Car
+    const options2 = [
+      { id: 'car', mode: 'car' as const, durationMin: 15, cigarettes: 0.12, co2Kg: 1.02 },
+      { id: 'two_wheeler', mode: 'two_wheeler' as const, durationMin: 14, cigarettes: 0.135, co2Kg: 0.3 },
+    ];
+    expect(selectRecommendedOption(options2)?.id).toBe('two_wheeler');
+  });
+
+  it('colours routes mint (cleanest) -> amber -> red (dirtiest), marks recommended, and adds relative smog labels & bars', () => {
     const basePath: LatLon[] = [
       { lat: 28.61, lon: 77.20 },
       { lat: 28.64, lon: 77.22 },
@@ -146,9 +181,14 @@ describe('routeExposure.ts (Clean Routes Exposure & CO2 Engine)', () => {
     const auto = evaluated.find((r) => r.id === 'auto')!;
 
     expect(metro.recommended).toBe(true);
+    expect(metro.recommendedReason).toBe('cleanest for you and the city');
     expect(metro.strokeColor).toBe('#2DD4BF'); // mint
+    expect(metro.relativeSmogLabel).toBe('Cleanest option');
     expect(car.exposureLevel).toBe('clean');
     expect(auto.strokeColor).toBe('#EF4444'); // red (dirtiest)
+    expect(auto.relativeSmogLabel).toContain('more smog than Metro');
+    expect(auto.smogBarPercent).toBe(100);
+    expect(metro.smogBarPercent).toBeLessThan(auto.smogBarPercent);
   });
 
   it('computes a departure timing tip from the 48-hour forecast', () => {
