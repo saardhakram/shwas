@@ -10,6 +10,9 @@
     "languages": "ভাষা",
     "availableLanguages": "উপলব্ধ ভাষা",
     "selectLanguageAria": "ভাষা নির্বাচন করুন, বর্তমান ভাষা {{language}}",
+    "translationNoticePrefix": "অনুবাদগুলো AI-এর সহায়তায় তৈরি। কোনো ভুল চোখে পড়েছে?",
+    "translationNoticeLink": "আমাদের জানান।",
+    "translationNoticeLinkSr": "(GitHub-এ অনুবাদের ত্রুটি রিপোর্ট করুন, নতুন ট্যাবে খুলবে)",
     "units": {
       "cigs": "সিগারেট",
       "cigsPerDay": "সিগারেট/দিন",

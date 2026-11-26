@@ -10,6 +10,9 @@
     "languages": "Languages",
     "availableLanguages": "Available languages",
     "selectLanguageAria": "Select language, current language {{language}}",
+    "translationNoticePrefix": "Translations are AI-assisted. Spot an error?",
+    "translationNoticeLink": "Let us know.",
+    "translationNoticeLinkSr": "(report a translation issue on GitHub, opens in a new tab)",
     "units": {
       "cigs": "cigs",
       "cigsPerDay": "cigs/day",

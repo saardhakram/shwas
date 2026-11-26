@@ -1,0 +1,46 @@
+name: Translation issue
+description: Report a typo, mistranslation, or unnatural phrasing in Shwas.
+title: "Translation issue: "
+labels: ["translation"]
+body:
+  - type: dropdown
+    id: language
+    attributes:
+      label: Language
+      description: Which language has the translation issue?
+      options:
+        - English (en)
+        - Hindi (hi)
+        - Telugu (te)
+        - Tamil (ta)
+        - Bengali (bn)
+        - Marathi (mr)
+    validations:
+      required: true
+
+  - type: input
+    id: screen
+    attributes:
+      label: Screen
+      description: Where in the app does this text appear?
+      placeholder: e.g. Onboarding step 2, Today, Scan, Routes, Community, Ask Shwas
+    validations:
+      required: true
+
+  - type: textarea
+    id: current-text
+    attributes:
+      label: Current text
+      description: Paste or describe the current text shown in the app.
+      placeholder: What the app currently shows
+    validations:
+      required: true
+
+  - type: textarea
+    id: suggested-text
+    attributes:
+      label: Suggested text
+      description: Share a clearer or more natural translation.
+      placeholder: What it should say instead
+    validations:
+      required: true

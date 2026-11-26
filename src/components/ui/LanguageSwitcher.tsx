@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next';
 import { Globe, ChevronDown, Check } from 'lucide-react';
 import { STORAGE_KEYS, storage } from '../../lib/storage';
 import type { UserProfile } from '../../types';
+import { TranslationNotice } from './TranslationNotice';
 
 export const LANGUAGES = [
   { code: 'en', label: 'English', native: 'English' },
@@ -69,35 +70,36 @@ export const LanguageSwitcher: React.FC<{ className?: string }> = ({ className =
       </button>
 
       {isOpen && (
-        <div
-          role="listbox"
-          aria-label={t('app.availableLanguages', 'Available languages')}
-          className="absolute right-0 mt-1.5 w-44 rounded-xl bg-surface-elevated border border-white/[0.14] shadow-2xl p-1.5 z-50"
-        >
+        <div className="absolute right-0 mt-1.5 w-56 rounded-xl bg-surface-elevated border border-white/[0.14] shadow-2xl p-1.5 z-50">
           <div className="px-2 py-1 text-[10px] font-semibold tracking-wider text-slate-400 uppercase">
             {t('app.languages', 'Languages')}
           </div>
-          {LANGUAGES.map((lang) => {
-            const isSelected = lang.code === currentLang.code;
-            return (
-              <button
-                key={lang.code}
-                type="button"
-                role="option"
-                aria-selected={isSelected}
-                aria-label={`${lang.label} (${lang.native})`}
-                onClick={() => handleSelect(lang.code)}
-                className={`w-full flex items-center justify-between px-2.5 py-1.5 rounded-lg text-xs transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal-400 ${
-                  isSelected
-                    ? 'bg-teal-500/20 text-teal-300 font-semibold'
-                    : 'text-slate-200 hover:bg-white/[0.08] hover:text-white'
-                }`}
-              >
-                <span>{lang.native}</span>
-                {isSelected && <Check className="w-3.5 h-3.5 text-teal-400" aria-hidden="true" />}
-              </button>
-            );
-          })}
+          <div role="listbox" aria-label={t('app.availableLanguages', 'Available languages')}>
+            {LANGUAGES.map((lang) => {
+              const isSelected = lang.code === currentLang.code;
+              return (
+                <button
+                  key={lang.code}
+                  type="button"
+                  role="option"
+                  aria-selected={isSelected}
+                  aria-label={`${lang.label} (${lang.native})`}
+                  onClick={() => handleSelect(lang.code)}
+                  className={`w-full flex items-center justify-between px-2.5 py-1.5 rounded-lg text-xs transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal-400 ${
+                    isSelected
+                      ? 'bg-teal-500/20 text-teal-300 font-semibold'
+                      : 'text-slate-200 hover:bg-white/[0.08] hover:text-white'
+                  }`}
+                >
+                  <span>{lang.native}</span>
+                  {isSelected && <Check className="w-3.5 h-3.5 text-teal-400" aria-hidden="true" />}
+                </button>
+              );
+            })}
+          </div>
+          <div className="mt-1.5 pt-1.5 px-2 border-t border-white/[0.08]">
+            <TranslationNotice />
+          </div>
         </div>
       )}
     </div>

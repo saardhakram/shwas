@@ -10,6 +10,9 @@
     "languages": "భాషలు",
     "availableLanguages": "అందుబాటులో ఉన్న భాషలు",
     "selectLanguageAria": "భాషను ఎంచుకోండి, ప్రస్తుత భాష {{language}}",
+    "translationNoticePrefix": "అనువాదాలు AI సహాయంతో రూపొందించబడ్డాయి. ఏదైనా తప్పు కనిపించిందా?",
+    "translationNoticeLink": "మాకు తెలియజేయండి.",
+    "translationNoticeLinkSr": "(GitHub లో అనువాద లోపాన్ని నివేదించండి, కొత్త ట్యాబ్‌లో తెరుచుకుంటుంది)",
     "units": {
       "cigs": "సిగరెట్లు",
       "cigsPerDay": "సిగరెట్లు/రోజు",

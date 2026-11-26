@@ -2,6 +2,7 @@ import React from 'react';
 import { useTranslation } from 'react-i18next';
 import { Check } from 'lucide-react';
 import Badge from '../../components/ui/Badge';
+import { TranslationNotice } from '../../components/ui/TranslationNotice';
 import { LANGUAGE_TILES } from './useOnboarding';
 
 interface LanguageStepProps {
@@ -55,6 +56,8 @@ export const LanguageStep: React.FC<LanguageStepProps> = ({ language, onSelectLa
           );
         })}
       </div>
+
+      <TranslationNotice className="text-center pt-1" />
     </div>
   );
 };
