@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo, useRef, useCallback, type FormEvent } from 'react';
+import { useTranslation } from 'react-i18next';
 import { toPng } from 'html-to-image';
 import { useAirQuality } from '../../components/layout/AppLayout';
 import {
@@ -26,6 +27,7 @@ import { isSupabaseConfigured, supabase } from '../../lib/supabase';
 import { logger } from '../../lib/logger';
 
 function useShareCard(shareText: string, myTodaySaved: number) {
+  const { t } = useTranslation();
   const [showShareModal, setShowShareModal] = useState<boolean>(false);
   const [shareImageUrl, setShareImageUrl] = useState<string | null>(null);
   const [shareFeedback, setShareFeedback] = useState<string | null>(null);
@@ -66,7 +68,10 @@ function useShareCard(shareText: string, myTodaySaved: number) {
       const dataUrl = await ensureShareImage();
       if (!navigator.share) {
         setShareFeedback(
-          'Web Share is not supported in this browser — use WhatsApp or Download below.',
+          t(
+            'community.shareUnsupported',
+            'Web Share is not supported in this browser — use WhatsApp or Download below.',
+          ),
         );
         return;
       }
@@ -79,15 +84,17 @@ function useShareCard(shareText: string, myTodaySaved: number) {
             text: shareText,
             files: [file],
           });
-          setShareFeedback('Shared successfully!');
+          setShareFeedback(t('community.shareSuccess', 'Shared successfully!'));
           return;
         }
       }
       await navigator.share({ title: 'Shwas — Clean Air Progress', text: shareText });
-      setShareFeedback('Shared successfully!');
+      setShareFeedback(t('community.shareSuccess', 'Shared successfully!'));
     } catch (err: unknown) {
       if (!(err instanceof Error && err.name === 'AbortError')) {
-        setShareFeedback('Use WhatsApp or Download PNG below to share.');
+        setShareFeedback(
+          t('community.shareFallbackHint', 'Use WhatsApp or Download PNG below to share.'),
+        );
       }
     }
   };
@@ -100,9 +107,11 @@ function useShareCard(shareText: string, myTodaySaved: number) {
       link.download = `shwas-saved-${formatSavedCount(myTodaySaved)}-cigs.png`;
       link.href = dataUrl;
       link.click();
-      setShareFeedback('Downloaded card image!');
+      setShareFeedback(t('community.downloadSuccess', 'Downloaded card image!'));
     } catch {
-      setShareFeedback('Could not export image. Try WhatsApp share instead.');
+      setShareFeedback(
+        t('community.downloadError', 'Could not export image. Try WhatsApp share instead.'),
+      );
     }
   };
 
@@ -119,6 +128,7 @@ function useShareCard(shareText: string, myTodaySaved: number) {
 }
 
 function useCommunitySnapshot(activeGroup: CommunityGroup | null) {
+  const { t } = useTranslation();
   const [members, setMembers] = useState<CommunityMember[]>([]);
   const [savings, setSavings] = useState<DailySavingRow[]>([]);
   const [alerts, setAlerts] = useState<CommunityAlert[]>([]);
@@ -126,22 +136,27 @@ function useCommunitySnapshot(activeGroup: CommunityGroup | null) {
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [loadError, setLoadError] = useState<string | null>(null);
 
-  const refreshSnapshot = useCallback(async (group: CommunityGroup) => {
-    setIsLoading(true);
-    setLoadError(null);
-    try {
-      const snap = await loadCommunitySnapshot(group);
-      setMembers(snap.members);
-      setSavings(snap.savings);
-      setAlerts(snap.alerts);
-      setSnapshotNow(new Date());
-    } catch (err) {
-      logger.warn('[CommunityPage] Snapshot load error:', err);
-      setLoadError('Could not refresh group data. Showing cached snapshot.');
-    } finally {
-      setIsLoading(false);
-    }
-  }, []);
+  const refreshSnapshot = useCallback(
+    async (group: CommunityGroup) => {
+      setIsLoading(true);
+      setLoadError(null);
+      try {
+        const snap = await loadCommunitySnapshot(group);
+        setMembers(snap.members);
+        setSavings(snap.savings);
+        setAlerts(snap.alerts);
+        setSnapshotNow(new Date());
+      } catch (err) {
+        logger.warn('[CommunityPage] Snapshot load error:', err);
+        setLoadError(
+          t('community.errSnapshot', 'Could not refresh group data. Showing cached snapshot.'),
+        );
+      } finally {
+        setIsLoading(false);
+      }
+    },
+    [t],
+  );
 
   useEffect(() => {
     if (!activeGroup) return;
@@ -191,6 +206,7 @@ function useCommunitySnapshot(activeGroup: CommunityGroup | null) {
 }
 
 export function useCommunityGroup() {
+  const { t } = useTranslation();
   const { aqi, userProfile } = useAirQuality();
 
   const defaultFamilyLabel = useMemo(() => {
@@ -244,7 +260,9 @@ export function useCommunityGroup() {
     e.preventDefault();
     setFormError(null);
     if (groupNameInput.trim().length < 2) {
-      setFormError('Enter a society or school name (at least 2 characters).');
+      setFormError(
+        t('community.errGroupName', 'Enter a society or school name (at least 2 characters).'),
+      );
       return;
     }
     setActiveGroup(await createCommunityGroup(groupNameInput, resolvedFamilyName));
@@ -255,7 +273,9 @@ export function useCommunityGroup() {
     e.preventDefault();
     setFormError(null);
     if (!isValidJoinCode(joinCodeInput)) {
-      setFormError('Enter a valid 6-character join code (e.g. GRNPK6).');
+      setFormError(
+        t('community.errJoinCode', 'Enter a valid 6-character join code (e.g. GRNPK6).'),
+      );
       return;
     }
     const res = await joinCommunityGroupByCode(joinCodeInput, resolvedFamilyName);
@@ -263,7 +283,9 @@ export function useCommunityGroup() {
       setActiveGroup(res.group);
       setJoinCodeInput('');
     } else {
-      setFormError(res.error || 'Could not find a group with that code.');
+      setFormError(
+        res.error || t('community.errGroupNotFound', 'Could not find a group with that code.'),
+      );
     }
   };
 

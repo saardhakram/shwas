@@ -21,7 +21,9 @@ export const LeaderboardCard: React.FC<LeaderboardCardProps> = ({ leaderboard, c
             {t('community.leaderboard', 'Weekly Leaderboard')}
           </h3>
         </div>
-        <span className="text-[10px] text-slate-400 text-right">Check items on Today to climb</span>
+        <span className="text-[10px] text-slate-400 text-right">
+          {t('community.climbHint', 'Check items on Today to climb')}
+        </span>
       </div>
 
       <div className="space-y-2">
@@ -49,7 +51,7 @@ export const LeaderboardCard: React.FC<LeaderboardCardProps> = ({ leaderboard, c
                     <span className="truncate">{member.displayName}</span>
                     {isMe && (
                       <span className="text-[9px] uppercase font-mono font-bold px-1.5 py-0.5 rounded-full bg-teal-400/20 border border-teal-400/40 text-teal-200 shrink-0">
-                        YOU
+                        {t('community.youBadge', 'YOU')}
                       </span>
                     )}
                   </div>
@@ -57,8 +59,8 @@ export const LeaderboardCard: React.FC<LeaderboardCardProps> = ({ leaderboard, c
                     <Flame className="w-3 h-3 shrink-0 fill-amber-400/30" aria-hidden="true" />
                     <span>
                       {member.streakDays > 0
-                        ? `${member.streakDays}d streak`
-                        : 'Start streak today'}
+                        ? t('community.streakDays', '{{days}}d streak', { days: member.streakDays })
+                        : t('community.startStreak', 'Start streak today')}
                     </span>
                   </div>
                 </div>
@@ -66,10 +68,12 @@ export const LeaderboardCard: React.FC<LeaderboardCardProps> = ({ leaderboard, c
 
               <div className="text-right shrink-0">
                 <div className="font-mono font-bold text-teal-300">
-                  {formatSavedCount(member.weeklySaved)} cigs
+                  {formatSavedCount(member.weeklySaved)} {t('app.units.cigs', 'cigs')}
                 </div>
                 <div className="text-[10px] text-slate-400">
-                  {formatSavedCount(member.todaySaved)} today
+                  {t('community.todayCount', '{{value}} today', {
+                    value: formatSavedCount(member.todaySaved),
+                  })}
                 </div>
               </div>
             </div>

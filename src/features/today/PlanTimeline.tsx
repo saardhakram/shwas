@@ -56,8 +56,12 @@ export const PlanTimeline: React.FC<PlanTimelineProps> = ({
         </div>
         <span className="text-[11px] text-teal-300 font-medium whitespace-nowrap">
           {checkedSavings > 0
-            ? `${checkedSavings.toFixed(1)} cigs saved so far`
-            : `Save up to ${totalPotentialSavings.toFixed(1)} cigs`}
+            ? t('today.cigsSavedSoFar', '{{value}} cigs saved so far', {
+                value: checkedSavings.toFixed(1),
+              })
+            : t('today.saveUpToCigs', 'Save up to {{value}} cigs', {
+                value: totalPotentialSavings.toFixed(1),
+              })}
         </span>
       </div>
 
@@ -68,7 +72,11 @@ export const PlanTimeline: React.FC<PlanTimelineProps> = ({
             type="button"
             role="checkbox"
             aria-checked={item.completed}
-            aria-label={`${item.completed ? 'Mark incomplete' : 'Mark complete'}: ${item.action}`}
+            aria-label={
+              item.completed
+                ? t('today.markIncomplete', 'Mark incomplete: {{action}}', { action: item.action })
+                : t('today.markComplete', 'Mark complete: {{action}}', { action: item.action })
+            }
             onClick={() => onToggleItem(item.id)}
             className={`w-full text-left relative backdrop-blur-xl rounded-2xl border flex items-start gap-3 p-3 cursor-pointer transition-all duration-200 select-none focus:outline-none focus-visible:ring-2 focus-visible:ring-teal-400 ${
               item.completed
@@ -105,7 +113,9 @@ export const PlanTimeline: React.FC<PlanTimelineProps> = ({
                     size="sm"
                     className="shrink-0 whitespace-nowrap font-mono"
                   >
-                    -{item.cigarettesSaved.toFixed(1)} cigs
+                    {t('today.minusCigs', '-{{value}} cigs', {
+                      value: item.cigarettesSaved.toFixed(1),
+                    })}
                   </Badge>
                 )}
               </div>

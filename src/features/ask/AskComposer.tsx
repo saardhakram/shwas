@@ -34,7 +34,7 @@ export const AskComposer: React.FC<AskComposerProps> = ({
         type="text"
         value={input}
         onChange={(e) => onInputChange(e.target.value)}
-        aria-label="Ask Shwas an air quality question"
+        aria-label={t('ask.inputAria', 'Ask Shwas an air quality question')}
         placeholder={
           isListening
             ? t('ask.listening', 'Listening… speak your question')
@@ -54,8 +54,16 @@ export const AskComposer: React.FC<AskComposerProps> = ({
               ? 'bg-red-500/20 border-red-400/60 text-red-300 animate-pulse'
               : 'bg-white/[0.06] border-white/[0.1] hover:bg-white/[0.12] text-slate-300'
           }`}
-          title={isListening ? 'Stop listening' : 'Speak your question'}
-          aria-label={isListening ? 'Stop voice input' : 'Start voice input'}
+          title={
+            isListening
+              ? t('ask.stopListeningTitle', 'Stop listening')
+              : t('ask.speakQuestionTitle', 'Speak your question')
+          }
+          aria-label={
+            isListening
+              ? t('ask.stopVoiceAria', 'Stop voice input')
+              : t('ask.startVoiceAria', 'Start voice input')
+          }
         >
           {isListening ? (
             <MicOff className="w-4 h-4" aria-hidden="true" />
@@ -69,8 +77,8 @@ export const AskComposer: React.FC<AskComposerProps> = ({
         type="submit"
         disabled={!input.trim() || isSending || remainingToday <= 0}
         className="p-2.5 rounded-xl bg-teal-400 hover:bg-teal-300 disabled:opacity-40 text-slate-950 font-semibold transition-colors shrink-0 shadow-md shadow-teal-400/20 focus:outline-none focus-visible:ring-2 focus-visible:ring-white"
-        title="Send question"
-        aria-label="Send question"
+        title={t('ask.sendQuestion', 'Send question')}
+        aria-label={t('ask.sendQuestion', 'Send question')}
       >
         <Send className="w-4 h-4" aria-hidden="true" />
       </button>

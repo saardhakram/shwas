@@ -18,20 +18,25 @@ import {
   type RouteMode,
 } from './routeExposure';
 
+type TranslateFn = (key: string, defaultValue: string, options?: Record<string, unknown>) => string;
+
+const defaultT: TranslateFn = (_k, def, opts) =>
+  opts ? def.replace(/\{\{(\w+)\}\}/g, (_, k) => String(opts[k] ?? '')) : def;
+
 const SUSTAINABLE_MODES = new Set<RouteMode>(['metro', 'walk', 'two_wheeler']);
 
-function getShortModeName(mode: RouteMode): string {
+function getShortModeName(mode: RouteMode, t: TranslateFn = defaultT): string {
   switch (mode) {
     case 'metro':
-      return 'Metro';
+      return t('routes.modeMetro', 'Metro');
     case 'car':
-      return 'Car';
+      return t('routes.modeCar', 'Car');
     case 'auto':
-      return 'Auto';
+      return t('routes.modeAuto', 'Auto');
     case 'two_wheeler':
-      return 'Two-wheeler';
+      return t('routes.modeTwoWheeler', 'Two-wheeler');
     case 'walk':
-      return 'Walk';
+      return t('routes.modeWalk', 'Walk');
   }
 }
 
@@ -40,12 +45,13 @@ export interface RecommendationResult {
   reason: string;
 }
 
-function getRecommendationReason(mode?: RouteMode): string {
-  if (mode === 'walk') return 'cleanest for you · zero emissions';
-  if (mode === 'metro') return 'cleanest for you and the city';
-  if (mode === 'car') return 'lowest personal smog exposure';
-  if (mode === 'two_wheeler' || mode === 'auto') return 'cleanest & lower emissions';
-  return 'cleanest for you and the city';
+function getRecommendationReason(mode?: RouteMode, t: TranslateFn = defaultT): string {
+  if (mode === 'walk') return t('routes.reasonWalk', 'cleanest for you · zero emissions');
+  if (mode === 'metro') return t('routes.reasonMetro', 'cleanest for you and the city');
+  if (mode === 'car') return t('routes.reasonCar', 'lowest personal smog exposure');
+  if (mode === 'two_wheeler' || mode === 'auto')
+    return t('routes.reasonTwoWheeler', 'cleanest & lower emissions');
+  return t('routes.reasonMetro', 'cleanest for you and the city');
 }
 
 /**
@@ -63,6 +69,7 @@ export function selectRecommendedOption(
     cigarettes: number;
     co2Kg?: number;
   }>,
+  t: TranslateFn = defaultT,
 ): RecommendationResult | null {
   if (!options || options.length === 0) return null;
 
@@ -72,7 +79,7 @@ export function selectRecommendedOption(
   );
 
   if (eligible.length === 0) {
-    return { id: options[0].id, reason: 'fastest available option' };
+    return { id: options[0].id, reason: t('routes.reasonFastest', 'fastest available option') };
   }
 
   const minCigs = Math.min(...eligible.map((o) => o.cigarettes));
@@ -92,7 +99,7 @@ export function selectRecommendedOption(
   });
 
   const winner = candidates[0];
-  return { id: winner.id, reason: getRecommendationReason(winner.mode) };
+  return { id: winner.id, reason: getRecommendationReason(winner.mode, t) };
 }
 
 /**
@@ -130,13 +137,21 @@ function buildRelativeSmogLabel(
   cigarettes: number,
   minCigs: number,
   baselineName: string,
+  t: TranslateFn = defaultT,
 ): string {
-  if (isCleanest || cigarettes <= minCigs + 0.005) return 'Cleanest option';
-  if (minCigs <= 0) return `More smog than ${baselineName}`;
+  if (isCleanest || cigarettes <= minCigs + 0.005) {
+    return t('routes.relativeCleanest', 'Cleanest option');
+  }
+  if (minCigs <= 0) {
+    return t('routes.relativeMore', 'More smog than {{mode}}', { mode: baselineName });
+  }
   const ratio = cigarettes / minCigs;
   return ratio >= 1.15
-    ? `${formatMultiplier(ratio)} more smog than ${baselineName}`
-    : `Similar smog to ${baselineName}`;
+    ? t('routes.relativeMultiplier', '{{mult}} more smog than {{mode}}', {
+        mult: formatMultiplier(ratio),
+        mode: baselineName,
+      })
+    : t('routes.relativeSimilar', 'Similar smog to {{mode}}', { mode: baselineName });
 }
 
 /**
@@ -147,6 +162,7 @@ function buildRelativeSmogLabel(
 export function evaluateRouteOptions(
   routes: RawRouteGeometry[],
   routeAvgPm25s: number[],
+  t: TranslateFn = defaultT,
 ): EvaluatedRouteOption[] {
   if (!routes || routes.length === 0) return [];
 
@@ -165,7 +181,7 @@ export function evaluateRouteOptions(
     if (Math.abs(a.cigarettes - b.cigarettes) > 1e-6) return a.cigarettes - b.cigarettes;
     return a.co2Kg - b.co2Kg;
   })[0];
-  const baselineName = getShortModeName(cleanestBaseline.route.mode);
+  const baselineName = getShortModeName(cleanestBaseline.route.mode, t);
 
   const recommendation = selectRecommendedOption(
     preliminary.map((p) => ({
@@ -175,6 +191,7 @@ export function evaluateRouteOptions(
       cigarettes: p.cigarettes,
       co2Kg: p.co2Kg,
     })),
+    t,
   );
 
   return preliminary.map(({ route, avgPm25, cigarettes, co2Kg }) => {
@@ -184,6 +201,7 @@ export function evaluateRouteOptions(
       cigarettes,
       minCigs,
       baselineName,
+      t,
     );
     const smogBarPercent =
       maxCigs > 0 ? Math.max(8, Math.min(100, Math.round((cigarettes / maxCigs) * 100))) : 8;
@@ -255,6 +273,7 @@ export function computeDepartureTip(
   forecastPoints: ForecastDataPoint[],
   departureTime: Date,
   isNow = true,
+  t: TranslateFn = defaultT,
 ): DepartureTip | null {
   if (!forecastPoints || forecastPoints.length < 3) return null;
 
@@ -274,7 +293,9 @@ export function computeDepartureTip(
 
   const bestDate = new Date(bestPoint.isoTime);
   const bestTimeLabel = isNaN(bestDate.getTime()) ? bestPoint.time : formatShortTime(bestDate);
-  const departureLabel = isNow ? 'now' : formatShortTime(departureTime);
+  const departureLabel = isNow
+    ? t('routes.now', 'now').toLowerCase()
+    : formatShortTime(departureTime);
 
   return {
     bestTimeLabel,
@@ -282,6 +303,10 @@ export function computeDepartureTip(
     percentLessSmog: reductionPct,
     currentPm25: currentPoint.pm25,
     bestPm25: bestPoint.pm25,
-    message: `Leave at ${bestTimeLabel} instead of ${departureLabel} to breathe ${reductionPct}% less smog`,
+    message: t(
+      'routes.tipMessage',
+      'Leave at {{bestTime}} instead of {{departure}} to breathe {{percent}}% less smog',
+      { bestTime: bestTimeLabel, departure: departureLabel, percent: reductionPct },
+    ),
   };
 }

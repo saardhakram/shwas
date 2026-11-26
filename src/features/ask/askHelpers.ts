@@ -32,15 +32,23 @@ export function getSpeechRecognitionCtor(): SpeechRecognitionConstructor | null 
   return window.SpeechRecognition || window.webkitSpeechRecognition || null;
 }
 
+type TranslateFn = (key: string, defaultValue: string, options?: Record<string, unknown>) => string;
+
+const defaultT: TranslateFn = (_k, def, opts) =>
+  opts ? def.replace(/\{\{(\w+)\}\}/g, (_, k) => String(opts[k] ?? '')) : def;
+
 /**
  * Builds personalized suggestion chips from the real family names & ages in the user profile.
  */
-export function buildSuggestionChips(family?: ProfileFamilyMember[]): string[] {
+export function buildSuggestionChips(
+  family?: ProfileFamilyMember[],
+  t: TranslateFn = defaultT,
+): string[] {
   if (!family || family.length === 0) {
     return [
-      'Can I walk at 6 PM?',
-      'Best time to open windows today?',
-      'Best mask for outdoor commute?',
+      t('ask.chipWalkDefault', 'Can I walk at 6 PM?'),
+      t('ask.chipWindows', 'Best time to open windows today?'),
+      t('ask.chipMaskCommute', 'Best mask for outdoor commute?'),
     ];
   }
 
@@ -52,22 +60,32 @@ export function buildSuggestionChips(family?: ProfileFamilyMember[]): string[] {
     family.find((m) => m.id !== 'me' && m.name.toLowerCase() !== 'me' && m.age >= 18);
 
   if (senior) {
-    chips.push(`Can ${senior.name} walk at 6 PM?`);
+    chips.push(t('ask.chipWalkMember', 'Can {{name}} walk at 6 PM?', { name: senior.name }));
   } else {
     const first = family[0];
-    const label = first.name.toLowerCase() === 'me' ? 'I' : first.name;
-    chips.push(`Can ${label} walk at 6 PM?`);
+    if (first.name.toLowerCase() === 'me') {
+      chips.push(t('ask.chipWalkDefault', 'Can I walk at 6 PM?'));
+    } else {
+      chips.push(t('ask.chipWalkMember', 'Can {{name}} walk at 6 PM?', { name: first.name }));
+    }
   }
 
   const child =
     family.find((m) => m.age <= 16) || family.find((m) => m.flags?.asthma && m.id !== senior?.id);
 
   if (child) {
-    chips.push(`Is it safe for ${child.name} to play outside?`);
-    chips.push(`Best mask for ${child.name} (${child.age} yrs)?`);
+    chips.push(
+      t('ask.chipPlayChild', 'Is it safe for {{name}} to play outside?', { name: child.name }),
+    );
+    chips.push(
+      t('ask.chipMaskChild', 'Best mask for {{name}} ({{age}} yrs)?', {
+        name: child.name,
+        age: child.age,
+      }),
+    );
   } else {
-    chips.push('Best time to open windows today?');
-    chips.push('Best N95 mask for heavy smog?');
+    chips.push(t('ask.chipWindows', 'Best time to open windows today?'));
+    chips.push(t('ask.chipMaskSmog', 'Best N95 mask for heavy smog?'));
   }
 
   return chips.slice(0, 3);

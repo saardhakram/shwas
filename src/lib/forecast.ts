@@ -53,22 +53,31 @@ export interface ForecastResult {
   updatedAgoLabel?: string;
 }
 
+type TranslateFn = (key: string, defaultValue: string, options?: Record<string, unknown>) => string;
+
 /**
  * Formats an ML forecast generated_at ISO timestamp as "updated X min ago".
  */
 export function formatForecastUpdatedAgo(
   generatedAtIso?: string | null,
   now: Date = new Date(),
+  t?: TranslateFn,
 ): string {
   if (!generatedAtIso) return '';
   const ts = new Date(generatedAtIso).getTime();
   if (isNaN(ts)) return '';
+  const tr: TranslateFn =
+    t ||
+    ((_k, def, opts) =>
+      opts ? def.replace(/\{\{(\w+)\}\}/g, (_, k) => String(opts[k] ?? '')) : def);
   const diffMin = Math.max(0, Math.round((now.getTime() - ts) / 60000));
-  if (diffMin < 1) return 'updated just now';
-  if (diffMin < 60) return `updated ${diffMin} min ago`;
+  if (diffMin < 1) return tr('today.updatedJustNow', 'updated just now');
+  if (diffMin < 60) return tr('today.updatedMinAgo', 'updated {{min}} min ago', { min: diffMin });
   const hrs = Math.floor(diffMin / 60);
   const remMin = diffMin % 60;
-  return remMin > 0 ? `updated ${hrs} hr ${remMin} min ago` : `updated ${hrs} hr ago`;
+  return remMin > 0
+    ? tr('today.updatedHrMinAgo', 'updated {{hr}} hr {{min}} min ago', { hr: hrs, min: remMin })
+    : tr('today.updatedHrAgo', 'updated {{hr}} hr ago', { hr: hrs });
 }
 
 function classifyDayLabel(

@@ -74,7 +74,8 @@ export const HeroExposureCard: React.FC<HeroExposureCardProps> = ({
         <div className="flex items-center gap-1.5">
           <span className="w-2 h-2 rounded-full bg-red-400 animate-pulse shrink-0" />
           <span className="whitespace-nowrap">
-            {locationName} AQI: <strong className="text-slate-200 font-numbers">{aqi}</strong>
+            {t('today.aqiLabel', '{{location}} AQI:', { location: locationName })}{' '}
+            <strong className="text-slate-200 font-numbers">{aqi}</strong>
           </span>
         </div>
         <div className="flex items-center gap-1 min-w-0">

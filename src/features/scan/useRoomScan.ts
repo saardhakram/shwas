@@ -30,7 +30,7 @@ interface ScanApiResponse {
 }
 
 export function useRoomScan() {
-  const { i18n } = useTranslation();
+  const { t, i18n } = useTranslation();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { pm25: outdoorPm25, userProfile } = useAirQuality();
 
@@ -59,7 +59,10 @@ export function useRoomScan() {
     if (rawSources.length === 0 && scanData.source === 'offline') {
       setErrorMessage(
         scanData.message ||
-          'Offline mode: could not reach Gemini Vision. Showing sample room audit.',
+          t(
+            'scan.offlineModeError',
+            'Offline mode: could not reach Gemini Vision. Showing sample room audit.',
+          ),
       );
       rawSources = OFFLINE_DEMO_SOURCES;
     }
@@ -99,7 +102,7 @@ export function useRoomScan() {
       applyScanData((await res.json()) as ScanApiResponse);
     } catch (err: unknown) {
       logger.error('[ScanPage error]:', err);
-      setErrorMessage('Could not analyze image. Please try again.');
+      setErrorMessage(t('scan.analyzeError', 'Could not analyze image. Please try again.'));
       setScanSource('offline');
     } finally {
       setIsScanning(false);

@@ -131,10 +131,26 @@ function useVoiceInput(activeLang: string, onTranscript: (text: string) => void)
 }
 
 export function useAskShwas() {
-  const { i18n } = useTranslation();
+  const { t, i18n } = useTranslation();
   const { aqi, pm25, userProfile } = useAirQuality();
 
-  const [messages, setMessages] = useState<ChatMessage[]>([WELCOME_MESSAGE]);
+  const [messages, setMessages] = useState<ChatMessage[]>(() => [
+    {
+      id: 'welcome',
+      role: 'assistant',
+      text: t('ask.welcome', WELCOME_MESSAGE.text),
+    },
+  ]);
+
+  // Keep the welcome message localized when the user switches languages
+  useEffect(() => {
+    setMessages((prev) =>
+      prev.map((m) =>
+        m.id === 'welcome' ? { ...m, text: t('ask.welcome', WELCOME_MESSAGE.text) } : m,
+      ),
+    );
+  }, [t]);
+
   const [input, setInput] = useState('');
   const [isSending, setIsSending] = useState(false);
   const [isStillThinking, setIsStillThinking] = useState(false);
@@ -145,8 +161,8 @@ export function useAskShwas() {
   const activeLang = userProfile?.language || i18n.language || 'en';
   const activeLocName = userProfile?.location?.name || 'city';
   const suggestionChips = useMemo(
-    () => buildSuggestionChips(userProfile?.family),
-    [userProfile?.family],
+    () => buildSuggestionChips(userProfile?.family, t),
+    [userProfile?.family, t],
   );
   const todayPlan = useMemo(
     () => readCachedTodayPlan(activeLang, activeLocName),
@@ -212,7 +228,10 @@ export function useAskShwas() {
           role: 'assistant',
           text:
             data.answer ||
-            'Sorry, I could not generate a response right now. Please try again in a moment.',
+            t(
+              'ask.errorEmpty',
+              'Sorry, I could not generate a response right now. Please try again in a moment.',
+            ),
           miniCard: data.miniCard || null,
           source: data.source,
         },
@@ -223,7 +242,10 @@ export function useAskShwas() {
         {
           id: `err_${Date.now()}`,
           role: 'assistant',
-          text: 'Sorry, I could not reach Shwas AI right now. Please try again in a moment, or check your Today plan for the cleanest air window.',
+          text: t(
+            'ask.errorOffline',
+            'Sorry, I could not reach Shwas AI right now. Please try again in a moment, or check your Today plan for the cleanest air window.',
+          ),
           source: 'offline',
         },
       ]);

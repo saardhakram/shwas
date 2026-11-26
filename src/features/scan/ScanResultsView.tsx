@@ -45,39 +45,46 @@ const ScanFixCard: React.FC<ScanFixCardProps> = ({
           <div>
             <h4 className="text-xs font-bold text-white">{item.label}</h4>
             <span className="text-[10px] text-slate-400 uppercase tracking-wider">
-              Category: {item.category}
+              {t('scan.categoryLabel', 'Category: {{category}}', { category: item.category })}
             </span>
           </div>
         </div>
 
         <Badge variant="mint" size="sm" className="whitespace-nowrap shrink-0">
-          −{item.reductionPercent}% indoor PM2.5 · −{item.cigarettesSaved} cigs
+          {t('scan.reductionBadge', '−{{percent}}% indoor PM2.5 · −{{cigs}} cigs', {
+            percent: item.reductionPercent,
+            cigs: item.cigarettesSaved,
+          })}
         </Badge>
       </button>
 
       <div className="text-xs text-slate-300 leading-relaxed bg-white/5 p-2 rounded-lg border border-white/5">
-        <span className="text-slate-400 font-medium">Why it matters: </span>
+        <span className="text-slate-400 font-medium">
+          {t('scan.whyItMatters', 'Why it matters:')}{' '}
+        </span>
         {item.why}
       </div>
 
       <div className="space-y-1">
         <div className="text-[11px] font-semibold text-teal-300 flex items-center gap-1">
           <ShieldCheck className="w-3.5 h-3.5 text-teal-400" aria-hidden="true" />
-          <span>Actionable Fix</span>
+          <span>{t('scan.actionableFix', 'Actionable Fix')}</span>
         </div>
         <p className="text-xs text-slate-200 leading-relaxed">{item.fix}</p>
       </div>
 
       <div className="pt-1 flex items-center justify-between border-t border-white/5">
         <div className="text-[11px] text-slate-400">
-          Indoor PM2.5: {item.beforePm25} →{' '}
+          {t('scan.indoorPm25', 'Indoor PM2.5:')} {item.beforePm25} →{' '}
           <span className="text-teal-300 font-semibold">{item.afterPm25} µg/m³</span>
         </div>
         <button
           type="button"
           disabled={isAdded}
           aria-label={
-            isAdded ? `${item.label} added to plan` : `Add ${item.label} fix to today's plan`
+            isAdded
+              ? t('scan.addedToPlanAria', '{{label}} added to plan', { label: item.label })
+              : t('scan.addToPlanAria', "Add {{label}} fix to today's plan", { label: item.label })
           }
           onClick={(e) => {
             e.stopPropagation();
@@ -140,7 +147,7 @@ export const ScanResultsView: React.FC<ScanResultsViewProps> = ({
       <div className="relative rounded-2xl overflow-hidden border border-white/15 bg-black/40 shadow-2xl">
         <img
           src={imagePreview}
-          alt="Scanned space"
+          alt={t('scan.scannedSpaceAlt', 'Scanned space')}
           className="w-full h-auto max-h-[360px] object-contain block mx-auto"
         />
 
@@ -162,7 +169,7 @@ export const ScanResultsView: React.FC<ScanResultsViewProps> = ({
                   ? 'border-amber-400 bg-amber-400/20 shadow-[0_0_15px_rgba(251,191,36,0.5)] z-20 scale-105'
                   : 'border-teal-400/80 bg-teal-400/10 hover:border-teal-300 hover:bg-teal-400/20 z-10'
               }`}
-              aria-label={`Hotspot: ${item.label}`}
+              aria-label={t('scan.hotspotAria', 'Hotspot: {{label}}', { label: item.label })}
             >
               <span
                 className={`absolute -top-3 -left-3 w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-bold shadow-md ${
@@ -179,10 +186,12 @@ export const ScanResultsView: React.FC<ScanResultsViewProps> = ({
 
         <div className="absolute bottom-2 left-2 right-2 flex items-center justify-between pointer-events-none">
           <span className="px-2 py-1 rounded-lg bg-black/75 backdrop-blur-md text-[11px] font-medium text-slate-200 border border-white/10 uppercase tracking-wider">
-            Room: {detectedRoom}
+            {t('scan.roomLabel', 'Room: {{room}}', { room: detectedRoom })}
           </span>
           <span className="px-2 py-1 rounded-lg bg-teal-500/20 border border-teal-500/40 backdrop-blur-md text-[11px] font-semibold text-teal-300">
-            {computedFixes.length} {computedFixes.length === 1 ? 'risk found' : 'risks found'}
+            {computedFixes.length === 1
+              ? t('scan.riskFoundOne', '{{count}} risk found', { count: computedFixes.length })
+              : t('scan.riskFoundMany', '{{count}} risks found', { count: computedFixes.length })}
           </span>
         </div>
       </div>
@@ -201,11 +210,15 @@ export const ScanResultsView: React.FC<ScanResultsViewProps> = ({
         <div className="flex items-center justify-between">
           <div className="space-y-0.5">
             <div className="text-xs font-semibold text-white">
-              {computedFixes.length} {computedFixes.length === 1 ? 'fix' : 'fixes'} found
+              {computedFixes.length === 1
+                ? t('scan.fixFoundOne', '{{count}} fix found', { count: computedFixes.length })
+                : t('scan.fixFoundMany', '{{count}} fixes found', { count: computedFixes.length })}
             </div>
             <div className="text-[11px] text-teal-300">
-              Save up to{' '}
-              <strong className="font-bold text-teal-200">{totalSaved} cigarettes/day</strong>
+              {t('scan.saveUpToPrefix', 'Save up to')}{' '}
+              <strong className="font-bold text-teal-200">
+                {totalSaved} {t('app.units.cigarettesPerDayCompact', 'cigarettes/day')}
+              </strong>
             </div>
           </div>
           <button
@@ -222,7 +235,7 @@ export const ScanResultsView: React.FC<ScanResultsViewProps> = ({
 
       <div className="space-y-3">
         <div className="text-xs font-bold uppercase tracking-wider text-slate-400 px-0.5">
-          Recommended Fixes &amp; Impact
+          {t('scan.recommendedFixes', 'Recommended Fixes & Impact')}
         </div>
         {computedFixes.map((item, idx) => (
           <ScanFixCard
@@ -239,7 +252,9 @@ export const ScanResultsView: React.FC<ScanResultsViewProps> = ({
 
       <div className="pt-2 text-center">
         <span className="text-[10px] text-slate-400 font-mono">
-          {scanSource === 'gemini' ? '✦ Scanned by Gemini Vision' : '✦ Offline Audit'}
+          {scanSource === 'gemini'
+            ? t('scan.scannedByGemini', '✦ Scanned by Gemini Vision')
+            : t('scan.offlineAudit', '✦ Offline Audit')}
         </span>
       </div>
     </div>

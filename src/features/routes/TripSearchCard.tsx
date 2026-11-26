@@ -60,11 +60,15 @@ const QuickDestinationChips: React.FC<{
 }> = ({ quickPresets, destination, onChipClick }) => {
   const { t } = useTranslation();
   return (
-    <div className="flex items-center gap-1.5" role="group" aria-label="Quick place presets">
+    <div
+      className="flex items-center gap-1.5"
+      role="group"
+      aria-label={t('routes.quickPresetsAria', 'Quick place presets')}
+    >
       <button
         type="button"
         onClick={() => onChipClick('home')}
-        aria-label="Set starting point to Home"
+        aria-label={t('routes.setOriginHomeAria', 'Set starting point to Home')}
         className="px-2.5 py-1 rounded-full text-[11px] font-medium bg-white/[0.05] border border-white/[0.09] text-slate-200 hover:bg-teal-500/15 hover:border-teal-400/40 flex items-center gap-1 transition-colors"
       >
         <Home className="w-3 h-3 text-teal-400" aria-hidden="true" />
@@ -74,7 +78,7 @@ const QuickDestinationChips: React.FC<{
         type="button"
         onClick={() => onChipClick('school')}
         aria-pressed={destination?.name === quickPresets.school.name}
-        aria-label="Set destination to School"
+        aria-label={t('routes.setDestSchoolAria', 'Set destination to School')}
         className={`px-2.5 py-1 rounded-full text-[11px] font-medium border flex items-center gap-1 transition-colors ${
           destination?.name === quickPresets.school.name
             ? 'bg-teal-500/20 border-teal-400/50 text-teal-200'
@@ -88,7 +92,7 @@ const QuickDestinationChips: React.FC<{
         type="button"
         onClick={() => onChipClick('office')}
         aria-pressed={destination?.name === quickPresets.office.name}
-        aria-label="Set destination to Office"
+        aria-label={t('routes.setDestOfficeAria', 'Set destination to Office')}
         className={`px-2.5 py-1 rounded-full text-[11px] font-medium border flex items-center gap-1 transition-colors ${
           destination?.name === quickPresets.office.name
             ? 'bg-teal-500/20 border-teal-400/50 text-teal-200'
@@ -113,7 +117,7 @@ const DeparturePresetControl: React.FC<{
     <>
       <div
         role="group"
-        aria-label="Departure time preset"
+        aria-label={t('routes.departurePresetAria', 'Departure time preset')}
         className="flex items-center gap-1 bg-white/[0.04] border border-white/[0.08] rounded-full p-0.5"
       >
         {DEPARTURE_PRESETS.map((preset) => (
@@ -141,14 +145,14 @@ const DeparturePresetControl: React.FC<{
         <div className="w-full flex items-center justify-between gap-2 px-3 py-1.5 rounded-xl bg-white/[0.03] border border-white/[0.08] text-xs mt-1">
           <label htmlFor="routes-custom-time" className="text-slate-300 flex items-center gap-1.5">
             <Clock className="w-3.5 h-3.5 text-teal-400" aria-hidden="true" />
-            <span>Departure time</span>
+            <span>{t('routes.departureTimeLabel', 'Departure time')}</span>
           </label>
           <input
             id="routes-custom-time"
             type="time"
             value={customTime}
             onChange={(e) => onCustomTimeChange(e.target.value)}
-            aria-label="Custom departure time"
+            aria-label={t('routes.customDepartureAria', 'Custom departure time')}
             className="bg-surface-base border border-white/15 rounded-lg px-2 py-1 text-xs text-white font-mono focus:outline-none focus:border-teal-400"
           />
         </div>
@@ -195,18 +199,18 @@ export const TripSearchCard: React.FC<TripSearchCardProps> = ({
               type="text"
               value={originInput}
               onChange={(e) => onOriginSearch(e.target.value)}
-              placeholder="Starting point"
-              aria-label="Origin starting point"
+              placeholder={t('routes.startingPointPlaceholder', 'Starting point')}
+              aria-label={t('routes.originAria', 'Origin starting point')}
               className="flex-1 bg-transparent text-xs text-white placeholder-slate-500 focus:outline-none min-w-0"
             />
             {originInput !== quickPresets.home.name && (
               <button
                 type="button"
                 onClick={() => onChipClick('home')}
-                aria-label="Reset origin to saved home"
+                aria-label={t('routes.resetOriginAria', 'Reset origin to saved home')}
                 className="text-[10px] text-teal-300 hover:text-teal-200 whitespace-nowrap"
               >
-                Reset
+                {t('routes.reset', 'Reset')}
               </button>
             )}
           </div>
@@ -240,7 +244,7 @@ export const TripSearchCard: React.FC<TripSearchCardProps> = ({
                 'routes.searchPlaceholder',
                 'Search destination (office, school, market...)',
               )}
-              aria-label="Destination address"
+              aria-label={t('routes.destinationAria', 'Destination address')}
               className="flex-1 bg-transparent text-xs text-white placeholder-slate-500 focus:outline-none min-w-0"
             />
             {isSearchingTo ? (
@@ -253,7 +257,7 @@ export const TripSearchCard: React.FC<TripSearchCardProps> = ({
                 type="button"
                 onClick={onClearDest}
                 className="text-slate-500 hover:text-slate-300"
-                aria-label="Clear destination"
+                aria-label={t('routes.clearDestAria', 'Clear destination')}
               >
                 <X className="w-3.5 h-3.5" aria-hidden="true" />
               </button>

@@ -37,17 +37,23 @@ export const CommunityPage: React.FC = () => {
         <div className="min-w-0">
           <h2 className="text-base font-bold text-white tracking-tight truncate">
             {c.activeGroup.name} · {c.weeklyStats.memberCount}{' '}
-            {c.weeklyStats.memberCount === 1 ? 'family' : 'families'}
+            {c.weeklyStats.memberCount === 1
+              ? t('community.familySingular', 'family')
+              : t('community.familyPlural', 'families')}
           </h2>
           <div className="flex items-center gap-2 mt-1">
             <button
               type="button"
               onClick={c.handleCopyCode}
-              aria-label={`Copy join code ${c.activeGroup.join_code}`}
+              aria-label={t('community.copyCodeAria', 'Copy join code {{code}}', {
+                code: c.activeGroup.join_code,
+              })}
               className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-white/[0.06] hover:bg-white/[0.12] border border-white/[0.1] text-[10px] font-mono text-teal-300 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-teal-400"
-              title="Copy join code"
+              title={t('community.copyCodeTitle', 'Copy join code')}
             >
-              <span>Code: {c.activeGroup.join_code}</span>
+              <span>
+                {t('community.codeLabel', 'Code: {{code}}', { code: c.activeGroup.join_code })}
+              </span>
               {c.copiedCode ? (
                 <Check className="w-3 h-3 text-emerald-400" aria-hidden="true" />
               ) : (
@@ -56,7 +62,7 @@ export const CommunityPage: React.FC = () => {
             </button>
             {c.isLoading && (
               <span className="text-[10px] text-slate-400" role="status">
-                Syncing…
+                {t('community.syncing', 'Syncing…')}
               </span>
             )}
           </div>
@@ -66,8 +72,8 @@ export const CommunityPage: React.FC = () => {
           type="button"
           onClick={c.handleLeaveGroup}
           className="p-2 rounded-xl bg-white/[0.05] hover:bg-white/[0.1] border border-white/[0.08] text-slate-400 hover:text-white transition-colors shrink-0 focus:outline-none focus-visible:ring-2 focus-visible:ring-teal-400"
-          title="Switch or leave group"
-          aria-label="Leave group"
+          title={t('community.leaveGroupTitle', 'Switch or leave group')}
+          aria-label={t('community.leaveGroupAria', 'Leave group')}
         >
           <LogOut className="w-4 h-4" aria-hidden="true" />
         </button>
@@ -87,7 +93,7 @@ export const CommunityPage: React.FC = () => {
         className="p-5 text-center space-y-3 bg-gradient-to-b from-teal-950/50 to-surface-slate-deep/85 border-teal-400/30"
       >
         <div className="text-[11px] uppercase tracking-wider font-semibold text-teal-300">
-          Collective Impact
+          {t('community.collectiveImpact', 'Collective Impact')}
         </div>
         <div className="space-y-1">
           <div className="font-numbers text-4xl font-bold text-white tracking-tight">

@@ -26,6 +26,7 @@ const ForecastTooltip = ({
   active?: boolean;
   payload?: Array<{ payload: { day: string; time: string; pm25: number; usAqi: number } }>;
 }) => {
+  const { t } = useTranslation();
   if (!active || !payload?.length) return null;
   const data = payload[0].payload;
   return (
@@ -33,8 +34,12 @@ const ForecastTooltip = ({
       <div className="font-semibold text-slate-200">
         {data.day} · {data.time}
       </div>
-      <div className="text-teal-300 font-mono font-medium">PM2.5: {data.pm25} µg/m³</div>
-      <div className="text-slate-400 text-[10px]">Open-Meteo US AQI: {data.usAqi}</div>
+      <div className="text-teal-300 font-mono font-medium">
+        {t('today.pm25Value', 'PM2.5: {{pm25}} µg/m³', { pm25: data.pm25 })}
+      </div>
+      <div className="text-slate-400 text-[10px]">
+        {t('today.openMeteoAqi', 'Open-Meteo US AQI: {{aqi}}', { aqi: data.usAqi })}
+      </div>
     </div>
   );
 };
@@ -80,7 +85,7 @@ export const ForecastChartCard: React.FC<ForecastChartCardProps> = ({
             </div>
             {isMlForecast && mlGeneratedAt && (
               <span className="text-[10px] text-slate-400 block leading-tight mt-0.5">
-                {formatForecastUpdatedAgo(mlGeneratedAt)}
+                {formatForecastUpdatedAgo(mlGeneratedAt, new Date(), t)}
               </span>
             )}
           </div>
@@ -93,16 +98,21 @@ export const ForecastChartCard: React.FC<ForecastChartCardProps> = ({
           }`}
         >
           {isMlForecast && modelMae !== null
-            ? `Model MAE ±${Math.round(modelMae)} µg/m³`
-            : sourceLabel}
+            ? t('today.modelMae', 'Model MAE ±{{mae}} µg/m³', { mae: Math.round(modelMae) })
+            : isSampleData
+              ? t('today.sourceSample', 'Sample data (offline fallback)')
+              : sourceLabel}
         </span>
       </div>
 
       <div className="p-2.5 rounded-xl bg-teal-500/10 border border-teal-500/25 flex items-center gap-2.5 my-2">
         <Clock className="w-4 h-4 text-teal-300 shrink-0" aria-hidden="true" />
         <span className="text-xs text-teal-200 font-medium">
-          Best upcoming window: <strong>{bestWindow.label}</strong> ({bestWindow.avgPm25} µg/m³, AQI{' '}
-          {bestWindow.avgAqi})
+          {t('today.bestWindowPrefix', 'Best upcoming window:')} <strong>{bestWindow.label}</strong>{' '}
+          {t('today.bestWindowStats', '({{pm25}} µg/m³, AQI {{aqi}})', {
+            pm25: bestWindow.avgPm25,
+            aqi: bestWindow.avgAqi,
+          })}
         </span>
       </div>
 
@@ -159,12 +169,12 @@ export const ForecastChartCard: React.FC<ForecastChartCardProps> = ({
       </div>
 
       <div className="flex justify-between items-center text-[10px] text-slate-400 mt-2 px-1 border-t border-white/[0.04] pt-2">
-        <span>Now</span>
+        <span>{t('today.now', 'Now')}</span>
         <span className="text-teal-300 font-medium flex items-center gap-1">
           <span className="w-2 h-2 rounded-full bg-teal-400 inline-block" />
-          Window: {bestWindow.label}
+          {t('today.windowLabel', 'Window: {{label}}', { label: bestWindow.label })}
         </span>
-        <span>+48h</span>
+        <span>{t('today.plus48h', '+48h')}</span>
       </div>
     </GlassCard>
   );

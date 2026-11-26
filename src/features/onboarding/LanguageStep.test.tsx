@@ -3,6 +3,7 @@ import { describe, expect, it, vi, afterEach } from 'vitest';
 import { cleanup, render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { axe } from 'vitest-axe';
+import '../../lib/i18n';
 import { LanguageStep } from './LanguageStep';
 
 describe('LanguageStep', () => {

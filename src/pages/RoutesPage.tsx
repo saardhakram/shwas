@@ -13,10 +13,10 @@ export const RoutesPage: React.FC = () => {
 
   const providerBadgeLabel =
     r.routingProvider === 'google_routes'
-      ? 'Google Routes'
+      ? t('routes.providerGoogle', 'Google Routes')
       : r.routingProvider === 'osrm'
-        ? 'OSRM (Fallback)'
-        : 'Offline Estimate';
+        ? t('routes.providerOsrm', 'OSRM (Fallback)')
+        : t('routes.providerOffline', 'Offline Estimate');
 
   return (
     <div className="space-y-4 animate-in fade-in duration-300 pb-10">
@@ -76,10 +76,12 @@ export const RoutesPage: React.FC = () => {
           <button
             type="button"
             onClick={r.handleApplyTipTime}
-            aria-label={`Set departure time to ${r.departureTip.bestTimeLabel}`}
+            aria-label={t('routes.applyTipAria', 'Set departure time to {{time}}', {
+              time: r.departureTip.bestTimeLabel,
+            })}
             className="px-2.5 py-1 rounded-lg bg-teal-400/20 border border-teal-400/40 text-[10px] font-semibold text-teal-200 hover:bg-teal-400/30 whitespace-nowrap shrink-0 flex items-center gap-1"
           >
-            <span>Use</span>
+            <span>{t('routes.useBtn', 'Use')}</span>
             <ArrowRight className="w-3 h-3" aria-hidden="true" />
           </button>
         </div>
@@ -101,7 +103,8 @@ export const RoutesPage: React.FC = () => {
           </h3>
           {r.isLoadingRoutes && (
             <span className="text-[11px] text-teal-300 flex items-center gap-1.5" role="status">
-              <Loader2 className="w-3 h-3 animate-spin" aria-hidden="true" /> Sampling PM2.5…
+              <Loader2 className="w-3 h-3 animate-spin" aria-hidden="true" />{' '}
+              {t('routes.samplingPm25', 'Sampling PM2.5…')}
             </span>
           )}
         </div>
@@ -116,7 +119,10 @@ export const RoutesPage: React.FC = () => {
         )}
 
         {r.isLoadingRoutes && r.evaluatedRoutes.length === 0 && (
-          <div className="space-y-2.5" aria-label="Loading route options">
+          <div
+            className="space-y-2.5"
+            aria-label={t('routes.loadingRoutesAria', 'Loading route options')}
+          >
             {[1, 2, 3].map((k) => (
               <div
                 key={k}

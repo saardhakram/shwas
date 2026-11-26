@@ -141,8 +141,27 @@ function useRevealCalculation(
   return { isCalculating, outdoorPm25, revealedCigarettes, targetCigarettes };
 }
 
+async function searchIndianCities(query: string): Promise<ProfileLocation[]> {
+  const res = await fetch(
+    `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(
+      query,
+    )}&countrycodes=in&limit=5`,
+  );
+  if (!res.ok) return [];
+  const list = (await res.json()) as Array<{
+    display_name?: string;
+    lat: string;
+    lon: string;
+  }>;
+  return list.map((item) => ({
+    name: (item.display_name || '').split(',')[0],
+    lat: parseFloat(item.lat),
+    lon: parseFloat(item.lon),
+  }));
+}
+
 export function useOnboarding() {
-  const { i18n } = useTranslation();
+  const { t, i18n } = useTranslation();
   const navigate = useNavigate();
 
   const [step, setStep] = useState<number>(1);
@@ -170,7 +189,7 @@ export function useOnboarding() {
 
   const handleUseMyLocation = () => {
     if (!navigator.geolocation) {
-      alert('Geolocation is not supported by your browser.');
+      alert(t('onboarding.geoUnsupported', 'Geolocation is not supported by your browser.'));
       return;
     }
     setIsLocating(true);
@@ -183,7 +202,12 @@ export function useOnboarding() {
       },
       () => {
         setIsLocating(false);
-        alert('Could not retrieve your location. Please choose a city below.');
+        alert(
+          t(
+            'onboarding.geoFailed',
+            'Could not retrieve your location. Please choose a city below.',
+          ),
+        );
       },
       { timeout: 10000 },
     );
@@ -194,25 +218,7 @@ export function useOnboarding() {
     if (!searchQuery.trim()) return;
     setIsSearching(true);
     try {
-      const res = await fetch(
-        `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(
-          searchQuery.trim(),
-        )}&countrycodes=in&limit=5`,
-      );
-      if (res.ok) {
-        const list = (await res.json()) as Array<{
-          display_name?: string;
-          lat: string;
-          lon: string;
-        }>;
-        setSearchResults(
-          list.map((item) => ({
-            name: (item.display_name || '').split(',')[0],
-            lat: parseFloat(item.lat),
-            lon: parseFloat(item.lon),
-          })),
-        );
-      }
+      setSearchResults(await searchIndianCities(searchQuery.trim()));
     } catch (err) {
       logger.warn('City search error:', err);
     } finally {

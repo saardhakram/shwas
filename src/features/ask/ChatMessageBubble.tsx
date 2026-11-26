@@ -1,4 +1,5 @@
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 import { Activity, Cigarette, Clock, User, Wind } from 'lucide-react';
 import Badge from '../../components/ui/Badge';
 import type { ChatMessage } from './askHelpers';
@@ -22,6 +23,7 @@ interface ChatMessageBubbleProps {
 }
 
 export const ChatMessageBubble: React.FC<ChatMessageBubbleProps> = ({ message }) => {
+  const { t } = useTranslation();
   const isUser = message.role === 'user';
 
   return (
@@ -42,10 +44,12 @@ export const ChatMessageBubble: React.FC<ChatMessageBubbleProps> = ({ message })
             <div className="flex items-center justify-between gap-2 text-[10px] text-slate-400">
               <span className="flex items-center gap-1 font-semibold text-slate-200">
                 <Clock className="w-3 h-3 text-teal-400" aria-hidden="true" />
-                {message.miniCard.timeLabel}
+                {message.miniCard.timeLabel}{' '}
                 {message.miniCard.durationHours !== 1
-                  ? ` (${message.miniCard.durationHours}h)`
-                  : ' (1h outing)'}
+                  ? t('ask.outingHours', '({{hours}}h)', {
+                      hours: message.miniCard.durationHours,
+                    })
+                  : t('ask.outingOneHour', '(1h outing)')}
               </span>
               <Badge
                 variant={
@@ -70,7 +74,7 @@ export const ChatMessageBubble: React.FC<ChatMessageBubbleProps> = ({ message })
               </span>
               <span className="flex items-center gap-1 text-amber-300 font-mono font-semibold">
                 <Cigarette className="w-3.5 h-3.5 text-amber-400" aria-hidden="true" />
-                {message.miniCard.cigarettes.toFixed(2)} cigs
+                {message.miniCard.cigarettes.toFixed(2)} {t('app.units.cigs', 'cigs')}
               </span>
             </div>
           </div>

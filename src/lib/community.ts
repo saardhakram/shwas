@@ -232,21 +232,33 @@ export function aggregateWeeklyCommunityStats(
   };
 }
 
+type TranslateFn = (key: string, defaultValue: string, options?: Record<string, unknown>) => string;
+
 /**
  * Formats an ISO timestamp into a compact relative age string (e.g. "20 min ago").
  */
-export function formatRelativeTime(isoTimestamp: string, now: Date = new Date()): string {
+export function formatRelativeTime(
+  isoTimestamp: string,
+  now: Date = new Date(),
+  t?: TranslateFn,
+): string {
+  const tr: TranslateFn =
+    t ||
+    ((_k, def, opts) =>
+      opts ? def.replace(/\{\{(\w+)\}\}/g, (_, k) => String(opts[k] ?? '')) : def);
   const ts = new Date(isoTimestamp).getTime();
-  if (isNaN(ts)) return 'just now';
+  if (isNaN(ts)) return tr('community.timeJustNow', 'just now');
 
   const diffSec = Math.max(0, Math.floor((now.getTime() - ts) / 1000));
-  if (diffSec < 60) return 'just now';
+  if (diffSec < 60) return tr('community.timeJustNow', 'just now');
   const diffMin = Math.floor(diffSec / 60);
-  if (diffMin < 60) return `${diffMin} min ago`;
+  if (diffMin < 60) return tr('community.timeMinAgo', '{{count}} min ago', { count: diffMin });
   const diffHr = Math.floor(diffMin / 60);
-  if (diffHr < 24) return `${diffHr} hr ago`;
+  if (diffHr < 24) return tr('community.timeHrAgo', '{{count}} hr ago', { count: diffHr });
   const diffDays = Math.floor(diffHr / 24);
-  return diffDays === 1 ? '1 day ago' : `${diffDays} days ago`;
+  return diffDays === 1
+    ? tr('community.timeOneDayAgo', '1 day ago')
+    : tr('community.timeDaysAgo', '{{count}} days ago', { count: diffDays });
 }
 
 /**

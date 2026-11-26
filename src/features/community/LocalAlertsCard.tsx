@@ -22,6 +22,13 @@ interface LocalAlertsCardProps {
   onSubmitReport: (e: FormEvent) => void;
 }
 
+const ALERT_LABEL_KEYS: Record<AlertType, { labelKey: string; shortKey: string }> = {
+  garbage_burning: { labelKey: 'community.alertGarbage', shortKey: 'community.alertGarbageShort' },
+  construction_dust: { labelKey: 'community.alertDust', shortKey: 'community.alertDustShort' },
+  vehicle_smoke: { labelKey: 'community.alertVehicle', shortKey: 'community.alertVehicleShort' },
+  other: { labelKey: 'community.alertOther', shortKey: 'community.alertOtherShort' },
+};
+
 export const LocalAlertsCard: React.FC<LocalAlertsCardProps> = ({
   alerts,
   showReportForm,
@@ -48,13 +55,17 @@ export const LocalAlertsCard: React.FC<LocalAlertsCardProps> = ({
           type="button"
           aria-expanded={showReportForm}
           aria-label={
-            showReportForm ? 'Close local alert form' : 'Report local smoke or dust alert'
+            showReportForm
+              ? t('community.closeAlertFormAria', 'Close local alert form')
+              : t('community.reportAlertAria', 'Report local smoke or dust alert')
           }
           onClick={onToggleReportForm}
           className="px-3 py-1 rounded-lg bg-amber-500/20 hover:bg-amber-500/30 border border-amber-400/40 text-amber-200 font-semibold text-[11px] flex items-center gap-1 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-400"
         >
           <AlertTriangle className="w-3 h-3" aria-hidden="true" />
-          <span>{showReportForm ? 'Close' : t('community.reportBtn', 'Report')}</span>
+          <span>
+            {showReportForm ? t('community.closeBtn', 'Close') : t('community.reportBtn', 'Report')}
+          </span>
         </button>
       </div>
 
@@ -63,7 +74,11 @@ export const LocalAlertsCard: React.FC<LocalAlertsCardProps> = ({
           onSubmit={onSubmitReport}
           className="p-3 rounded-xl bg-white/[0.04] border border-amber-400/25 space-y-2.5"
         >
-          <div className="grid grid-cols-2 gap-1.5" role="group" aria-label="Alert type">
+          <div
+            className="grid grid-cols-2 gap-1.5"
+            role="group"
+            aria-label={t('community.alertTypeAria', 'Alert type')}
+          >
             {(Object.keys(ALERT_TYPE_META) as AlertType[]).map((typeKey) => (
               <button
                 key={typeKey}
@@ -76,21 +91,24 @@ export const LocalAlertsCard: React.FC<LocalAlertsCardProps> = ({
                     : 'bg-white/[0.03] border-white/[0.08] text-slate-300 hover:bg-white/[0.07]'
                 }`}
               >
-                {ALERT_TYPE_META[typeKey].label}
+                {t(ALERT_LABEL_KEYS[typeKey].labelKey, ALERT_TYPE_META[typeKey].label)}
               </button>
             ))}
           </div>
 
           <label htmlFor="community-alert-msg" className="sr-only">
-            Alert location and details
+            {t('community.alertMsgLabel', 'Alert location and details')}
           </label>
           <input
             id="community-alert-msg"
             type="text"
             value={alertMessage}
             onChange={(e) => onAlertMessageChange(e.target.value)}
-            placeholder="Where is it? e.g. Near Block C park gate"
-            aria-label="Alert location and details"
+            placeholder={t(
+              'community.alertMsgPlaceholder',
+              'Where is it? e.g. Near Block C park gate',
+            )}
+            aria-label={t('community.alertMsgLabel', 'Alert location and details')}
             maxLength={240}
             className="w-full bg-surface-base/80 border border-white/[0.12] rounded-xl px-3 py-2 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-amber-400/50"
           />
@@ -98,22 +116,25 @@ export const LocalAlertsCard: React.FC<LocalAlertsCardProps> = ({
           <button
             type="submit"
             disabled={!alertMessage.trim() || isSubmittingAlert}
-            aria-label="Post local air alert to group"
+            aria-label={t('community.postAlertAria', 'Post local air alert to group')}
             className="w-full py-2 rounded-xl bg-amber-400 hover:bg-amber-300 disabled:opacity-40 text-slate-950 font-semibold text-xs transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-white"
           >
-            {isSubmittingAlert ? 'Posting alert…' : 'Post Alert to Group'}
+            {isSubmittingAlert
+              ? t('community.postingAlert', 'Posting alert…')
+              : t('community.postAlertBtn', 'Post Alert to Group')}
           </button>
         </form>
       )}
 
       {alerts.length === 0 ? (
         <p className="text-xs text-slate-400 text-center py-3">
-          No local smoke or dust alerts reported yet.
+          {t('community.noAlerts', 'No local smoke or dust alerts reported yet.')}
         </p>
       ) : (
         <div className="space-y-2">
           {alerts.map((al) => {
             const meta = ALERT_TYPE_META[al.type] || ALERT_TYPE_META.other;
+            const keys = ALERT_LABEL_KEYS[al.type] || ALERT_LABEL_KEYS.other;
             return (
               <div
                 key={al.id}
@@ -121,10 +142,10 @@ export const LocalAlertsCard: React.FC<LocalAlertsCardProps> = ({
               >
                 <div className="flex items-center justify-between gap-2">
                   <Badge variant={meta.badgeVariant} size="sm">
-                    {meta.shortLabel}
+                    {t(keys.shortKey, meta.shortLabel)}
                   </Badge>
                   <span className="text-[10px] text-slate-400 font-mono">
-                    {formatRelativeTime(al.created_at)}
+                    {formatRelativeTime(al.created_at, new Date(), t)}
                   </span>
                 </div>
                 <p className="text-xs text-slate-200 leading-snug">{al.message}</p>

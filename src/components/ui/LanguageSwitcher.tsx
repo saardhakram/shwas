@@ -12,7 +12,7 @@ export const LANGUAGES = [
 ];
 
 export const LanguageSwitcher: React.FC<{ className?: string }> = ({ className = '' }) => {
-  const { i18n } = useTranslation();
+  const { t, i18n } = useTranslation();
   const [isOpen, setIsOpen] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
 
@@ -61,7 +61,9 @@ export const LanguageSwitcher: React.FC<{ className?: string }> = ({ className =
         onClick={() => setIsOpen(!isOpen)}
         aria-haspopup="listbox"
         aria-expanded={isOpen}
-        aria-label={`Select language, current language ${currentLang.label}`}
+        aria-label={t('app.selectLanguageAria', 'Select language, current language {{language}}', {
+          language: currentLang.label,
+        })}
         className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl bg-white/[0.06] hover:bg-white/[0.12] border border-white/[0.1] text-xs font-medium text-slate-200 transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal-400"
       >
         <Globe className="w-3.5 h-3.5 text-teal-400" aria-hidden="true" />
@@ -72,11 +74,11 @@ export const LanguageSwitcher: React.FC<{ className?: string }> = ({ className =
       {isOpen && (
         <div
           role="listbox"
-          aria-label="Available languages"
+          aria-label={t('app.availableLanguages', 'Available languages')}
           className="absolute right-0 mt-1.5 w-44 rounded-xl bg-surface-elevated border border-white/[0.14] shadow-2xl p-1.5 z-50"
         >
           <div className="px-2 py-1 text-[10px] font-semibold tracking-wider text-slate-400 uppercase">
-            Languages
+            {t('app.languages', 'Languages')}
           </div>
           {LANGUAGES.map((lang) => {
             const isSelected = lang.code === currentLang.code;

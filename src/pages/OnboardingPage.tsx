@@ -1,4 +1,5 @@
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 import { ArrowLeft, ArrowRight, Wind } from 'lucide-react';
 import { useOnboarding } from '../features/onboarding/useOnboarding';
 import { LanguageStep } from '../features/onboarding/LanguageStep';
@@ -8,6 +9,7 @@ import { HomeStep } from '../features/onboarding/HomeStep';
 import { RevealStep } from '../features/onboarding/RevealStep';
 
 export const OnboardingPage: React.FC = () => {
+  const { t } = useTranslation();
   const ob = useOnboarding();
 
   return (
@@ -33,7 +35,7 @@ export const OnboardingPage: React.FC = () => {
               className="flex items-center gap-1 text-xs text-slate-400 hover:text-white transition-colors"
             >
               <ArrowLeft className="w-3.5 h-3.5" aria-hidden="true" />
-              <span>Back</span>
+              <span>{t('onboarding.back', 'Back')}</span>
             </button>
           )}
         </div>
@@ -120,7 +122,7 @@ export const OnboardingPage: React.FC = () => {
             onClick={() => ob.setStep(ob.step + 1)}
             className="w-full py-3.5 rounded-xl bg-teal-400 hover:bg-teal-300 text-slate-950 font-semibold text-sm flex items-center justify-center gap-2 transition-all shadow-xl shadow-teal-500/25 active:scale-[0.99]"
           >
-            <span>Continue</span>
+            <span>{t('onboarding.continue', 'Continue')}</span>
             <ArrowRight className="w-4 h-4" aria-hidden="true" />
           </button>
         ) : (
@@ -130,7 +132,7 @@ export const OnboardingPage: React.FC = () => {
               onClick={ob.handleComplete}
               className="w-full py-3.5 rounded-xl bg-teal-400 hover:bg-teal-300 text-slate-950 font-semibold text-sm flex items-center justify-center gap-2 transition-all shadow-xl shadow-teal-500/25 active:scale-[0.99]"
             >
-              <span>See My Plan</span>
+              <span>{t('onboarding.seeMyPlan', 'See My Plan')}</span>
               <ArrowRight className="w-4 h-4" aria-hidden="true" />
             </button>
           )

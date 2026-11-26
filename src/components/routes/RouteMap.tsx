@@ -1,4 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import type { EvaluatedRouteOption, LatLon } from '../../lib/routeExposure';
@@ -86,6 +87,7 @@ export const RouteMap: React.FC<RouteMapProps> = ({
   onSelectRoute,
   onMapProviderChange,
 }) => {
+  const { t } = useTranslation();
   const googleContainerRef = useRef<HTMLDivElement>(null);
   const leafletContainerRef = useRef<HTMLDivElement>(null);
   const googleMapRef = useRef<GoogleMapInstance | null>(null);
@@ -199,7 +201,7 @@ export const RouteMap: React.FC<RouteMapProps> = ({
           ref={googleContainerRef}
           className="w-full h-[270px] sm:h-[320px]"
           role="region"
-          aria-label="Clean Routes Exposure Map (Google Maps)"
+          aria-label={t('routes.mapGoogleAria', 'Clean Routes Exposure Map (Google Maps)')}
         />
       ) : (
         <div className="shwas-leaflet-dark">
@@ -207,7 +209,7 @@ export const RouteMap: React.FC<RouteMapProps> = ({
             ref={leafletContainerRef}
             className="w-full h-[270px] sm:h-[320px] z-0"
             role="region"
-            aria-label="Clean Routes Exposure Map (OpenStreetMap)"
+            aria-label={t('routes.mapOsmAria', 'Clean Routes Exposure Map (OpenStreetMap)')}
           />
         </div>
       )}
@@ -218,13 +220,15 @@ export const RouteMap: React.FC<RouteMapProps> = ({
 
       <div className="absolute bottom-2.5 left-2.5 z-[400] flex items-center gap-2.5 px-2.5 py-1 rounded-full bg-surface-base/85 border border-white/10 backdrop-blur-md text-[10px] text-slate-300 pointer-events-none">
         <span className="flex items-center gap-1">
-          <span className="w-2 h-2 rounded-full bg-mint" /> Cleanest
+          <span className="w-2 h-2 rounded-full bg-mint" /> {t('routes.legendCleanest', 'Cleanest')}
         </span>
         <span className="flex items-center gap-1">
-          <span className="w-2 h-2 rounded-full bg-aqi-amber" /> Moderate
+          <span className="w-2 h-2 rounded-full bg-aqi-amber" />{' '}
+          {t('routes.legendModerate', 'Moderate')}
         </span>
         <span className="flex items-center gap-1">
-          <span className="w-2 h-2 rounded-full bg-aqi-verypoor" /> Highest
+          <span className="w-2 h-2 rounded-full bg-aqi-verypoor" />{' '}
+          {t('routes.legendHighest', 'Highest')}
         </span>
       </div>
     </div>

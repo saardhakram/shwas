@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useAirQuality } from '../../components/layout/AppLayout';
 import { fetchOpenMeteoForecast, type ForecastDataPoint } from '../../lib/forecast';
 import {
@@ -55,6 +56,7 @@ async function fetchAndEvaluateRoutes(
   depDate: Date,
   providerMode: 'google' | 'leaflet',
   fallbackPm: number,
+  t: (key: string, defaultValue: string, options?: Record<string, unknown>) => string,
 ): Promise<{ evaluated: EvaluatedRouteOption[]; provider: RoutingProvider }> {
   const { routes, provider } = await fetchRoutesForTrip(
     { lat: orig.lat, lon: orig.lon },
@@ -73,7 +75,7 @@ async function fetchAndEvaluateRoutes(
     return slice.length === 0 ? fallbackPm : slice.reduce((a, b) => a + b, 0) / slice.length;
   });
 
-  return { evaluated: evaluateRouteOptions(routes, routeAvgPm25s), provider };
+  return { evaluated: evaluateRouteOptions(routes, routeAvgPm25s, t), provider };
 }
 
 function useRouteEvaluation(params: {
@@ -85,6 +87,7 @@ function useRouteEvaluation(params: {
   mapProvider: 'loading' | 'google' | 'leaflet';
   livePm25: number;
 }) {
+  const { t, i18n } = useTranslation();
   const { origin, destination, departurePreset, customTime, departureDate, mapProvider, livePm25 } =
     params;
   const [routingProvider, setRoutingProvider] = useState<RoutingProvider>('osrm');
@@ -102,7 +105,7 @@ function useRouteEvaluation(params: {
 
   useEffect(() => {
     if (!destination || mapProvider === 'loading') return;
-    const fetchKey = `${origin.lat.toFixed(4)},${origin.lon.toFixed(4)}|${destination.lat.toFixed(4)},${destination.lon.toFixed(4)}|${departurePreset}|${departurePreset === 'custom' ? customTime : ''}|${mapProvider}`;
+    const fetchKey = `${origin.lat.toFixed(4)},${origin.lon.toFixed(4)}|${destination.lat.toFixed(4)},${destination.lon.toFixed(4)}|${departurePreset}|${departurePreset === 'custom' ? customTime : ''}|${mapProvider}|${i18n.language}`;
     if (lastFetchKeyRef.current === fetchKey) return;
     lastFetchKeyRef.current = fetchKey;
 
@@ -118,6 +121,7 @@ function useRouteEvaluation(params: {
           departureDate,
           mapProvider,
           livePm25Ref.current,
+          t,
         );
         if (!active) return;
         setRoutingProvider(provider);
@@ -129,7 +133,10 @@ function useRouteEvaluation(params: {
         if (!active) return;
         logger.warn('[RoutesPage] Failed to compute routes:', err);
         setRouteError(
-          'Could not load route comparison right now. Please try another destination or retry.',
+          t(
+            'routes.loadError',
+            'Could not load route comparison right now. Please try another destination or retry.',
+          ),
         );
       })
       .finally(() => {
@@ -139,7 +146,16 @@ function useRouteEvaluation(params: {
     return () => {
       active = false;
     };
-  }, [origin, destination, departurePreset, customTime, departureDate, mapProvider]);
+  }, [
+    origin,
+    destination,
+    departurePreset,
+    customTime,
+    departureDate,
+    mapProvider,
+    i18n.language,
+    t,
+  ]);
 
   return {
     routingProvider,
@@ -152,6 +168,7 @@ function useRouteEvaluation(params: {
 }
 
 export function useCleanRoutes() {
+  const { t } = useTranslation();
   const { pm25: livePm25, userProfile } = useAirQuality();
 
   const savedHome = useMemo(
@@ -192,8 +209,8 @@ export function useCleanRoutes() {
     [departurePreset, customTime, referenceNow],
   );
   const departureTip = useMemo(
-    () => computeDepartureTip(forecastPoints, departureDate, departurePreset === 'now'),
-    [forecastPoints, departureDate, departurePreset],
+    () => computeDepartureTip(forecastPoints, departureDate, departurePreset === 'now', t),
+    [forecastPoints, departureDate, departurePreset, t],
   );
 
   const evaluation = useRouteEvaluation({

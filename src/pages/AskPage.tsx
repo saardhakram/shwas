@@ -26,13 +26,13 @@ export const AskPage: React.FC = () => {
           </div>
         </div>
         <Badge variant="mint" size="sm" className="shrink-0 whitespace-nowrap font-mono">
-          {ask.remainingToday}/20 left
+          {t('ask.leftBadge', '{{count}}/20 left', { count: ask.remainingToday })}
         </Badge>
       </div>
 
       <div
         role="group"
-        aria-label="Suggested air quality questions"
+        aria-label={t('ask.suggestionsAria', 'Suggested air quality questions')}
         className="flex gap-1.5 overflow-x-auto no-scrollbar pb-0.5"
       >
         {ask.suggestionChips.map((chip) => (
@@ -53,7 +53,7 @@ export const AskPage: React.FC = () => {
         <div
           role="log"
           aria-live="polite"
-          aria-label="Ask Shwas conversation"
+          aria-label={t('ask.conversationAria', 'Ask Shwas conversation')}
           className="flex-1 overflow-y-auto space-y-3 pr-1"
         >
           {ask.messages.map((msg) => (
@@ -64,7 +64,9 @@ export const AskPage: React.FC = () => {
             <div className="flex items-start gap-2.5">
               <ShwasWindAvatar spinning />
               <div className="rounded-2xl rounded-tl-sm bg-white/[0.05] border border-white/[0.08] px-3.5 py-2.5 text-xs text-teal-300 animate-pulse">
-                {ask.isStillThinking ? 'Still thinking…' : 'Checking forecast & thinking…'}
+                {ask.isStillThinking
+                  ? t('today.stillThinking', 'Still thinking…')
+                  : t('ask.thinkingChecking', 'Checking forecast & thinking…')}
               </div>
             </div>
           )}

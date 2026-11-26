@@ -47,7 +47,7 @@ export const FamilyChips: React.FC<FamilyChipsProps> = ({
   return (
     <div
       role="group"
-      aria-label="Filter exposure by family member"
+      aria-label={t('family.filterAria', 'Filter exposure by family member')}
       className={`flex items-center gap-2 overflow-x-auto pb-1 no-scrollbar touch-pan-x scroll-smooth ${className}`}
     >
       {list.map((member) => {

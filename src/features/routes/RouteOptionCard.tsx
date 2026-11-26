@@ -30,6 +30,42 @@ function getModeIcon(mode: RouteMode) {
   }
 }
 
+const RouteMetricsRow: React.FC<{ route: EvaluatedRouteOption }> = ({ route }) => {
+  const { t } = useTranslation();
+  return (
+    <div className="grid grid-cols-3 gap-2 pt-1 border-t border-white/[0.08]">
+      <div className="bg-white/[0.04] rounded-xl px-2.5 py-1.5">
+        <div className="text-[10px] text-slate-400 flex items-center gap-1">
+          <Clock className="w-3 h-3" aria-hidden="true" /> {t('routes.timeLabel', 'Time')}
+        </div>
+        <div className="text-xs font-numbers font-bold text-white mt-0.5">
+          {route.durationMin} {t('app.units.min', 'min')}
+        </div>
+      </div>
+
+      <div className="bg-white/[0.04] rounded-xl px-2.5 py-1.5">
+        <div className="text-[10px] text-slate-400 flex items-center gap-1">
+          <Navigation className="w-3 h-3 text-slate-400" aria-hidden="true" />{' '}
+          {t('routes.distanceLabel', 'Distance')}
+        </div>
+        <div className="text-xs font-numbers font-bold text-slate-200 mt-0.5">
+          {route.distanceKm} {t('app.units.km', 'km')}
+        </div>
+      </div>
+
+      <div className="bg-white/[0.04] rounded-xl px-2.5 py-1.5">
+        <div className="text-[10px] text-slate-400 flex items-center gap-1">
+          <Leaf className="w-3 h-3 text-emerald-400" aria-hidden="true" />{' '}
+          {t('routes.co2Label', 'CO₂')}
+        </div>
+        <div className="text-xs font-numbers font-bold text-slate-200 mt-0.5">
+          {route.co2Kg === 0 ? '0' : route.co2Kg.toFixed(2)} {t('app.units.kg', 'kg')}
+        </div>
+      </div>
+    </div>
+  );
+};
+
 interface RouteOptionCardProps {
   route: EvaluatedRouteOption;
   isSelected: boolean;
@@ -60,14 +96,29 @@ export const RouteOptionCard: React.FC<RouteOptionCardProps> = ({
       <button
         type="button"
         aria-pressed={isSelected}
-        aria-label={`${route.label}, ${route.cigarettes.toFixed(2)} cigarettes, ${route.durationMin} minutes, ${route.co2Kg.toFixed(2)} kg CO2`}
+        aria-label={t(
+          'routes.optionAria',
+          '{{label}}, {{cigs}} cigarettes, {{min}} minutes, {{co2}} kg CO2',
+          {
+            label: route.label,
+            cigs: route.cigarettes.toFixed(2),
+            min: route.durationMin,
+            co2: route.co2Kg.toFixed(2),
+          },
+        )}
         onClick={() => onSelect(route.id)}
         className="w-full text-left space-y-2.5 focus:outline-none focus-visible:ring-2 focus-visible:ring-teal-400 rounded-xl"
       >
         {route.recommended && (
           <div className="mb-1 inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-teal-400 text-slate-950 text-[10px] font-bold tracking-wide shadow-md">
             <Sparkles className="w-2.5 h-2.5 shrink-0" aria-hidden="true" />
-            <span>Recommended · {route.recommendedReason || 'cleanest for you and the city'}</span>
+            <span>
+              {t('routes.recommendedPrefix', 'Recommended · {{reason}}', {
+                reason:
+                  route.recommendedReason ||
+                  t('routes.reasonMetro', 'cleanest for you and the city'),
+              })}
+            </span>
           </div>
         )}
 
@@ -89,17 +140,18 @@ export const RouteOptionCard: React.FC<RouteOptionCardProps> = ({
                 <span className="text-xs font-bold text-white">{route.label}</span>
                 {route.isEstimate && (
                   <span className="text-[9px] uppercase font-mono px-1.5 py-0.5 rounded bg-white/10 text-slate-300 border border-white/10">
-                    estimate
+                    {t('routes.estimateBadge', 'estimate')}
                   </span>
                 )}
                 {route.isAlternative && (
                   <span className="text-[9px] uppercase font-mono px-1.5 py-0.5 rounded bg-indigo-500/15 text-indigo-300 border border-indigo-400/30">
-                    alt
+                    {t('routes.altBadge', 'alt')}
                   </span>
                 )}
               </div>
               <p className="text-[11px] text-slate-400 truncate">
-                {route.summary || `${route.distanceKm} km`} · avg {route.avgPm25} µg/m³
+                {route.summary || `${route.distanceKm} ${t('app.units.km', 'km')}`} ·{' '}
+                {t('routes.avgPm25', 'avg {{pm25}} µg/m³', { pm25: route.avgPm25 })}
               </p>
             </div>
           </div>
@@ -110,7 +162,7 @@ export const RouteOptionCard: React.FC<RouteOptionCardProps> = ({
             <div className="flex items-center gap-1.5 flex-wrap">
               <Badge variant={badgeVariant} size="sm" className="font-mono whitespace-nowrap">
                 <Cigarette className="w-3 h-3 mr-1 inline" aria-hidden="true" />
-                {route.cigarettes.toFixed(2)} cigs
+                {route.cigarettes.toFixed(2)} {t('app.units.cigs', 'cigs')}
               </Badge>
               <span className="text-[11px] font-medium" style={{ color: route.strokeColor }}>
                 {route.relativeSmogLabel}
@@ -128,34 +180,7 @@ export const RouteOptionCard: React.FC<RouteOptionCardProps> = ({
           </div>
         </div>
 
-        <div className="grid grid-cols-3 gap-2 pt-1 border-t border-white/[0.08]">
-          <div className="bg-white/[0.04] rounded-xl px-2.5 py-1.5">
-            <div className="text-[10px] text-slate-400 flex items-center gap-1">
-              <Clock className="w-3 h-3" aria-hidden="true" /> Time
-            </div>
-            <div className="text-xs font-numbers font-bold text-white mt-0.5">
-              {route.durationMin} min
-            </div>
-          </div>
-
-          <div className="bg-white/[0.04] rounded-xl px-2.5 py-1.5">
-            <div className="text-[10px] text-slate-400 flex items-center gap-1">
-              <Navigation className="w-3 h-3 text-slate-400" aria-hidden="true" /> Distance
-            </div>
-            <div className="text-xs font-numbers font-bold text-slate-200 mt-0.5">
-              {route.distanceKm} km
-            </div>
-          </div>
-
-          <div className="bg-white/[0.04] rounded-xl px-2.5 py-1.5">
-            <div className="text-[10px] text-slate-400 flex items-center gap-1">
-              <Leaf className="w-3 h-3 text-emerald-400" aria-hidden="true" /> CO₂
-            </div>
-            <div className="text-xs font-numbers font-bold text-slate-200 mt-0.5">
-              {route.co2Kg === 0 ? '0 kg' : `${route.co2Kg.toFixed(2)} kg`}
-            </div>
-          </div>
-        </div>
+        <RouteMetricsRow route={route} />
       </button>
 
       {route.mode === 'metro' && route.transitUrl && (

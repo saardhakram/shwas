@@ -23,10 +23,13 @@ export const ScanCaptureCard: React.FC<ScanCaptureCardProps> = ({
         <div className="space-y-1">
           <h4 className="text-sm font-semibold text-white flex items-center justify-center gap-2">
             <Sparkles className="w-4 h-4 text-teal-300 animate-pulse" aria-hidden="true" />
-            <span>Analyzing photo with Gemini Vision...</span>
+            <span>{t('scan.analyzingHeading', 'Analyzing photo with Gemini Vision...')}</span>
           </h4>
           <p className="text-xs text-slate-400">
-            Detecting combustion sources, dust ingress, and unvented emissions.
+            {t(
+              'scan.analyzingSubtitle',
+              'Detecting combustion sources, dust ingress, and unvented emissions.',
+            )}
           </p>
         </div>
       </GlassCard>
@@ -67,13 +70,16 @@ export const ScanCaptureCard: React.FC<ScanCaptureCardProps> = ({
 
       <div className="flex items-center gap-4 text-[11px] text-slate-400 pt-2 border-t border-white/10 w-full justify-center">
         <span className="flex items-center gap-1">
-          <Flame className="w-3.5 h-3.5 text-amber-400" aria-hidden="true" /> Agarbatti & Stoves
+          <Flame className="w-3.5 h-3.5 text-amber-400" aria-hidden="true" />{' '}
+          {t('scan.chipAgarbatti', 'Agarbatti & Stoves')}
         </span>
         <span className="flex items-center gap-1">
-          <Wind className="w-3.5 h-3.5 text-teal-400" aria-hidden="true" /> Road Ingress
+          <Wind className="w-3.5 h-3.5 text-teal-400" aria-hidden="true" />{' '}
+          {t('scan.chipRoadIngress', 'Road Ingress')}
         </span>
         <span className="flex items-center gap-1">
-          <Layers className="w-3.5 h-3.5 text-indigo-400" aria-hidden="true" /> Dust & Filters
+          <Layers className="w-3.5 h-3.5 text-indigo-400" aria-hidden="true" />{' '}
+          {t('scan.chipDustFilters', 'Dust & Filters')}
         </span>
       </div>
     </GlassCard>

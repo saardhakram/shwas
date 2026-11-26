@@ -1,4 +1,5 @@
 import React, { useEffect, type RefObject } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Download, MessageCircle, Share2, Wind, X } from 'lucide-react';
 import { buildWhatsAppShareUrl, formatSavedCount } from '../../lib/community';
 
@@ -27,6 +28,8 @@ export const ShareDayModal: React.FC<ShareDayModalProps> = ({
   onNativeShare,
   onDownloadPng,
 }) => {
+  const { t } = useTranslation();
+
   useEffect(() => {
     const onKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Escape') onClose();
@@ -46,7 +49,7 @@ export const ShareDayModal: React.FC<ShareDayModalProps> = ({
     >
       <button
         type="button"
-        aria-label="Close share dialog backdrop"
+        aria-label={t('community.closeShareBackdropAria', 'Close share dialog backdrop')}
         onClick={onClose}
         className="fixed inset-0 bg-black/75 backdrop-blur-sm cursor-default"
       />
@@ -54,13 +57,13 @@ export const ShareDayModal: React.FC<ShareDayModalProps> = ({
       <div className="relative z-10 w-full max-w-sm rounded-2xl bg-surface-popover border border-white/15 p-4 space-y-4 shadow-2xl">
         <div className="flex items-center justify-between">
           <h3 id="share-day-modal-title" className="text-sm font-bold text-white">
-            Share My Day
+            {t('community.shareModalTitle', 'Share My Day')}
           </h3>
           <button
             type="button"
             onClick={onClose}
             className="p-1 text-slate-400 hover:text-white focus:outline-none focus-visible:ring-2 focus-visible:ring-teal-400 rounded-lg"
-            aria-label="Close share dialog"
+            aria-label={t('community.closeShareAria', 'Close share dialog')}
           >
             <X className="w-4 h-4" aria-hidden="true" />
           </button>
@@ -72,13 +75,19 @@ export const ShareDayModal: React.FC<ShareDayModalProps> = ({
         >
           <div className="flex items-center justify-center gap-1.5 text-teal-300 text-xs font-bold tracking-wide uppercase">
             <Wind className="w-4 h-4 text-teal-400" aria-hidden="true" />
-            <span>Shwas · Breathe Smarter</span>
+            <span>{t('community.shareBrandTagline', 'Shwas · Breathe Smarter')}</span>
           </div>
 
           <div className="py-2">
             <div className="font-numbers text-5xl font-bold text-white">{savedLabel}</div>
             <div className="text-sm font-semibold text-teal-200 mt-1">
-              We saved {savedLabel} {savedLabel === '1' ? 'cigarette' : 'cigarettes'} today 💨
+              {savedLabel === '1'
+                ? t('community.shareSavedOne', 'We saved {{value}} cigarette today 💨', {
+                    value: savedLabel,
+                  })
+                : t('community.shareSavedMany', 'We saved {{value}} cigarettes today 💨', {
+                    value: savedLabel,
+                  })}
             </div>
           </div>
 
@@ -105,7 +114,11 @@ export const ShareDayModal: React.FC<ShareDayModalProps> = ({
             className="w-full py-2.5 rounded-xl bg-teal-400 hover:bg-teal-300 text-slate-950 font-semibold text-xs flex items-center justify-center gap-2 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-white"
           >
             <Share2 className="w-4 h-4" aria-hidden="true" />
-            <span>{isGeneratingShare ? 'Preparing card…' : 'Share Card'}</span>
+            <span>
+              {isGeneratingShare
+                ? t('community.preparingCard', 'Preparing card…')
+                : t('community.shareCardBtn', 'Share Card')}
+            </span>
           </button>
 
           <div className="grid grid-cols-2 gap-2">
@@ -125,7 +138,7 @@ export const ShareDayModal: React.FC<ShareDayModalProps> = ({
               className="py-2 px-3 rounded-xl bg-white/[0.08] hover:bg-white/[0.14] border border-white/15 text-slate-100 font-semibold text-xs flex items-center justify-center gap-1.5 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-teal-400"
             >
               <Download className="w-3.5 h-3.5" aria-hidden="true" />
-              <span>Download PNG</span>
+              <span>{t('community.downloadPng', 'Download PNG')}</span>
             </button>
           </div>
         </div>

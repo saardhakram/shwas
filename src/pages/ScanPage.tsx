@@ -17,7 +17,7 @@ export const ScanPage: React.FC = () => {
         type="file"
         accept="image/*"
         capture="environment"
-        aria-label="Choose or capture room photo for indoor air scan"
+        aria-label={t('scan.fileInputAria', 'Choose or capture room photo for indoor air scan')}
         className="hidden"
         onChange={scan.handleFileChange}
       />
@@ -27,7 +27,7 @@ export const ScanPage: React.FC = () => {
           <h2 className="text-base font-bold text-white tracking-tight flex items-center gap-2">
             <span>{t('scan.title', 'Shwas Scan')}</span>
             <span className="text-[10px] uppercase font-mono px-1.5 py-0.5 rounded bg-teal-500/20 text-teal-300 border border-teal-500/30">
-              Vision
+              {t('scan.visionBadge', 'Vision')}
             </span>
           </h2>
           <p className="text-xs text-slate-400">
@@ -39,8 +39,8 @@ export const ScanPage: React.FC = () => {
             type="button"
             onClick={scan.handleReset}
             className="p-2 rounded-xl bg-white/5 border border-white/10 text-slate-400 hover:text-white hover:bg-white/10 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-teal-400"
-            title="Scan another photo"
-            aria-label="Reset scan and choose another photo"
+            title={t('scan.scanAnotherTitle', 'Scan another photo')}
+            aria-label={t('scan.scanAnotherAria', 'Reset scan and choose another photo')}
           >
             <RotateCcw className="w-4 h-4" aria-hidden="true" />
           </button>
@@ -73,8 +73,10 @@ export const ScanPage: React.FC = () => {
         <div className="flex items-center gap-2 text-xs text-slate-300">
           <ShieldCheck className="w-4 h-4 text-teal-400 shrink-0" aria-hidden="true" />
           <span>
-            Reductions and cigarette math are calculated in code based on outdoor PM2.5 and your
-            home profile.
+            {t(
+              'scan.disclaimerNote',
+              'Reductions and cigarette math are calculated in code based on outdoor PM2.5 and your home profile.',
+            )}
           </span>
         </div>
       </GlassCard>
