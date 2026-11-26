@@ -1,22 +1,8 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useCallback, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
-import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import type { EvaluatedRouteOption, LatLon } from '../../lib/routeExposure';
-import type {
-  GoogleMapInstance,
-  GoogleMapsNamespace,
-  GooglePolylineInstance,
-} from '../../types/maps';
-import {
-  DARK_GOOGLE_MAP_STYLES,
-  hasGoogleMapsAuthFailed,
-  loadGoogleMapsScript,
-  markGoogleMapsAuthFailed,
-} from './googleMapsLoader';
-import { drawGoogleMapOverlays, drawLeafletMapOverlays } from './mapRenderers';
-import { CHART_COLORS } from '@shared/constants';
-import { logger } from '../../lib/logger';
+import { useGoogleRouteMap, useLeafletRouteMap, useMapProvider } from './useRouteMapHooks';
 
 interface RouteMapProps {
   origin: LatLon;
@@ -25,58 +11,6 @@ interface RouteMapProps {
   selectedRouteId: string | null;
   onSelectRoute: (id: string) => void;
   onMapProviderChange?: (provider: 'google' | 'leaflet') => void;
-}
-
-function hasRequiredGoogleMapsApis(maps?: GoogleMapsNamespace): maps is GoogleMapsNamespace {
-  return Boolean(maps?.Map && maps.LatLngBounds && maps.Polyline && maps.SymbolPath);
-}
-
-function useMapProvider(onMapProviderChange?: (provider: 'google' | 'leaflet') => void) {
-  const [provider, setProvider] = useState<'google' | 'leaflet'>(() => {
-    const key = import.meta.env.VITE_GOOGLE_MAPS_KEY;
-    return key && !hasGoogleMapsAuthFailed() ? 'google' : 'leaflet';
-  });
-  const [googleReady, setGoogleReady] = useState<boolean>(false);
-
-  useEffect(() => {
-    let active = true;
-    const apiKey = (import.meta.env.VITE_GOOGLE_MAPS_KEY || '').trim();
-    const fallbackToLeaflet = () => {
-      if (!active) return;
-      setGoogleReady(false);
-      setProvider('leaflet');
-      onMapProviderChange?.('leaflet');
-    };
-
-    if (!apiKey || hasGoogleMapsAuthFailed()) {
-      onMapProviderChange?.('leaflet');
-      return;
-    }
-
-    const prevFailure = window.gm_authFailure;
-    window.gm_authFailure = () => {
-      markGoogleMapsAuthFailed();
-      if (typeof prevFailure === 'function') prevFailure();
-      fallbackToLeaflet();
-    };
-
-    loadGoogleMapsScript(apiKey).then((ok) => {
-      if (!active) return;
-      if (ok && window.google?.maps?.Map && !hasGoogleMapsAuthFailed()) {
-        setGoogleReady(true);
-        setProvider('google');
-        onMapProviderChange?.('google');
-      } else {
-        fallbackToLeaflet();
-      }
-    });
-
-    return () => {
-      active = false;
-    };
-  }, [onMapProviderChange]);
-
-  return { provider, setProvider, googleReady };
 }
 
 export const RouteMap: React.FC<RouteMapProps> = ({
@@ -90,106 +24,29 @@ export const RouteMap: React.FC<RouteMapProps> = ({
   const { t } = useTranslation();
   const googleContainerRef = useRef<HTMLDivElement>(null);
   const leafletContainerRef = useRef<HTMLDivElement>(null);
-  const googleMapRef = useRef<GoogleMapInstance | null>(null);
-  const googleOverlaysRef = useRef<GooglePolylineInstance[]>([]);
-  const leafletMapRef = useRef<L.Map | null>(null);
-  const leafletLayerGroupRef = useRef<L.LayerGroup | null>(null);
 
   const { provider, setProvider, googleReady } = useMapProvider(onMapProviderChange);
 
-  useEffect(() => {
-    const maps = window.google?.maps;
-    if (
-      provider !== 'google' ||
-      !googleReady ||
-      !googleContainerRef.current ||
-      !hasRequiredGoogleMapsApis(maps)
-    ) {
-      return;
-    }
+  const handleFallbackToLeaflet = useCallback(() => {
+    setProvider('leaflet');
+    onMapProviderChange?.('leaflet');
+  }, [onMapProviderChange, setProvider]);
 
-    try {
-      if (!googleMapRef.current) {
-        googleMapRef.current = new maps.Map!(googleContainerRef.current, {
-          center: { lat: origin.lat, lng: origin.lon },
-          zoom: 12,
-          styles: DARK_GOOGLE_MAP_STYLES,
-          disableDefaultUI: true,
-          zoomControl: true,
-          backgroundColor: CHART_COLORS.surfaceBase,
-        });
-      }
+  const overlay = { origin, destination, routes, selectedRouteId, onSelectRoute };
 
-      googleOverlaysRef.current.forEach((ov) => ov.setMap(null));
-      googleOverlaysRef.current = drawGoogleMapOverlays({
-        maps,
-        map: googleMapRef.current,
-        origin,
-        destination,
-        routes,
-        selectedRouteId,
-        onSelectRoute,
-      });
-    } catch (err) {
-      logger.warn('[RouteMap] Google Maps runtime error, falling back to Leaflet:', err);
-      setProvider('leaflet');
-      onMapProviderChange?.('leaflet');
-    }
-  }, [
+  useGoogleRouteMap({
+    containerRef: googleContainerRef,
     provider,
     googleReady,
-    origin,
-    destination,
-    routes,
-    selectedRouteId,
-    onSelectRoute,
-    onMapProviderChange,
-    setProvider,
-  ]);
+    overlay,
+    onFallbackToLeaflet: handleFallbackToLeaflet,
+  });
 
-  useEffect(() => {
-    if (provider !== 'leaflet' || !leafletContainerRef.current) return;
-
-    if (!leafletMapRef.current) {
-      const map = L.map(leafletContainerRef.current, {
-        center: [origin.lat, origin.lon],
-        zoom: 12,
-        zoomControl: true,
-        attributionControl: true,
-      });
-
-      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-        maxZoom: 19,
-        attribution: '&copy; OpenStreetMap',
-      }).addTo(map);
-
-      leafletLayerGroupRef.current = L.layerGroup().addTo(map);
-      leafletMapRef.current = map;
-      setTimeout(() => map.invalidateSize(), 150);
-    }
-
-    if (!leafletMapRef.current || !leafletLayerGroupRef.current) return;
-
-    drawLeafletMapOverlays({
-      map: leafletMapRef.current,
-      layerGroup: leafletLayerGroupRef.current,
-      origin,
-      destination,
-      routes,
-      selectedRouteId,
-      onSelectRoute,
-    });
-  }, [provider, origin, destination, routes, selectedRouteId, onSelectRoute]);
-
-  useEffect(() => {
-    return () => {
-      if (leafletMapRef.current) {
-        leafletMapRef.current.remove();
-        leafletMapRef.current = null;
-        leafletLayerGroupRef.current = null;
-      }
-    };
-  }, []);
+  useLeafletRouteMap({
+    containerRef: leafletContainerRef,
+    provider,
+    overlay,
+  });
 
   return (
     <div
