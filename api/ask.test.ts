@@ -1,10 +1,6 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import handler, {
-  processAskRequest,
-  clearAskRateLimitForTesting,
-  DAILY_QUESTION_LIMIT,
-  buildTimeMiniCard,
-} from './ask.js';
+import handler, { processAskRequest, DAILY_QUESTION_LIMIT, buildTimeMiniCard } from './ask.js';
+import { InMemoryRateLimiter } from './_lib/rateLimiter.js';
 import type { UserProfile } from '../shared/types.js';
 import type { ForecastDataPoint } from '../shared/forecastWindow.js';
 import type {
@@ -73,9 +69,11 @@ describe('Serverless Ask Shwas API (/api/ask)', () => {
     },
   ];
 
+  let rateLimiter: InMemoryRateLimiter;
+
   beforeEach(() => {
     vi.restoreAllMocks();
-    clearAskRateLimitForTesting();
+    rateLimiter = new InMemoryRateLimiter();
   });
 
   afterEach(() => {
@@ -139,6 +137,8 @@ describe('Serverless Ask Shwas API (/api/ask)', () => {
         ],
       },
       'mock-gemini-key',
+      undefined,
+      { rateLimiter },
     );
 
     expect(capturedHeaders['x-goog-api-key']).toBe('mock-gemini-key');
@@ -182,6 +182,8 @@ describe('Serverless Ask Shwas API (/api/ask)', () => {
       const r = await processAskRequest(
         { question: `Question ${i + 1}`, userId: 'limit-user', profile: sampleProfile },
         'mock-key',
+        undefined,
+        { rateLimiter },
       );
       expect(r.source).toBe('gemini');
       expect(r.remainingToday).toBe(DAILY_QUESTION_LIMIT - (i + 1));
@@ -193,6 +195,8 @@ describe('Serverless Ask Shwas API (/api/ask)', () => {
     const blocked = await processAskRequest(
       { question: 'Question 21', userId: 'limit-user', profile: sampleProfile },
       'mock-key',
+      undefined,
+      { rateLimiter },
     );
     expect(blocked.source).toBe('rate_limited');
     expect(blocked.error).toBe('daily_limit_reached');
@@ -210,6 +214,8 @@ describe('Serverless Ask Shwas API (/api/ask)', () => {
     const res = await processAskRequest(
       { question: 'Best mask for kids?', userId: 'user-err', profile: sampleProfile },
       'bad-key',
+      undefined,
+      { rateLimiter },
     );
 
     expect(res.source).toBe('offline');

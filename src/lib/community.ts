@@ -1,6 +1,17 @@
 /**
- * Shwas Community — Pure Join-Code, Weekly Savings Aggregation, Streak & Share Logic
+ * Shwas Community — Pure Join-Code, Weekly Savings Aggregation & Streak Logic
  */
+
+import { cleanDisplayName } from './communityFormatting';
+
+export {
+  ALERT_TYPE_META,
+  buildShareText,
+  buildWhatsAppShareUrl,
+  cleanDisplayName,
+  formatRelativeTime,
+  formatSavedCount,
+} from './communityFormatting';
 
 export type AlertType = 'garbage_burning' | 'construction_dust' | 'vehicle_smoke' | 'other';
 
@@ -52,39 +63,9 @@ export interface WeeklyCommunityStats {
   leaderboard: LeaderboardEntry[];
 }
 
-export const ALERT_TYPE_META: Record<
-  AlertType,
-  { label: string; shortLabel: string; badgeVariant: 'danger' | 'warning' | 'neutral' }
-> = {
-  garbage_burning: {
-    label: 'Garbage burning',
-    shortLabel: 'Garbage Burning',
-    badgeVariant: 'danger',
-  },
-  construction_dust: {
-    label: 'Construction dust',
-    shortLabel: 'Construction Dust',
-    badgeVariant: 'warning',
-  },
-  vehicle_smoke: {
-    label: 'Vehicle smoke',
-    shortLabel: 'Vehicle Smoke',
-    badgeVariant: 'warning',
-  },
-  other: {
-    label: 'Other smoke / odor',
-    shortLabel: 'Local Alert',
-    badgeVariant: 'neutral',
-  },
-};
-
-// Unambiguous uppercase alphabet (omits 0/O and 1/I for easy sharing over WhatsApp)
 export const JOIN_CODE_ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
 export const JOIN_CODE_LENGTH = 6;
 
-/**
- * Generates a 6-character uppercase alphanumeric join code (e.g. "GP7K4M").
- */
 export function generateJoinCode(
   length = JOIN_CODE_LENGTH,
   randomFn: () => number = Math.random,
@@ -97,9 +78,6 @@ export function generateJoinCode(
   return code;
 }
 
-/**
- * Normalizes a user-typed join code (trims, uppercases, removes spaces and dashes).
- */
 export function normalizeJoinCode(raw: string): string {
   return (raw || '')
     .toUpperCase()
@@ -107,9 +85,6 @@ export function normalizeJoinCode(raw: string): string {
     .slice(0, JOIN_CODE_LENGTH);
 }
 
-/**
- * Validates that a normalized join code is exactly 6 uppercase alphanumeric characters.
- */
 export function isValidJoinCode(raw: string): boolean {
   const normalized = normalizeJoinCode(raw);
   return (
@@ -127,10 +102,6 @@ function addDays(dayStr: string, delta: number): string {
   return toDayString(dt);
 }
 
-/**
- * Computes a member's consecutive active saving streak (days with cigarettes_saved > 0)
- * ending on todayStr (or yesterday if the user hasn't checked an item yet today).
- */
 export function computeStreakDays(activeDays: string[], todayStr: string): number {
   const daySet = new Set(activeDays.filter(Boolean));
   if (daySet.size === 0) return 0;
@@ -146,30 +117,14 @@ export function computeStreakDays(activeDays: string[], todayStr: string): numbe
   return streak;
 }
 
-/**
- * Cleans up a member display name — removes accidental "My Family..." concatenation
- * from pre-filled inputs (e.g. "My FamilyRam Family" -> "Ram Family") and falls back cleanly.
- */
-export function cleanDisplayName(raw?: string | null): string {
-  const trimmed = (raw || '').trim();
-  if (!trimmed) return 'Family';
-  const stripped = trimmed.replace(/^My Family(?=[A-Za-z0-9])/i, '').trim();
-  return stripped || 'My Family';
-}
-
-/**
- * Aggregates weekly group cigarette savings (rolling 7 days ending today),
- * member count, per-member weekly & today totals, and streak flames.
- */
 export function aggregateWeeklyCommunityStats(
   members: CommunityMember[],
   dailySavings: DailySavingRow[],
   today: Date = new Date(),
 ): WeeklyCommunityStats {
   const todayStr = toDayString(today);
-  const weekStartStr = addDays(todayStr, -6); // inclusive 7-day window
+  const weekStartStr = addDays(todayStr, -6);
 
-  // Build map of userId -> displayName (including any user present in savings)
   const memberMap = new Map<string, string>();
   for (const m of members) {
     memberMap.set(m.user_id, cleanDisplayName(m.display_name));
@@ -201,19 +156,14 @@ export function aggregateWeeklyCommunityStats(
   }
 
   const entries: LeaderboardEntry[] = Array.from(memberMap.entries()).map(
-    ([userId, displayName]) => {
-      const weeklySaved = Number((weeklyTotals.get(userId) || 0).toFixed(1));
-      const todaySaved = Number((todayTotals.get(userId) || 0).toFixed(1));
-      const streakDays = computeStreakDays(activeDaysByUser.get(userId) || [], todayStr);
-      return {
-        rank: 0,
-        userId,
-        displayName,
-        weeklySaved,
-        todaySaved,
-        streakDays,
-      };
-    },
+    ([userId, displayName]) => ({
+      rank: 0,
+      userId,
+      displayName,
+      weeklySaved: Number((weeklyTotals.get(userId) || 0).toFixed(1)),
+      todaySaved: Number((todayTotals.get(userId) || 0).toFixed(1)),
+      streakDays: computeStreakDays(activeDaysByUser.get(userId) || [], todayStr),
+    }),
   );
 
   entries.sort((a, b) => {
@@ -230,62 +180,4 @@ export function aggregateWeeklyCommunityStats(
     memberCount: ranked.length,
     leaderboard: ranked,
   };
-}
-
-type TranslateFn = (key: string, defaultValue: string, options?: Record<string, unknown>) => string;
-
-/**
- * Formats an ISO timestamp into a compact relative age string (e.g. "20 min ago").
- */
-export function formatRelativeTime(
-  isoTimestamp: string,
-  now: Date = new Date(),
-  t?: TranslateFn,
-): string {
-  const tr: TranslateFn =
-    t ||
-    ((_k, def, opts) =>
-      opts ? def.replace(/\{\{(\w+)\}\}/g, (_, k) => String(opts[k] ?? '')) : def);
-  const ts = new Date(isoTimestamp).getTime();
-  if (isNaN(ts)) return tr('community.timeJustNow', 'just now');
-
-  const diffSec = Math.max(0, Math.floor((now.getTime() - ts) / 1000));
-  if (diffSec < 60) return tr('community.timeJustNow', 'just now');
-  const diffMin = Math.floor(diffSec / 60);
-  if (diffMin < 60) return tr('community.timeMinAgo', '{{count}} min ago', { count: diffMin });
-  const diffHr = Math.floor(diffMin / 60);
-  if (diffHr < 24) return tr('community.timeHrAgo', '{{count}} hr ago', { count: diffHr });
-  const diffDays = Math.floor(diffHr / 24);
-  return diffDays === 1
-    ? tr('community.timeOneDayAgo', '1 day ago')
-    : tr('community.timeDaysAgo', '{{count}} days ago', { count: diffDays });
-}
-
-/**
- * Formats a cigarette count cleanly (whole integers without .0, fractional with 1 decimal).
- */
-export function formatSavedCount(val: number): string {
-  const safe = Math.max(0, Number(val) || 0);
-  const rounded = Number(safe.toFixed(1));
-  return Number.isInteger(rounded) ? String(rounded) : rounded.toFixed(1);
-}
-
-/**
- * Builds the share copy for Web Share API & WhatsApp fallback:
- * e.g. "We saved 4 cigarettes today 💨 #Shwas"
- */
-export function buildShareText(cigarettesSavedToday: number, groupName?: string): string {
-  const countStr = formatSavedCount(cigarettesSavedToday);
-  const unit = countStr === '1' ? 'cigarette' : 'cigarettes';
-  if (groupName) {
-    return `We saved ${countStr} ${unit} today in ${groupName} 💨 #Shwas`;
-  }
-  return `We saved ${countStr} ${unit} today 💨 #Shwas`;
-}
-
-/**
- * Builds a WhatsApp share deep link for the fallback button.
- */
-export function buildWhatsAppShareUrl(text: string): string {
-  return `https://wa.me/?text=${encodeURIComponent(text)}`;
 }

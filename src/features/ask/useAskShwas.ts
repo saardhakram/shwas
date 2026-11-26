@@ -1,153 +1,23 @@
-import { useState, useEffect, useRef, useMemo, type FormEvent } from 'react';
+import { useEffect, useMemo, useRef, useState, type FormEvent } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useAirQuality } from '../../components/layout/AppLayout';
 import { fetchSmartForecast, type ForecastDataPoint } from '../../lib/forecast';
-import { logger } from '../../lib/logger';
-import { parsePlanCache } from '../../lib/planGenerator';
-import { STORAGE_KEYS, storage } from '../../lib/storage';
-import { CLIENT_ASK_TIMEOUT_MS } from '@shared/constants';
-import type { RawPlanItem, UserProfile } from '../../types';
-import type { SpeechRecognitionInstance, SpeechRecognitionResultEvent } from '../../types/maps';
-import {
-  SPEECH_LOCALE_MAP,
-  buildSuggestionChips,
-  getSpeechRecognitionCtor,
-  type ChatMessage,
-  type MiniCardData,
-} from './askHelpers';
-
-const WELCOME_MESSAGE: ChatMessage = {
-  id: 'welcome',
-  role: 'assistant',
-  text: 'Namaste! Ask me about outdoor walks, kids’ play times, masks, or sealing your home today. I check your family profile and the next 24-hour forecast.',
-};
-
-function readCachedTodayPlan(lang: string, locName: string): RawPlanItem[] {
-  const dateStr = new Date().toISOString().slice(0, 10);
-  const cached = parsePlanCache(
-    storage.getItem(STORAGE_KEYS.planCache(`${dateStr}_${lang}_${locName}`)),
-  );
-  return cached?.items?.length ? cached.items : [];
-}
-
-interface AskApiResult {
-  answer?: string;
-  miniCard?: MiniCardData | null;
-  source?: 'gemini' | 'offline' | 'rate_limited';
-  remainingToday?: number;
-}
-
-async function postAskApi(params: {
-  question: string;
-  history: Array<{ role: 'user' | 'assistant'; text: string }>;
-  userProfile: UserProfile | null;
-  language: string;
-  pm25: number;
-  aqi: number;
-  forecast: ForecastDataPoint[];
-  plan: RawPlanItem[];
-  signal: AbortSignal;
-}): Promise<AskApiResult> {
-  const res = await fetch('/api/ask', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      question: params.question,
-      userId: params.userProfile?.id || 'guest',
-      history: params.history,
-      profile: params.userProfile || {
-        language: params.language,
-        location: { lat: 28.6139, lon: 77.209, name: 'Delhi NCR' },
-        family: [],
-        home: {
-          windowsFacingRoad: true,
-          purifier: false,
-          chimney: false,
-          cookingFuel: 'lpg',
-          commuteMode: 'metro',
-        },
-      },
-      currentPm25: params.pm25,
-      currentAqi: params.aqi,
-      forecast: params.forecast,
-      plan: params.plan,
-    }),
-    signal: params.signal,
-  });
-
-  if (!res.ok) throw new Error(`Ask API returned ${res.status}`);
-  return (await res.json()) as AskApiResult;
-}
-
-function useVoiceInput(activeLang: string, onTranscript: (text: string) => void) {
-  const speechSupported = useMemo(() => Boolean(getSpeechRecognitionCtor()), []);
-  const [isListening, setIsListening] = useState(false);
-  const recognitionRef = useRef<SpeechRecognitionInstance | null>(null);
-
-  useEffect(() => {
-    return () => {
-      try {
-        recognitionRef.current?.stop();
-      } catch (err) {
-        logger.warn('[Ask] Voice recognition cleanup notice:', err);
-      }
-    };
-  }, []);
-
-  const handleToggleVoice = () => {
-    const SpeechRec = getSpeechRecognitionCtor();
-    if (!SpeechRec) return;
-
-    if (isListening && recognitionRef.current) {
-      try {
-        recognitionRef.current.stop();
-      } catch (err) {
-        logger.warn('[Ask] Voice recognition stop notice:', err);
-      }
-      setIsListening(false);
-      return;
-    }
-
-    try {
-      const recognition = new SpeechRec();
-      recognition.lang = SPEECH_LOCALE_MAP[activeLang] || 'en-IN';
-      recognition.interimResults = false;
-      recognition.maxAlternatives = 1;
-      recognition.onstart = () => setIsListening(true);
-      recognition.onend = () => setIsListening(false);
-      recognition.onerror = () => setIsListening(false);
-      recognition.onresult = (event: SpeechRecognitionResultEvent) => {
-        const transcript = event?.results?.[0]?.[0]?.transcript;
-        if (transcript && typeof transcript === 'string') onTranscript(transcript);
-      };
-      recognitionRef.current = recognition;
-      recognition.start();
-    } catch (err) {
-      logger.warn('[Ask] Voice recognition start failed:', err);
-      setIsListening(false);
-    }
-  };
-
-  return { speechSupported, isListening, handleToggleVoice };
-}
+import { DEFAULT_WELCOME_TEXT, readCachedTodayPlan, requestAskReply } from './askApi';
+import { buildSuggestionChips, type ChatMessage } from './askHelpers';
+import { useVoiceInput } from './useVoiceInput';
 
 export function useAskShwas() {
   const { t, i18n } = useTranslation();
   const { aqi, pm25, userProfile } = useAirQuality();
 
   const [messages, setMessages] = useState<ChatMessage[]>(() => [
-    {
-      id: 'welcome',
-      role: 'assistant',
-      text: t('ask.welcome', WELCOME_MESSAGE.text),
-    },
+    { id: 'welcome', role: 'assistant', text: t('ask.welcome', DEFAULT_WELCOME_TEXT) },
   ]);
 
-  // Keep the welcome message localized when the user switches languages
   useEffect(() => {
     setMessages((prev) =>
       prev.map((m) =>
-        m.id === 'welcome' ? { ...m, text: t('ask.welcome', WELCOME_MESSAGE.text) } : m,
+        m.id === 'welcome' ? { ...m, text: t('ask.welcome', DEFAULT_WELCOME_TEXT) } : m,
       ),
     );
   }, [t]);
@@ -171,7 +41,6 @@ export function useAskShwas() {
   );
 
   const voice = useVoiceInput(activeLang, setInput);
-
   const profileLat = userProfile?.location?.lat || 28.6139;
   const profileLon = userProfile?.location?.lon || 77.209;
 
@@ -197,7 +66,7 @@ export function useAskShwas() {
     const nextHistory = [...messages, userMsg]
       .filter((m) => m.id !== 'welcome')
       .slice(-4)
-      .map((m) => ({ role: m.role, text: m.text }));
+      .map(({ role, text }) => ({ role, text }));
 
     setMessages((prev) => [...prev, userMsg]);
     setInput('');
@@ -205,63 +74,29 @@ export function useAskShwas() {
     setIsStillThinking(false);
 
     const stillThinkingTimer = setTimeout(() => setIsStillThinking(true), 8000);
-    const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), CLIENT_ASK_TIMEOUT_MS);
+    const { reply, remainingToday: nextRemaining } = await requestAskReply({
+      question: trimmed,
+      history: nextHistory,
+      userProfile,
+      language: activeLang,
+      pm25,
+      aqi,
+      forecast: forecast24h,
+      plan: todayPlan,
+      emptyText: t('ask.errorEmpty', 'Sorry, I could not generate a response right now.'),
+      offlineText: t('ask.errorOffline', 'Sorry, I could not reach Shwas AI right now.'),
+    });
 
-    try {
-      const data = await postAskApi({
-        question: trimmed,
-        history: nextHistory,
-        userProfile,
-        language: activeLang,
-        pm25,
-        aqi,
-        forecast: forecast24h,
-        plan: todayPlan,
-        signal: controller.signal,
-      });
-
-      if (typeof data.remainingToday === 'number') setRemainingToday(data.remainingToday);
-      setMessages((prev) => [
-        ...prev,
-        {
-          id: `a_${Date.now()}`,
-          role: 'assistant',
-          text:
-            data.answer ||
-            t(
-              'ask.errorEmpty',
-              'Sorry, I could not generate a response right now. Please try again in a moment.',
-            ),
-          miniCard: data.miniCard || null,
-          source: data.source,
-        },
-      ]);
-    } catch (err) {
-      logger.warn('[Ask] Request failed, showing offline message:', err);
-      setMessages((prev) => [
-        ...prev,
-        {
-          id: `err_${Date.now()}`,
-          role: 'assistant',
-          text: t(
-            'ask.errorOffline',
-            'Sorry, I could not reach Shwas AI right now. Please try again in a moment, or check your Today plan for the cleanest air window.',
-          ),
-          source: 'offline',
-        },
-      ]);
-    } finally {
-      clearTimeout(stillThinkingTimer);
-      clearTimeout(timeout);
-      setIsSending(false);
-      setIsStillThinking(false);
-    }
+    clearTimeout(stillThinkingTimer);
+    if (typeof nextRemaining === 'number') setRemainingToday(nextRemaining);
+    setMessages((prev) => [...prev, reply]);
+    setIsSending(false);
+    setIsStillThinking(false);
   };
 
   const handleSubmit = (e: FormEvent) => {
     e.preventDefault();
-    sendQuestion(input);
+    void sendQuestion(input);
   };
 
   return {

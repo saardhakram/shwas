@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import handler, { processPlanRequest, clearPlanCacheForTesting } from './plan.js';
+import handler, { processPlanRequest } from './plan.js';
+import { InMemoryPlanCache } from './_lib/plan/cache.js';
 import { serverLogger } from './_lib/logger.js';
 import type { UserProfile } from '../shared/types.js';
 import type { ApiRequest, ApiResponse, GeminiGenerateContentRequest } from './_lib/types.js';
@@ -29,9 +30,11 @@ describe('Serverless Plan API (/api/plan)', () => {
 
   const originalEnv = { ...process.env };
 
+  let planCache: InMemoryPlanCache;
+
   beforeEach(() => {
     vi.restoreAllMocks();
-    clearPlanCacheForTesting();
+    planCache = new InMemoryPlanCache();
     process.env = { ...originalEnv };
   });
 
@@ -40,7 +43,7 @@ describe('Serverless Plan API (/api/plan)', () => {
   });
 
   it('returns valid rule-based plan when no API key is provided', async () => {
-    const res = await processPlanRequest({ profile }, undefined);
+    const res = await processPlanRequest({ profile }, undefined, { cache: planCache });
     expect(res).toBeDefined();
     expect(res.source).toBe('rule_based_no_key');
     expect(res.plan.length).toBeGreaterThanOrEqual(6);
@@ -127,7 +130,7 @@ describe('Serverless Plan API (/api/plan)', () => {
       };
     });
 
-    const res = await processPlanRequest({ profile }, 'test_api_key');
+    const res = await processPlanRequest({ profile }, 'test_api_key', { cache: planCache });
 
     // 1. Model in URL should be gemini-3.5-flash
     expect(capturedUrl).toBe(
@@ -214,7 +217,7 @@ describe('Serverless Plan API (/api/plan)', () => {
       };
     });
 
-    await processPlanRequest({ profile }, 'test_key');
+    await processPlanRequest({ profile }, 'test_key', { cache: planCache });
     expect(capturedUrl).toBe(
       'https://generativelanguage.googleapis.com/v1beta/models/gemini-custom-model:generateContent',
     );
@@ -231,7 +234,7 @@ describe('Serverless Plan API (/api/plan)', () => {
       };
     });
 
-    const res = await processPlanRequest({ profile }, 'bad_key');
+    const res = await processPlanRequest({ profile }, 'bad_key', { cache: planCache });
 
     expect(warnSpy).toHaveBeenCalled();
     const loggedMessage = warnSpy.mock.calls.map((c) => c.join(' ')).join('\n');
