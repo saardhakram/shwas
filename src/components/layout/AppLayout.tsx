@@ -61,6 +61,13 @@ export const AppLayout: React.FC = () => {
     }
   };
 
+  // Warm up Vercel serverless functions immediately on initial app load
+  useEffect(() => {
+    fetch('/api/health', { method: 'GET' }).catch(() => {
+      // ignore warmup errors when offline
+    });
+  }, []);
+
   useEffect(() => {
     reloadProfile();
     initAnonymousAuth().catch((err) => {

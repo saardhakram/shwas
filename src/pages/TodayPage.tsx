@@ -28,6 +28,7 @@ import {
   fetchSmartForecast,
   getOfflineFallbackForecast,
   computeBestWindow,
+  formatForecastUpdatedAgo,
   ForecastDataPoint,
 } from '../lib/forecast';
 import { calculateFamilyExposure } from '../lib/cigarettes';
@@ -117,13 +118,14 @@ export const TodayPage: React.FC = () => {
     setCityName,
   } = useAirQuality();
 
-  // 1. Live forecast state (Supabase Shwas ML if fresh < 3h, else Open-Meteo fallback)
+  // 1. Live forecast state (Supabase Shwas ML if fresh < 6h, else Open-Meteo fallback)
   const [forecastPoints, setForecastPoints] = useState<ForecastDataPoint[]>(
     () => getOfflineFallbackForecast().points
   );
   const [isSampleData, setIsSampleData] = useState<boolean>(true);
   const [isMlForecast, setIsMlForecast] = useState<boolean>(false);
   const [modelMae, setModelMae] = useState<number | null>(null);
+  const [mlGeneratedAt, setMlGeneratedAt] = useState<string | null>(null);
   const [sourceLabel, setSourceLabel] = useState<string>('Sample data (offline fallback)');
 
   // 2. Daily Air Plan state & Plan Source (Gemini vs Rule-based fallback)
@@ -149,6 +151,7 @@ export const TodayPage: React.FC = () => {
         setIsSampleData(res.isSampleData);
         setIsMlForecast(Boolean(res.isMlForecast));
         setModelMae(typeof res.modelMae === 'number' ? res.modelMae : null);
+        setMlGeneratedAt(res.generatedAt ?? null);
         setSourceLabel(res.sourceLabel);
         if (setAirQuality && res.currentAqi) {
           setAirQuality(res.currentAqi, res.currentPm25);
@@ -231,21 +234,35 @@ export const TodayPage: React.FC = () => {
     setCompletedMap(savedCompletedMap);
 
     // Check plan cache first (supports { source, items, createdAt } and migrates legacy arrays)
+    let hasCachedOfflineItems = false;
     try {
       const cachedRaw = localStorage.getItem(cacheKey);
       const cachedEntry = parsePlanCache(cachedRaw);
       if (cachedEntry && cachedEntry.items.length >= 5) {
         setRawPlanItems(cachedEntry.items);
         setPlanSource(cachedEntry.source);
-        setIsPlanLoading(false);
         // Migrate legacy plain-array entry in place
         if (cachedRaw && cachedRaw.trim().startsWith('[')) {
           localStorage.setItem(cacheKey, serializePlanCache(cachedEntry.source, cachedEntry.items));
         }
-        return;
+        // Only skip fetching if we already have a real Gemini plan for today
+        if (cachedEntry.source === 'gemini') {
+          setIsPlanLoading(false);
+          setIsStillThinking(false);
+          return;
+        }
+        hasCachedOfflineItems = true;
       }
     } catch {
       // cache miss
+    }
+
+    // Show instant rule-based plan while Gemini loads so savings are immediately non-zero
+    // (will be replaced cleanly as soon as the Gemini response arrives)
+    if (!hasCachedOfflineItems) {
+      const immediateOffline = generateRuleBasedPlan(effectiveProfile, forecastPoints);
+      setRawPlanItems(immediateOffline);
+      setPlanSource('loading');
     }
 
     // Deduplicate: if an identical request is already in flight, don't fire another
@@ -254,14 +271,14 @@ export const TodayPage: React.FC = () => {
     }
     planRequestInFlight.current = dedupeKey;
 
-    // Fetch from serverless /api/plan with a 25-second loading timeout (showing "Still thinking..." after 8s)
+    // Fetch from serverless /api/plan with a 25-second timeout (showing "Still thinking…" after 6s)
     setIsPlanLoading(true);
     setIsStillThinking(false);
 
     const abortController = new AbortController();
     const stillThinkingTimer = setTimeout(() => {
       if (active) setIsStillThinking(true);
-    }, 8000);
+    }, 6000);
 
     const timeoutTimer = setTimeout(() => {
       abortController.abort();
@@ -286,14 +303,18 @@ export const TodayPage: React.FC = () => {
         clearTimeout(stillThinkingTimer);
         clearTimeout(timeoutTimer);
         if (!active) return;
-        // Always render returned items for ANY source
-        const rawPlan = (Array.isArray(data?.plan) && data.plan.length >= 5)
-          ? data.plan
-          : generateRuleBasedPlan(effectiveProfile, forecastPoints);
         const resolvedSource = data?.source || 'rule_based';
+        const rawPlan =
+          Array.isArray(data?.plan) && data.plan.length >= 5
+            ? data.plan
+            : generateRuleBasedPlan(effectiveProfile, forecastPoints);
+        // Replace interim offline plan whenever Gemini succeeds (or use returned fallback)
         setRawPlanItems(rawPlan);
         setPlanSource(resolvedSource);
-        localStorage.setItem(cacheKey, serializePlanCache(resolvedSource, rawPlan));
+        // Persist Gemini plans to daily cache; never lock a temporary offline fallback into cache
+        if (resolvedSource === 'gemini') {
+          localStorage.setItem(cacheKey, serializePlanCache(resolvedSource, rawPlan));
+        }
       })
       .catch((err) => {
         clearTimeout(stillThinkingTimer);
@@ -318,6 +339,7 @@ export const TodayPage: React.FC = () => {
       active = false;
       clearTimeout(stillThinkingTimer);
       clearTimeout(timeoutTimer);
+      abortController.abort();
       if (planRequestInFlight.current === dedupeKey) {
         planRequestInFlight.current = null;
       }
@@ -462,21 +484,30 @@ export const TodayPage: React.FC = () => {
         </div>
       </GlassCard>
 
-      {/* 48-Hour Forecast Card (Shwas ML when fresh < 3h, else Open-Meteo 48-Hour Forecast) */}
+      {/* 48-Hour Forecast Card (Shwas ML when fresh < 6h, else Open-Meteo 48-Hour Forecast) */}
       <GlassCard className="border-white/[0.08] bg-[#121927]/60 p-4">
-        <div className="flex items-center justify-between gap-2 mb-2">
-          <div className="flex items-center gap-2 min-w-0">
-            <Calendar className="w-4 h-4 text-teal-400 shrink-0" aria-hidden="true" />
-            <h3 className="text-sm font-semibold text-slate-200 truncate">
-              {isMlForecast
-                ? t('today.forecastMlTitle', 'Shwas Forecast (ML)')
-                : t('today.forecastTitle', '48-Hour Forecast')}
-            </h3>
-            {isMlForecast && (
-              <Badge variant="mint" size="sm" className="shrink-0">
-                ML
-              </Badge>
-            )}
+        <div className="flex items-start justify-between gap-2 mb-2">
+          <div className="flex items-start gap-2 min-w-0">
+            <Calendar className="w-4 h-4 text-teal-400 shrink-0 mt-0.5" aria-hidden="true" />
+            <div className="min-w-0">
+              <div className="flex items-center gap-1.5">
+                <h3 className="text-sm font-semibold text-slate-200 truncate">
+                  {isMlForecast
+                    ? t('today.forecastMlTitle', 'Shwas Forecast (ML)')
+                    : t('today.forecastTitle', '48-Hour Forecast')}
+                </h3>
+                {isMlForecast && (
+                  <Badge variant="mint" size="sm" className="shrink-0">
+                    ML
+                  </Badge>
+                )}
+              </div>
+              {isMlForecast && mlGeneratedAt && (
+                <span className="text-[10px] text-slate-400 block leading-tight mt-0.5">
+                  {formatForecastUpdatedAgo(mlGeneratedAt)}
+                </span>
+              )}
+            </div>
           </div>
           <span
             className={`text-[10px] font-mono px-2 py-0.5 rounded-full border whitespace-nowrap shrink-0 ${isSampleData
@@ -572,7 +603,7 @@ export const TodayPage: React.FC = () => {
             <h3 className="text-xs font-semibold uppercase tracking-wider text-slate-400">
               {t('today.planTimeline', "Today's Air Plan Timeline")}
             </h3>
-            {isPlanLoading && planItems.length === 0 ? (
+            {isPlanLoading ? (
               <span className="text-[10px] text-teal-400 animate-pulse" role="status">
                 {isStillThinking
                   ? t('today.stillThinking', 'Still thinking…')
@@ -659,12 +690,16 @@ export const TodayPage: React.FC = () => {
           })}
         </div>
 
-        {/* Small label under the plan: "Plan by Gemini" when source is "gemini", otherwise "Offline plan" */}
+        {/* Plan attribution label: shows loading/thinking state while Gemini runs, then Plan by Gemini or Offline plan */}
         <div className="text-center pt-1 pb-1">
           <span className="text-[11px] font-mono text-slate-400">
-            {planSource === 'gemini'
-              ? t('today.planByGemini', 'Plan by Gemini')
-              : t('today.offlinePlan', 'Offline plan')}
+            {isPlanLoading
+              ? isStillThinking
+                ? t('today.stillThinking', 'Still thinking…')
+                : t('today.generating', 'Generating...')
+              : planSource === 'gemini'
+                ? t('today.planByGemini', 'Plan by Gemini')
+                : t('today.offlinePlan', 'Offline plan')}
           </span>
         </div>
       </div>

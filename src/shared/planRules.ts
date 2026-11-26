@@ -75,6 +75,8 @@ export function generateRuleBasedPlan(
   });
 
   // 3. Best Window Airing & Cross-Ventilation (e.g. 2:00 PM, 0.5h window)
+  const ventBeforePm25 = Math.max(185, Math.round(bestWindow.avgPm25) + 45);
+  const ventAfterPm25 = Math.max(40, Math.min(ventBeforePm25 - 20, Math.round(bestWindow.avgPm25)));
   plan.push({
     time: bestWindow.startTime || '2:00 PM',
     category: 'ventilate',
@@ -85,8 +87,8 @@ export function generateRuleBasedPlan(
     reason: isHindi
       ? `दोपहर में धूप निकलने से स्मॉग ऊपर उठता है और हवा अपेक्षाकृत स्वच्छ होती है (${bestWindow.avgPm25} µg/m³)।`
       : `Solar boundary-layer heating disperses ground-level smog to daily minimums (${bestWindow.avgPm25} µg/m³).`,
-    before_pm25: 185,
-    after_pm25: Math.max(40, bestWindow.avgPm25),
+    before_pm25: ventBeforePm25,
+    after_pm25: ventAfterPm25,
   });
 
   // 4. Kitchen / Cooking Exhaust (1:00 PM, 1.5h cooking)

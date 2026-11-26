@@ -122,9 +122,9 @@ describe('Open-Meteo & Best Air Window Engine', () => {
       });
     };
 
-    it('uses fresh (< 3h) ML forecast for nearest Delhi station and reports Model MAE', async () => {
+    it('uses fresh (< 6h) ML forecast for nearest Delhi station, reports Model MAE and updatedAgoLabel', async () => {
       const now = new Date('2026-11-26T10:00:00Z');
-      const freshGen = new Date(now.getTime() - 45 * 60 * 1000); // 45 min old (< 3h)
+      const freshGen = new Date(now.getTime() - 4 * 3600 * 1000); // 4 hours old (< 6h)
       const rows = [
         ...makeRows('delhi_anand_vihar', 28.6469, 77.3160, freshGen, 220, 19.6),
         ...makeRows('delhi_ito', 28.6289, 77.2405, freshGen, 155, 19.6),
@@ -143,12 +143,14 @@ describe('Open-Meteo & Best Air Window Engine', () => {
       expect(res.mlLocationName).toBe('ITO, Central Delhi');
       expect(res.modelMae).toBe(19.6);
       expect(res.sourceLabel).toBe('Model MAE ±20 µg/m³');
+      expect(res.generatedAt).toBe(freshGen.toISOString());
+      expect(res.updatedAgoLabel).toBe('updated 4 hr ago');
       expect(res.points).toHaveLength(48);
     });
 
-    it('falls back to Open-Meteo when ML forecast is stale (>= 3h old)', async () => {
+    it('falls back to Open-Meteo when ML forecast is stale (>= 6h old)', async () => {
       const now = new Date('2026-11-26T10:00:00Z');
-      const staleGen = new Date(now.getTime() - 4 * 3600 * 1000); // 4 hours old
+      const staleGen = new Date(now.getTime() - 7 * 3600 * 1000); // 7 hours old (>= 6h)
       const rows = makeRows('delhi_ito', 28.6289, 77.2405, staleGen);
 
       const openMeteoResult = { ...getOfflineFallbackForecast(), isSampleData: false, sourceLabel: 'Open-Meteo Live API', isMlForecast: false };

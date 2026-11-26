@@ -132,7 +132,7 @@ CRITICAL REQUIREMENTS:
       prompt,
       temperature: 0.3,
       responseMimeType: 'application/json',
-      maxServerBudgetMs: 20000,
+      maxServerBudgetMs: 22000,
     });
 
     const rawContent = geminiResult.text;

@@ -17,8 +17,12 @@ export { generateRuleBasedPlan } from '../shared/planRules.js';
  * saving = (before_pm25 - after_pm25) * hours / 528
  */
 function rawPlanItemSavings(item: RawPlanItem, defaultHours = 2): number {
-  const hours = Math.max(0.5, item.hours ?? defaultHours);
-  const diff = Math.max(0, item.before_pm25 - item.after_pm25);
+  const rawHours = Number(item.hours);
+  const hours = Math.max(0.5, Number.isFinite(rawHours) && rawHours > 0 ? rawHours : defaultHours);
+  const before = Number(item.before_pm25);
+  const after = Number(item.after_pm25);
+  const diff =
+    Number.isFinite(before) && Number.isFinite(after) ? Math.max(0, before - after) : 0;
   return (diff * hours) / 528;
 }
 
@@ -60,13 +64,16 @@ export function buildEnrichedPlan(
     const capTenths =
       heroCigarettes > 0 ? Math.floor(heroCigarettes * 0.7 * 10 + 1e-9) : 0;
 
-    if (capTenths <= 0 || rawTotal <= 0) {
+    if (capTenths <= 0 || rawItems.length === 0) {
       finalTenths = rawItems.map(() => 0);
-    } else if (rawTotal * 10 > capTenths) {
-      // Scale proportionally and distribute tenths using largest-remainder method
-      const exactTenths = rawSavings.map((v) => (v / rawTotal) * capTenths);
+    } else if (rawTotal <= 0 || rawTotal * 10 > capTenths) {
+      // Scale proportionally (falling back to equal weights if items had missing/zero PM2.5 deltas)
+      // and distribute tenths using largest-remainder method so savings are never 0 when items exist.
+      const weights = rawTotal > 0 ? rawSavings : rawItems.map(() => 1);
+      const weightSum = weights.reduce((s, v) => s + v, 0);
+      const exactTenths = weights.map((v) => (v / weightSum) * capTenths);
       const floored = exactTenths.map((v) => Math.floor(v));
-      let remaining = capTenths - floored.reduce((s, v) => s + v, 0);
+      const remaining = capTenths - floored.reduce((s, v) => s + v, 0);
 
       const indicesByRemainder = exactTenths
         .map((v, idx) => ({ idx, rem: v - floored[idx] }))
@@ -89,6 +96,14 @@ export function buildEnrichedPlan(
         for (let i = 0; i < excess && i < candidates.length; i++) {
           rounded[candidates[i].idx] -= 1;
         }
+      }
+      // Guarantee non-zero total savings if all small items independently rounded down to 0
+      if (rounded.reduce((s, v) => s + v, 0) === 0 && rawItems.length > 0) {
+        let bestIdx = 0;
+        for (let i = 1; i < exactTenths.length; i++) {
+          if (exactTenths[i] > exactTenths[bestIdx]) bestIdx = i;
+        }
+        rounded[bestIdx] = 1;
       }
       finalTenths = rounded;
     }

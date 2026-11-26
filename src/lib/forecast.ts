@@ -21,7 +21,7 @@ import type { ForecastDataPoint, BestAirWindow } from '../shared/forecastWindow.
 export { formatHourShort, formatHourFull, computeBestWindow };
 export type { ForecastDataPoint, BestAirWindow };
 
-export const ML_FORECAST_MAX_AGE_MS = 3 * 60 * 60 * 1000; // 3 hours
+export const ML_FORECAST_MAX_AGE_MS = 6 * 60 * 60 * 1000; // 6 hours
 export const ML_STATION_MAX_DISTANCE_KM = 60;
 
 export interface SupabaseForecastRow {
@@ -48,6 +48,26 @@ export interface ForecastResult {
   modelMae?: number;
   modelVersion?: string;
   mlLocationName?: string;
+  generatedAt?: string;
+  updatedAgoLabel?: string;
+}
+
+/**
+ * Formats an ML forecast generated_at ISO timestamp as "updated X min ago".
+ */
+export function formatForecastUpdatedAgo(
+  generatedAtIso?: string | null,
+  now: Date = new Date()
+): string {
+  if (!generatedAtIso) return '';
+  const ts = new Date(generatedAtIso).getTime();
+  if (isNaN(ts)) return '';
+  const diffMin = Math.max(0, Math.round((now.getTime() - ts) / 60000));
+  if (diffMin < 1) return 'updated just now';
+  if (diffMin < 60) return `updated ${diffMin} min ago`;
+  const hrs = Math.floor(diffMin / 60);
+  const remMin = diffMin % 60;
+  return remMin > 0 ? `updated ${hrs} hr ${remMin} min ago` : `updated ${hrs} hr ago`;
 }
 
 /**
@@ -247,6 +267,7 @@ export function resolveMlForecastFromRows(
   const rowMae = nearestRows[0].model_mae;
   const resolvedMae =
     typeof rowMae === 'number' && !isNaN(rowMae) && rowMae > 0 ? rowMae : defaultMae;
+  const generatedAt = new Date(latestGenMs).toISOString();
 
   return {
     currentAqi: first?.usAqi ?? 180,
@@ -258,6 +279,8 @@ export function resolveMlForecastFromRows(
     modelMae: resolvedMae,
     modelVersion: nearestRows[0].model_version || mlMetrics.modelVersion,
     mlLocationName: nearestRows[0].location_name,
+    generatedAt,
+    updatedAgoLabel: formatForecastUpdatedAgo(generatedAt, now),
   };
 }
 

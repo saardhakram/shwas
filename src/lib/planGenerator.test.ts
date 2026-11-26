@@ -187,4 +187,45 @@ describe('Daily Air Plan Generator Engine', () => {
     expect(legacyParsed!.source).toBe('offline');
     expect(legacyParsed!.items).toHaveLength(items.length);
   });
+
+  it('offline rule-based plan always produces positive savings (never X -> X) even on severe smog or malformed deltas', () => {
+    // 1. Severe Delhi winter forecast where even the best window has high PM2.5 (260 µg/m³)
+    const now = Date.now();
+    const severeForecast = Array.from({ length: 24 }, (_, i) => ({
+      isoTime: new Date(now + i * 3600 * 1000).toISOString(),
+      timestamp: now + i * 3600 * 1000,
+      time: `${(i % 12) || 12} ${i < 12 ? 'AM' : 'PM'}`,
+      fullTime: `${(i % 12) || 12}:00 ${i < 12 ? 'AM' : 'PM'}`,
+      hour: i,
+      day: 'Today',
+      pm25: 260,
+      usAqi: 310,
+      aqi: 310,
+      isPast: false,
+    }));
+
+    const offlineItems = generateRuleBasedPlan(sampleProfile, severeForecast);
+    for (const item of offlineItems) {
+      expect(item.before_pm25).toBeGreaterThan(item.after_pm25);
+    }
+
+    const enriched = buildEnrichedPlan(offlineItems, {}, 0.9);
+    const totalSaved = Number(
+      enriched.reduce((sum, it) => sum + it.cigarettesSaved, 0).toFixed(1)
+    );
+    expect(totalSaved).toBeGreaterThan(0);
+    expect(Number((0.9 - totalSaved).toFixed(1))).toBeLessThan(0.9);
+
+    // 2. Even if cached/API items have equal or missing before/after PM2.5, savings are still > 0 for hero = 0.9
+    const zeroDeltaItems: RawPlanItem[] = [
+      { time: '8:00 AM', action: 'Shut windows', reason: 'Peak', category: 'seal', before_pm25: 100, after_pm25: 100 },
+      { time: '2:00 PM', action: 'Air room', reason: 'Window', category: 'ventilate', before_pm25: 100, after_pm25: 100 },
+    ];
+    const fallbackEnriched = buildEnrichedPlan(zeroDeltaItems, {}, 0.9);
+    const fallbackSaved = Number(
+      fallbackEnriched.reduce((sum, it) => sum + it.cigarettesSaved, 0).toFixed(1)
+    );
+    expect(fallbackSaved).toBe(0.6);
+    expect(fallbackSaved).toBeLessThanOrEqual(0.9 * 0.7);
+  });
 });

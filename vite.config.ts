@@ -9,6 +9,14 @@ function apiDevPlugin() {
     name: 'api-dev-server',
     configureServer(server: any) {
       server.middlewares.use(async (req: any, res: any, next: any) => {
+        if (req.url?.startsWith('/api/health')) {
+          res.setHeader('Content-Type', 'application/json');
+          res.setHeader('Cache-Control', 'no-store');
+          res.statusCode = 200;
+          res.end(JSON.stringify({ ok: true }));
+          return;
+        }
+
         if (req.url?.startsWith('/api/plan')) {
           if (req.method === 'POST') {
             let body = '';
