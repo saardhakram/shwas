@@ -50,7 +50,8 @@ async function queryOsrmProfile(
     if (!res.ok) return [];
     const json = (await res.json()) as OsrmResponse;
     return json?.code === 'Ok' && Array.isArray(json.routes) ? json.routes : [];
-  } catch {
+  } catch (err) {
+    logger.warn(`[routingService] OSRM ${profile} request failed:`, err);
     return [];
   }
 }

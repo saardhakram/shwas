@@ -67,7 +67,8 @@ function readCachedGeminiPlan(
     if (cachedEntry.source !== 'gemini') return null;
 
     return { items: cachedEntry.items, source: 'gemini', fromCache: true };
-  } catch {
+  } catch (err) {
+    logger.warn('[planFetcher] Failed to read cached daily plan:', err);
     return null;
   }
 }
@@ -104,8 +105,8 @@ async function fetchPlanFromServer(
     if (resolvedSource === 'gemini' && storage) {
       try {
         storage.setItem(cacheKey, serializePlanCache(resolvedSource, items));
-      } catch {
-        // ignore storage write errors
+      } catch (err) {
+        logger.warn('[planFetcher] Failed to persist daily plan cache:', err);
       }
     }
 

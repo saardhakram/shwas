@@ -83,8 +83,11 @@ function extractGoogleRoutePath(
         collected.push(...mapGoogleLatLngs(poly.getPath?.()?.getArray?.() || []));
       }
       if (collected.length >= 2) return collected;
-    } catch {
-      // fall through to straight line
+    } catch (err) {
+      logger.warn(
+        '[routingService] Polyline extraction failed, falling back to straight line:',
+        err,
+      );
     }
   }
 

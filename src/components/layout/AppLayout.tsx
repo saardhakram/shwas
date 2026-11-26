@@ -159,8 +159,8 @@ export const AppLayout: React.FC = () => {
 
   // Warm up Vercel serverless functions and initialize anonymous auth on initial load
   useEffect(() => {
-    fetch('/api/health', { method: 'GET' }).catch(() => {
-      // ignore warmup errors when offline
+    fetch('/api/health', { method: 'GET' }).catch((err) => {
+      logger.info('[AppLayout] Warmup health check skipped:', err);
     });
     initAnonymousAuth().catch((err) => {
       logger.warn('Anonymous auth init handled:', err);

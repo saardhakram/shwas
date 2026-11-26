@@ -2,6 +2,8 @@
  * Shared TypeScript types for Vercel serverless functions and Gemini REST API payloads.
  */
 
+import { serverLogger } from './logger.js';
+
 export interface ApiRequest {
   method?: string;
   body?: unknown;
@@ -88,7 +90,8 @@ export function parseRequestBody(raw: unknown): Record<string, unknown> {
     try {
       const parsed: unknown = JSON.parse(raw);
       return isRecord(parsed) ? parsed : {};
-    } catch {
+    } catch (err: unknown) {
+      serverLogger.warn('[api] Failed to parse JSON request body:', err);
       return {};
     }
   }

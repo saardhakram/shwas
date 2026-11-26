@@ -82,7 +82,8 @@ async function reverseGeocodePosition(latitude: number, longitude: number): Prom
       data.address?.state_district ||
       'My Location'
     );
-  } catch {
+  } catch (err) {
+    logger.warn('[Onboarding] Reverse geocode failed, using fallback label:', err);
     return 'Current Location';
   }
 }

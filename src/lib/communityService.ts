@@ -39,8 +39,8 @@ export async function getCurrentUserId(): Promise<string> {
         user = (await initAnonymousAuth()) || undefined;
       }
       if (user?.id) return user.id;
-    } catch {
-      // fall through to local id
+    } catch (err) {
+      logger.warn('[Community] Session lookup fell back to local user ID:', err);
     }
   }
   return getOrCreateLocalUserId();

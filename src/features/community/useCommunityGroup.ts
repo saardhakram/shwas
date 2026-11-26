@@ -108,7 +108,8 @@ function useShareCard(shareText: string, myTodaySaved: number) {
       link.href = dataUrl;
       link.click();
       setShareFeedback(t('community.downloadSuccess', 'Downloaded card image!'));
-    } catch {
+    } catch (err) {
+      logger.warn('[Community] Share card PNG export failed:', err);
       setShareFeedback(
         t('community.downloadError', 'Could not export image. Try WhatsApp share instead.'),
       );
@@ -306,8 +307,8 @@ export function useCommunityGroup() {
       await navigator.clipboard.writeText(activeGroup.join_code);
       setCopiedCode(true);
       setTimeout(() => setCopiedCode(false), 2000);
-    } catch {
-      // ignore clipboard errors
+    } catch (err) {
+      logger.warn('[Community] Clipboard copy failed:', err);
     }
   };
 

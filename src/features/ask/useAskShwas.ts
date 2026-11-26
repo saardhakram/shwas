@@ -2,6 +2,7 @@ import { useState, useEffect, useRef, useMemo, type FormEvent } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useAirQuality } from '../../components/layout/AppLayout';
 import { fetchSmartForecast, type ForecastDataPoint } from '../../lib/forecast';
+import { logger } from '../../lib/logger';
 import { parsePlanCache } from '../../lib/planGenerator';
 import { STORAGE_KEYS, storage } from '../../lib/storage';
 import { CLIENT_ASK_TIMEOUT_MS } from '../../shared/constants';
@@ -87,8 +88,8 @@ function useVoiceInput(activeLang: string, onTranscript: (text: string) => void)
     return () => {
       try {
         recognitionRef.current?.stop();
-      } catch {
-        // ignore
+      } catch (err) {
+        logger.warn('[Ask] Voice recognition cleanup notice:', err);
       }
     };
   }, []);
@@ -100,8 +101,8 @@ function useVoiceInput(activeLang: string, onTranscript: (text: string) => void)
     if (isListening && recognitionRef.current) {
       try {
         recognitionRef.current.stop();
-      } catch {
-        // ignore
+      } catch (err) {
+        logger.warn('[Ask] Voice recognition stop notice:', err);
       }
       setIsListening(false);
       return;
@@ -121,7 +122,8 @@ function useVoiceInput(activeLang: string, onTranscript: (text: string) => void)
       };
       recognitionRef.current = recognition;
       recognition.start();
-    } catch {
+    } catch (err) {
+      logger.warn('[Ask] Voice recognition start failed:', err);
       setIsListening(false);
     }
   };
@@ -235,7 +237,8 @@ export function useAskShwas() {
           source: data.source,
         },
       ]);
-    } catch {
+    } catch (err) {
+      logger.warn('[Ask] Request failed, showing offline message:', err);
       setMessages((prev) => [
         ...prev,
         {

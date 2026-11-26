@@ -13,6 +13,8 @@
  */
 
 import { callGeminiWithRetry } from './_lib/geminiClient.js';
+import { ValidationError } from './_lib/errors.js';
+import { assertMethod, withApiHandler } from './_lib/http.js';
 import { serverLogger } from './_lib/logger.js';
 import { GEMINI_SCAN_BUDGET_MS } from '../src/shared/constants.js';
 import type { ApiRequest, ApiResponse } from './_lib/types.js';
@@ -217,19 +219,16 @@ CRITICAL REQUIREMENTS:
 }
 
 // Default export for Vercel serverless environment
-export default async function handler(req: ApiRequest, res: ApiResponse) {
-  if (req.method !== 'POST') {
-    res.setHeader('Allow', 'POST');
-    return res.status(405).json({ error: 'Method not allowed' });
-  }
+export default withApiHandler(async (req: ApiRequest, res: ApiResponse) => {
+  assertMethod(req, ['POST'], { message: 'Method not allowed' });
 
   const apiKey = process.env.GEMINI_API_KEY;
   const rawBody = parseRequestBody(req.body);
   const validationError = validateScanRequestBody(rawBody);
   if (validationError) {
-    return res.status(400).json({ error: validationError });
+    throw new ValidationError(validationError);
   }
   const body = rawBody as ScanRequestBody;
   const result = await processScanRequest(body, apiKey);
   return res.status(200).json(result);
-}
+});

@@ -13,13 +13,13 @@
 
 import type {
   GeminiAttemptFailure,
-  GeminiClientError,
   GeminiGenerateContentRequest,
   GeminiGenerateContentResponse,
   GeminiGenerationConfig,
   GeminiRequestPart,
 } from './types.js';
 import { getErrorMessage } from './types.js';
+import { GeminiError } from './errors.js';
 import { serverLogger } from './logger.js';
 import {
   GEMINI_DEFAULT_BUDGET_MS,
@@ -125,7 +125,10 @@ async function executeSingleCall(
     clearTimeout(timeoutId);
 
     if (!res.ok) {
-      const errBody = await res.text().catch(() => '');
+      const errBody = await res.text().catch((readErr: unknown) => {
+        serverLogger.warn('[GeminiClient] Failed to read error response body:', readErr);
+        return '';
+      });
       return { ok: false, status: res.status, error: errBody };
     }
 
@@ -283,9 +286,8 @@ export async function callGeminiWithRetry(options: GeminiCallOptions): Promise<G
   }
 
   const summary = ctx.attemptFailures.map((f) => `${f.model}: HTTP ${f.status}`).join('; ');
-  const err: GeminiClientError = new Error(
+  throw new GeminiError(
     `All Gemini attempts failed after ${ctx.totalCalls} calls within ${Date.now() - startTime}ms${summary ? ` [${summary}]` : ''}.`,
+    ctx.attemptFailures,
   );
-  err.attempts = ctx.attemptFailures;
-  throw err;
 }

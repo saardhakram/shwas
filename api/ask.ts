@@ -6,6 +6,8 @@
  */
 
 import { callGeminiWithRetry } from './_lib/geminiClient.js';
+import { ValidationError } from './_lib/errors.js';
+import { assertMethod, withApiHandler } from './_lib/http.js';
 import { serverLogger } from './_lib/logger.js';
 import { GEMINI_ASK_BUDGET_MS, PM25_HOURS_PER_CIGARETTE } from '../src/shared/constants.js';
 import type { ApiRequest, ApiResponse } from './_lib/types.js';
@@ -256,8 +258,11 @@ function parseGeminiAskReply(rawText: string, question: string): ParsedAskReply 
         durationHours = parsed.durationHours;
       }
     }
-  } catch {
-    // Plain text answer fallback if JSON parsing fails
+  } catch (err: unknown) {
+    serverLogger.warn(
+      '[api/ask] Gemini reply was not strict JSON, using plain-text fallback:',
+      err,
+    );
   }
 
   return {
@@ -396,17 +401,14 @@ export async function processAskRequest(
   }
 }
 
-export default async function handler(req: ApiRequest, res: ApiResponse) {
-  if (req.method !== 'POST') {
-    res.setHeader('Allow', 'POST');
-    return res.status(405).json({ error: 'Method not allowed. Use POST.' });
-  }
+export default withApiHandler(async (req: ApiRequest, res: ApiResponse) => {
+  assertMethod(req, ['POST']);
 
   const apiKey = process.env.GEMINI_API_KEY;
   const rawBody = parseRequestBody(req.body);
   const validationError = validateAskRequestBody(rawBody);
   if (validationError) {
-    return res.status(400).json({ error: validationError });
+    throw new ValidationError(validationError);
   }
   const body = rawBody as AskRequestBody;
   const forwarded = req.headers?.['x-forwarded-for'];
@@ -416,4 +418,4 @@ export default async function handler(req: ApiRequest, res: ApiResponse) {
 
   const result = await processAskRequest(body, apiKey, clientIp);
   return res.status(200).json(result);
-}
+});

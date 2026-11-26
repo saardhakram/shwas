@@ -11,6 +11,8 @@ import { GEMINI_PLAN_BUDGET_MS, PLAN_CACHE_TTL_MS } from '../src/shared/constant
 import type { UserProfile, RawPlanItem } from '../src/types/index.js';
 import type { ForecastDataPoint } from '../src/shared/forecastWindow.js';
 import { callGeminiWithRetry } from './_lib/geminiClient.js';
+import { ValidationError } from './_lib/errors.js';
+import { assertMethod, withApiHandler } from './_lib/http.js';
 import { serverLogger } from './_lib/logger.js';
 import type { ApiRequest, ApiResponse, GeminiClientError } from './_lib/types.js';
 import { getErrorMessage, isRecord, parseRequestBody } from './_lib/types.js';
@@ -183,17 +185,14 @@ export async function processPlanRequest(
   }
 }
 
-export default async function handler(req: ApiRequest, res: ApiResponse) {
-  if (req.method !== 'POST') {
-    res.setHeader('Allow', 'POST');
-    return res.status(405).json({ error: 'Method not allowed. Use POST.' });
-  }
+export default withApiHandler(async (req: ApiRequest, res: ApiResponse) => {
+  assertMethod(req, ['POST']);
 
   const apiKey = process.env.GEMINI_API_KEY;
   const rawBody = parseRequestBody(req.body);
   const validationError = validatePlanRequestBody(rawBody);
   if (validationError) {
-    return res.status(400).json({ error: validationError });
+    throw new ValidationError(validationError);
   }
   const body = rawBody as {
     profile?: UserProfile;
@@ -201,4 +200,4 @@ export default async function handler(req: ApiRequest, res: ApiResponse) {
   };
   const result = await processPlanRequest(body, apiKey);
   return res.status(200).json(result);
-}
+});

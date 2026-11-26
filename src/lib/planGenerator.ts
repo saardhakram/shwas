@@ -12,6 +12,7 @@
 import type { RawPlanItem, AirPlanItem, ProfileFamilyMember, ProfileHome } from '../types/index.js';
 import { MAX_PLAN_SAVINGS_RATIO, PM25_HOURS_PER_CIGARETTE } from '../shared/constants.js';
 import { calculateFamilyExposure } from './cigarettes.js';
+import { logger } from './logger.js';
 export { generateRuleBasedPlan } from '../shared/planRules.js';
 
 /**
@@ -210,7 +211,8 @@ export function parsePlanCache(raw: string | null): CachedDailyPlan | null {
       };
     }
     return null;
-  } catch {
+  } catch (err) {
+    logger.warn('[planGenerator] Failed to parse cached plan JSON:', err);
     return null;
   }
 }
