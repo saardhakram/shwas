@@ -15,6 +15,8 @@ export async function processPlanRequest(
   body: { profile?: UserProfile; forecast?: ForecastDataPoint[] },
   apiKey?: string
 ): Promise<{ plan: RawPlanItem[]; source: string; error?: string }> {
+  const model = process.env.GEMINI_MODEL || 'gemini-3.8-flash';
+
   const profile: UserProfile = body.profile || {
     language: 'en',
     location: { lat: 28.6139, lon: 77.2090, name: 'Delhi NCR' },
@@ -83,15 +85,18 @@ CRITICAL REQUIREMENTS:
 4. No markdown formatting, no backticks, no text outside the JSON array.`;
 
     const response = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`,
+      `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`,
       {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          'x-goog-api-key': apiKey,
+        },
         body: JSON.stringify({
           contents: [{ parts: [{ text: prompt }] }],
           generationConfig: {
             temperature: 0.3,
-            response_mime_type: 'application/json',
+            responseMimeType: 'application/json',
           },
         }),
       }
@@ -99,7 +104,7 @@ CRITICAL REQUIREMENTS:
 
     if (!response.ok) {
       const errorText = await response.text();
-      console.warn('[Gemini API error]:', response.status, errorText);
+      console.error(`[Gemini API error] Status ${response.status}:`, errorText);
       return {
         plan: generateRuleBasedPlan(profile, forecast),
         source: 'rule_based_api_error',

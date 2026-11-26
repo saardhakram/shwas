@@ -582,6 +582,13 @@ export const TodayPage: React.FC = () => {
             );
           })}
         </div>
+
+        {/* Small label under the plan: "Plan by Gemini" when source is "gemini", otherwise "Offline plan" */}
+        <div className="text-center pt-1 pb-1">
+          <span className="text-[11px] font-mono text-slate-400">
+            {planSource === 'gemini' ? 'Plan by Gemini' : 'Offline plan'}
+          </span>
+        </div>
       </div>
     </div>
   );

@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { processPlanRequest } from './plan';
 import { UserProfile } from '../src/types';
 
@@ -25,6 +25,17 @@ describe('Serverless Plan API (/api/plan)', () => {
     },
   };
 
+  const originalEnv = { ...process.env };
+
+  beforeEach(() => {
+    vi.restoreAllMocks();
+    process.env = { ...originalEnv };
+  });
+
+  afterEach(() => {
+    process.env = originalEnv;
+  });
+
   it('returns valid rule-based plan when no API key is provided', async () => {
     const res = await processPlanRequest({ profile }, undefined);
     expect(res).toBeDefined();
@@ -35,10 +46,158 @@ describe('Serverless Plan API (/api/plan)', () => {
     expect(res.plan[0]).toHaveProperty('before_pm25');
   });
 
-  it('safely falls back to rule-based plan if Gemini API throws or fails', async () => {
-    const res = await processPlanRequest({ profile }, 'invalid_key_for_testing');
-    expect(res).toBeDefined();
+  it('sends x-goog-api-key header and uses gemini-3.8-flash by default without key in URL', async () => {
+    let capturedUrl = '';
+    let capturedHeaders: any = {};
+    let capturedBody: any = {};
+
+    globalThis.fetch = vi.fn().mockImplementation(async (url: string, options: any) => {
+      capturedUrl = url;
+      capturedHeaders = options.headers;
+      capturedBody = JSON.parse(options.body);
+
+      return {
+        ok: true,
+        status: 200,
+        json: async () => ({
+          candidates: [
+            {
+              content: {
+                parts: [
+                  {
+                    text: JSON.stringify([
+                      {
+                        time: '7:30 AM',
+                        action: 'Keep windows shut',
+                        reason: 'High morning traffic',
+                        category: 'seal',
+                        before_pm25: 280,
+                        after_pm25: 140,
+                      },
+                      {
+                        time: '8:30 AM',
+                        action: 'Take metro',
+                        reason: 'Clean transit',
+                        category: 'commute',
+                        before_pm25: 250,
+                        after_pm25: 80,
+                      },
+                      {
+                        time: '1:00 PM',
+                        action: 'Run kitchen chimney',
+                        reason: 'Clear cooking smoke',
+                        category: 'routine',
+                        before_pm25: 160,
+                        after_pm25: 70,
+                      },
+                      {
+                        time: '2:30 PM',
+                        action: 'Air out rooms',
+                        reason: 'Lowest PM2.5 window',
+                        category: 'ventilate',
+                        before_pm25: 140,
+                        after_pm25: 90,
+                      },
+                      {
+                        time: '6:00 PM',
+                        action: 'Close balcony doors',
+                        reason: 'Evening rush',
+                        category: 'seal',
+                        before_pm25: 260,
+                        after_pm25: 130,
+                      },
+                      {
+                        time: '10:00 PM',
+                        action: 'Turn on bedroom air purifier',
+                        reason: 'Clean sleep air',
+                        category: 'purify',
+                        before_pm25: 180,
+                        after_pm25: 50,
+                      },
+                    ]),
+                  },
+                ],
+              },
+            },
+          ],
+        }),
+      };
+    });
+
+    const res = await processPlanRequest({ profile }, 'test_api_key');
+
+    // 1. Model in URL should be gemini-3.8-flash
+    expect(capturedUrl).toBe(
+      'https://generativelanguage.googleapis.com/v1beta/models/gemini-3.8-flash:generateContent'
+    );
+    // 2. Key must not be in URL
+    expect(capturedUrl).not.toContain('key=');
+    // 3. Key must be sent in x-goog-api-key header
+    expect(capturedHeaders['x-goog-api-key']).toBe('test_api_key');
+    // 4. responseMimeType in generationConfig must be camelCase
+    expect(capturedBody.generationConfig?.responseMimeType).toBe('application/json');
+
+    // 5. Successful response parses plan
+    expect(res.source).toBe('gemini');
+    expect(res.plan).toHaveLength(6);
+    expect(res.plan[0].action).toBe('Keep windows shut');
+  });
+
+  it('respects GEMINI_MODEL environment variable when set', async () => {
+    process.env.GEMINI_MODEL = 'gemini-custom-model';
+    let capturedUrl = '';
+
+    globalThis.fetch = vi.fn().mockImplementation(async (url: string) => {
+      capturedUrl = url;
+      return {
+        ok: true,
+        status: 200,
+        json: async () => ({
+          candidates: [
+            {
+              content: {
+                parts: [
+                  {
+                    text: JSON.stringify([
+                      { time: '1', action: 'a', reason: 'r', category: 's', before_pm25: 200, after_pm25: 100 },
+                      { time: '2', action: 'a', reason: 'r', category: 's', before_pm25: 200, after_pm25: 100 },
+                      { time: '3', action: 'a', reason: 'r', category: 's', before_pm25: 200, after_pm25: 100 },
+                      { time: '4', action: 'a', reason: 'r', category: 's', before_pm25: 200, after_pm25: 100 },
+                      { time: '5', action: 'a', reason: 'r', category: 's', before_pm25: 200, after_pm25: 100 },
+                    ]),
+                  },
+                ],
+              },
+            },
+          ],
+        }),
+      };
+    });
+
+    await processPlanRequest({ profile }, 'test_key');
+    expect(capturedUrl).toBe(
+      'https://generativelanguage.googleapis.com/v1beta/models/gemini-custom-model:generateContent'
+    );
+  });
+
+  it('logs status and error body on non-200 response and returns fallback plan', async () => {
+    const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+
+    globalThis.fetch = vi.fn().mockImplementation(async () => {
+      return {
+        ok: false,
+        status: 403,
+        text: async () => 'API_KEY_INVALID: User key has expired',
+      };
+    });
+
+    const res = await processPlanRequest({ profile }, 'bad_key');
+
+    expect(errorSpy).toHaveBeenCalledWith(
+      '[Gemini API error] Status 403:',
+      'API_KEY_INVALID: User key has expired'
+    );
+    expect(res.source).toBe('rule_based_api_error');
     expect(res.plan.length).toBeGreaterThanOrEqual(6);
-    expect(['rule_based_fallback', 'rule_based_api_error']).toContain(res.source);
   });
 });

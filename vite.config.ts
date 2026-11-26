@@ -22,6 +22,9 @@ function apiDevPlugin() {
                 const parsedBody = body ? JSON.parse(body) : {};
                 const env = loadEnv('development', process.cwd(), '');
                 const apiKey = env.GEMINI_API_KEY || process.env.GEMINI_API_KEY;
+                if (env.GEMINI_MODEL) {
+                  process.env.GEMINI_MODEL = env.GEMINI_MODEL;
+                }
 
                 const result = await processPlanRequest(parsedBody, apiKey);
                 res.setHeader('Content-Type', 'application/json');
