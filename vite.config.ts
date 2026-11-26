@@ -106,6 +106,25 @@ function apiDevPlugin(): Plugin {
   };
 }
 
+const VENDOR_CHUNK_RULES: ReadonlyArray<readonly [string, readonly string[]]> = [
+  ['vendor-charts', ['/recharts/', '/d3-', '/victory-vendor/', '/es-toolkit/']],
+  ['vendor-maps', ['/leaflet/']],
+  ['vendor-supabase', ['/@supabase/']],
+  ['vendor-i18n', ['/i18next', '/react-i18next/']],
+  ['vendor-icons', ['/lucide-react/']],
+  ['vendor-share', ['/html-to-image/']],
+  ['vendor-react', ['/react/', '/react-dom/', '/react-router', '/scheduler/']],
+];
+
+function resolveManualChunk(id: string): string | undefined {
+  const normalized = id.replace(/\\/g, '/');
+  if (!normalized.includes('/node_modules/')) return undefined;
+  const match = VENDOR_CHUNK_RULES.find(([, patterns]) =>
+    patterns.some((pattern) => normalized.includes(pattern)),
+  );
+  return match?.[0];
+}
+
 // https://vitejs.dev/config/
 export default defineConfig({
   plugins: [react(), apiDevPlugin()],
@@ -113,6 +132,13 @@ export default defineConfig({
     alias: {
       '@': path.resolve(__dirname, './src'),
       '@shared': path.resolve(__dirname, './shared'),
+    },
+  },
+  build: {
+    rollupOptions: {
+      output: {
+        manualChunks: resolveManualChunk,
+      },
     },
   },
   test: {
