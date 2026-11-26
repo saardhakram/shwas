@@ -184,4 +184,42 @@ describe('/api/scan serverless handler', () => {
     expect(oversized.statusCode).toBe(400);
     expect(oversized.payload).toMatchObject({ error: expect.stringContaining('5 MB') });
   });
+
+  it('returns HTTP 400 on malformed JSON body or throwing req.body getter', async () => {
+    const invoke = async (req: ApiRequest) => {
+      let statusCode = 0;
+      let payload: unknown = null;
+      const res: ApiResponse = {
+        setHeader: vi.fn(),
+        status: (code: number) => {
+          statusCode = code;
+          return {
+            json: (b: unknown) => {
+              payload = b;
+              return b;
+            },
+          };
+        },
+      };
+      await handler(req, res);
+      return { statusCode, payload };
+    };
+
+    const strResult = await invoke({ method: 'POST', body: '{not json' });
+    expect(strResult).toEqual({
+      statusCode: 400,
+      payload: { error: 'Request body must be valid JSON.' },
+    });
+
+    const getterResult = await invoke({
+      method: 'POST',
+      get body() {
+        throw new Error('Invalid JSON');
+      },
+    });
+    expect(getterResult).toEqual({
+      statusCode: 400,
+      payload: { error: 'Request body must be valid JSON.' },
+    });
+  });
 });

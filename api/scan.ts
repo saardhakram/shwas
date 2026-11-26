@@ -6,9 +6,8 @@
  */
 
 import { ValidationError } from './_lib/errors.js';
-import { assertMethod, withApiHandler } from './_lib/http.js';
+import { assertMethod, readJsonBody, withApiHandler } from './_lib/http.js';
 import type { ApiRequest, ApiResponse } from './_lib/types.js';
-import { parseRequestBody } from './_lib/types.js';
 import { validateScanRequestBody } from './_lib/validation.js';
 import { processScanRequest } from './_lib/scan/service.js';
 import type {
@@ -25,7 +24,7 @@ export default withApiHandler(async (req: ApiRequest, res: ApiResponse) => {
   assertMethod(req, ['POST'], { message: 'Method not allowed' });
 
   const apiKey = process.env.GEMINI_API_KEY;
-  const rawBody = parseRequestBody(req.body);
+  const rawBody = readJsonBody(req);
   const validationError = validateScanRequestBody(rawBody);
   if (validationError) {
     throw new ValidationError(validationError);

@@ -7,7 +7,7 @@ import {
   UpstreamError,
   ValidationError,
 } from './errors';
-import { assertMethod, handleApiError, withApiHandler } from './http';
+import { assertMethod, handleApiError, readJsonBody, withApiHandler } from './http';
 import type { ApiRequest, ApiResponse } from './types';
 
 function createMockResponse() {
@@ -107,5 +107,22 @@ describe('api/_lib/http error mapping', () => {
     await handler({ method: 'POST' }, m2.res);
     expect(m2.getResult().statusCode).toBe(418);
     expect(m2.getResult().body).toEqual({ error: 'Teapot' });
+  });
+
+  it('readJsonBody parses valid objects and throws ValidationError on malformed JSON or throwing getter', () => {
+    expect(readJsonBody({ body: '{"ok":true}' })).toEqual({ ok: true });
+    expect(readJsonBody({ body: Buffer.from('{"a":1}') })).toEqual({ a: 1 });
+    expect(readJsonBody({ body: '' })).toEqual({});
+
+    expect(() => readJsonBody({ body: '{not json' })).toThrow(ValidationError);
+    expect(() => readJsonBody({ body: '[1,2,3]' })).toThrow(ValidationError);
+
+    const throwingReq: ApiRequest = {
+      method: 'POST',
+      get body() {
+        throw new Error('Invalid JSON');
+      },
+    };
+    expect(() => readJsonBody(throwingReq)).toThrow('Request body must be valid JSON.');
   });
 });

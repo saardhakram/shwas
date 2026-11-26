@@ -34,7 +34,15 @@ async function dispatchPostApiRoute(
   res: ServerResponse,
 ): Promise<void> {
   const rawBody = await readRequestBody(req);
-  const parsedBody: unknown = rawBody ? JSON.parse(rawBody) : {};
+  let parsedBody: unknown = {};
+  if (rawBody.trim()) {
+    try {
+      parsedBody = JSON.parse(rawBody);
+    } catch {
+      sendJson(res, 400, { error: 'Request body must be valid JSON.' });
+      return;
+    }
+  }
   const apiKey = loadGeminiEnv();
 
   if (url.startsWith('/api/plan')) {

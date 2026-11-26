@@ -2,9 +2,55 @@
  * Shared HTTP method guards and centralized error-to-status mapping for `/api/*`.
  */
 
-import { ApiError, MethodNotAllowedError } from './errors.js';
+import { ApiError, MethodNotAllowedError, ValidationError } from './errors.js';
 import { serverLogger } from './logger.js';
-import type { ApiRequest, ApiResponse } from './types.js';
+import { isRecord, type ApiRequest, type ApiResponse } from './types.js';
+
+export const INVALID_JSON_ERROR = 'Request body must be valid JSON.';
+
+/**
+ * Safely reads and parses a request body (including Vercel's lazy `req.body` getter).
+ * Throws ValidationError (HTTP 400) if the body is malformed JSON or not a JSON object.
+ */
+export function readJsonBody(req: ApiRequest): Record<string, unknown> {
+  let raw: unknown;
+  try {
+    raw = req.body;
+  } catch (err: unknown) {
+    serverLogger.warn('[api] Failed to read JSON request body:', err);
+    throw new ValidationError(INVALID_JSON_ERROR);
+  }
+
+  if (raw === undefined || raw === null) {
+    return {};
+  }
+
+  if (Buffer.isBuffer(raw)) {
+    raw = raw.toString('utf8');
+  }
+
+  if (typeof raw === 'string') {
+    const trimmed = raw.trim();
+    if (trimmed.length === 0) return {};
+    try {
+      const parsed: unknown = JSON.parse(trimmed);
+      if (!isRecord(parsed)) {
+        throw new ValidationError(INVALID_JSON_ERROR);
+      }
+      return parsed;
+    } catch (err: unknown) {
+      if (err instanceof ValidationError) throw err;
+      serverLogger.warn('[api] Failed to parse JSON request body:', err);
+      throw new ValidationError(INVALID_JSON_ERROR);
+    }
+  }
+
+  if (!isRecord(raw)) {
+    throw new ValidationError(INVALID_JSON_ERROR);
+  }
+
+  return raw;
+}
 
 /**
  * Ensures the request uses one of the permitted HTTP methods.
