@@ -110,7 +110,7 @@ export const ScanPage: React.FC = () => {
       if (fixes.length > 0) {
         setSelectedFixId(fixes[0].id);
       }
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error('[ScanPage error]:', err);
       setErrorMessage('Could not analyze image. Please try again.');
       setScanSource('offline');

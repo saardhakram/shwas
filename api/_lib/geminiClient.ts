@@ -11,6 +11,16 @@
  * - Default fallback model: "gemini-3.1-flash-lite" (or process.env.GEMINI_FALLBACK_MODEL)
  */
 
+import type {
+  GeminiAttemptFailure,
+  GeminiClientError,
+  GeminiGenerateContentRequest,
+  GeminiGenerateContentResponse,
+  GeminiGenerationConfig,
+  GeminiRequestPart,
+} from './types.js';
+import { getErrorMessage } from './types.js';
+
 export interface GeminiCallOptions {
   apiKey: string;
   primaryModel?: string;
@@ -50,7 +60,7 @@ async function executeSingleCall(
 
   const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`;
 
-  const parts: any[] = [{ text: options.prompt }];
+  const parts: GeminiRequestPart[] = [{ text: options.prompt }];
   if (options.inlineData) {
     parts.push({
       inlineData: {
@@ -60,7 +70,7 @@ async function executeSingleCall(
     });
   }
 
-  const generationConfig: Record<string, any> = {
+  const generationConfig: GeminiGenerationConfig = {
     temperature: options.temperature ?? 0.2,
     responseMimeType: options.responseMimeType ?? 'application/json',
   };
@@ -77,7 +87,7 @@ async function executeSingleCall(
     };
   }
 
-  const payload = {
+  const payload: GeminiGenerateContentRequest = {
     contents: [{ parts }],
     generationConfig,
   };
@@ -100,8 +110,8 @@ async function executeSingleCall(
       return { ok: false, status: res.status, error: errBody };
     }
 
-    const json = await res.json();
-    const responseParts: any[] = json?.candidates?.[0]?.content?.parts || [];
+    const json = (await res.json()) as GeminiGenerateContentResponse;
+    const responseParts = json?.candidates?.[0]?.content?.parts || [];
     const textPart =
       responseParts.find((p) => !p?.thought && typeof p?.text === 'string' && p.text.trim()) ||
       responseParts.find((p) => typeof p?.text === 'string');
@@ -111,13 +121,15 @@ async function executeSingleCall(
     }
 
     return { ok: true, status: 200, text: candidateText };
-  } catch (err: any) {
+  } catch (err: unknown) {
     clearTimeout(timeoutId);
-    const isTimeout = err?.name === 'AbortError' || err?.message?.includes('aborted');
+    const errName = err instanceof Error ? err.name : '';
+    const errMsg = getErrorMessage(err);
+    const isTimeout = errName === 'AbortError' || errMsg.includes('aborted');
     return {
       ok: false,
       status: isTimeout ? 408 : 500,
-      error: isTimeout ? `Call timed out after ${timeoutMs}ms` : err?.message || 'Network error',
+      error: isTimeout ? `Call timed out after ${timeoutMs}ms` : errMsg || 'Network error',
     };
   }
 }
@@ -145,7 +157,7 @@ export async function callGeminiWithRetry(options: GeminiCallOptions): Promise<G
     ? Math.max(5000, Math.min(12000, totalBudgetMs - fallbackReserveMs))
     : totalBudgetMs;
   let totalCalls = 0;
-  const attemptFailures: Array<{ model: string; status: number; error: string }> = [];
+  const attemptFailures: GeminiAttemptFailure[] = [];
 
   const getRemainingBudget = () => totalBudgetMs - (Date.now() - startTime);
 
@@ -217,9 +229,9 @@ export async function callGeminiWithRetry(options: GeminiCallOptions): Promise<G
   }
 
   const summary = attemptFailures.map((f) => `${f.model}: HTTP ${f.status}`).join('; ');
-  const err = new Error(
+  const err: GeminiClientError = new Error(
     `All Gemini attempts failed after ${totalCalls} calls within ${Date.now() - startTime}ms${summary ? ` [${summary}]` : ''}.`,
-  ) as Error & { attempts?: Array<{ model: string; status: number; error: string }> };
+  );
   err.attempts = attemptFailures;
   throw err;
 }

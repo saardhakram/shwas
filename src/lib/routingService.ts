@@ -9,6 +9,14 @@
  */
 
 import { LatLon, RawRouteGeometry, estimateMetroRoute, haversineDistanceKm } from './routeExposure';
+import type {
+  GoogleGeocoderResult,
+  GoogleLatLngLike,
+  GoogleRouteInstance,
+  NominatimSearchResult,
+  OsrmResponse,
+  OsrmRouteItem,
+} from '../types/maps';
 
 export type RoutingProvider = 'google_routes' | 'osrm' | 'estimate';
 
@@ -17,13 +25,6 @@ export interface PlaceSuggestion {
   subtitle?: string;
   lat: number;
   lon: number;
-}
-
-declare global {
-  interface Window {
-    google?: any;
-    gm_authFailure?: () => void;
-  }
 }
 
 /**
@@ -88,22 +89,23 @@ export async function searchPlaces(
   if (googleMapsReady && typeof window !== 'undefined' && window.google?.maps?.Geocoder) {
     try {
       const geocoder = new window.google.maps.Geocoder();
-      const response = await new Promise<any[]>((resolve, reject) => {
+      const LatLngBoundsCtor = window.google.maps.LatLngBounds;
+      const response = await new Promise<GoogleGeocoderResult[]>((resolve, reject) => {
         const timeout = setTimeout(() => reject(new Error('Google geocode timeout')), 4500);
         geocoder.geocode(
           {
             address: trimmed,
             region: 'in',
-            ...(near
+            ...(near && LatLngBoundsCtor
               ? {
-                  bounds: new window.google.maps.LatLngBounds(
+                  bounds: new LatLngBoundsCtor(
                     { lat: near.lat - 0.3, lng: near.lon - 0.3 },
                     { lat: near.lat + 0.3, lng: near.lon + 0.3 },
                   ),
                 }
               : {}),
           },
-          (results: any[], status: string) => {
+          (results: GoogleGeocoderResult[] | null, status: string) => {
             clearTimeout(timeout);
             if (status === 'OK' && Array.isArray(results) && results.length > 0) {
               resolve(results);
@@ -114,7 +116,7 @@ export async function searchPlaces(
         );
       });
 
-      return response.slice(0, 5).map((r: any) => {
+      return response.slice(0, 5).map((r) => {
         const parts = String(r.formatted_address || trimmed).split(',');
         return {
           name: parts[0]?.trim() || trimmed,
@@ -137,9 +139,9 @@ export async function searchPlaces(
     )}&countrycodes=in&limit=5${viewbox}`;
     const res = await fetch(url);
     if (!res.ok) return [];
-    const data = await res.json();
+    const data: unknown = await res.json();
     if (!Array.isArray(data)) return [];
-    return data.map((item: any) => {
+    return (data as NominatimSearchResult[]).map((item) => {
       const parts = String(item.display_name || trimmed).split(',');
       return {
         name: parts[0]?.trim() || trimmed,
@@ -158,10 +160,14 @@ export async function searchPlaces(
  * Extracts LatLon[] from a google.maps.routes.Route instance using `route.path`
  * (or `route.createPolylines()` if `path` is not directly populated).
  */
-function extractGoogleRoutePath(route: any, origin: LatLon, destination: LatLon): LatLon[] {
-  const mapPoints = (pts: any[]): LatLon[] =>
+function extractGoogleRoutePath(
+  route: GoogleRouteInstance,
+  origin: LatLon,
+  destination: LatLon,
+): LatLon[] {
+  const mapPoints = (pts: GoogleLatLngLike[]): LatLon[] =>
     pts
-      .map((p: any) => ({
+      .map((p) => ({
         lat: typeof p.lat === 'function' ? p.lat() : Number(p.lat),
         lon: typeof p.lng === 'function' ? p.lng() : Number(p.lng),
       }))
@@ -221,9 +227,9 @@ async function fetchGoogleRoutes(
 
     const computeForTravelMode = async (
       travelMode: 'DRIVING' | 'TWO_WHEELER' | 'WALKING',
-    ): Promise<any[]> => {
+    ): Promise<GoogleRouteInstance[]> => {
       try {
-        const resp = await RouteClass.computeRoutes({
+        const resp = await RouteClass.computeRoutes!({
           origin: { lat: origin.lat, lng: origin.lon },
           destination: { lat: destination.lat, lng: destination.lon },
           travelMode,
@@ -324,7 +330,7 @@ async function fetchOsrmRoutes(
 ): Promise<RawRouteGeometry[] | null> {
   const coordStr = `${origin.lon.toFixed(5)},${origin.lat.toFixed(5)};${destination.lon.toFixed(5)},${destination.lat.toFixed(5)}`;
 
-  const queryOsrm = async (profile: 'driving' | 'foot'): Promise<any[]> => {
+  const queryOsrm = async (profile: 'driving' | 'foot'): Promise<OsrmRouteItem[]> => {
     try {
       const controller = new AbortController();
       const timer = setTimeout(() => controller.abort(), 7000);
@@ -332,7 +338,7 @@ async function fetchOsrmRoutes(
       const res = await fetch(url, { signal: controller.signal });
       clearTimeout(timer);
       if (!res.ok) return [];
-      const json = await res.json();
+      const json = (await res.json()) as OsrmResponse;
       return json?.code === 'Ok' && Array.isArray(json.routes) ? json.routes : [];
     } catch {
       return [];

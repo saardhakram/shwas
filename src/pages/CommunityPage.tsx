@@ -288,8 +288,8 @@ export const CommunityPage: React.FC = () => {
       setShareFeedback(
         'Web Share is not supported in this browser — use WhatsApp or Download below.',
       );
-    } catch (err: any) {
-      if (err?.name !== 'AbortError') {
+    } catch (err: unknown) {
+      if (!(err instanceof Error && err.name === 'AbortError')) {
         setShareFeedback('Use WhatsApp or Download PNG below to share.');
       }
     }

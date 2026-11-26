@@ -15,6 +15,8 @@ import { generateRuleBasedPlan } from '../src/shared/planRules.js';
 import type { UserProfile, RawPlanItem } from '../src/types/index.js';
 import type { ForecastDataPoint } from '../src/shared/forecastWindow.js';
 import { callGeminiWithRetry } from './_lib/geminiClient.js';
+import type { ApiRequest, ApiResponse, GeminiClientError } from './_lib/types.js';
+import { getErrorMessage, isRecord, parseRequestBody } from './_lib/types.js';
 
 interface CacheEntry {
   plan: RawPlanItem[];
@@ -131,15 +133,22 @@ Rules: hours > 0; before_pm25 > after_pm25; keep action <= 12 words and reason <
       .replace(/```json/gi, '')
       .replace(/```/g, '')
       .trim();
-    const parsed = JSON.parse(rawContent);
-    const candidateList = Array.isArray(parsed) ? parsed : parsed?.plan || parsed?.items || [];
+    const parsed: unknown = JSON.parse(rawContent);
+    const candidateList = Array.isArray(parsed)
+      ? parsed
+      : isRecord(parsed) && Array.isArray(parsed.plan)
+        ? parsed.plan
+        : isRecord(parsed) && Array.isArray(parsed.items)
+          ? parsed.items
+          : [];
 
     // Validate that candidateList has at least 5 valid items
     if (!Array.isArray(candidateList) || candidateList.length < 5) {
       throw new Error(`Invalid item count: ${candidateList?.length}`);
     }
 
-    const validated: RawPlanItem[] = candidateList.map((item, idx) => {
+    const validated: RawPlanItem[] = candidateList.map((rawItem, idx) => {
+      const item = isRecord(rawItem) ? rawItem : {};
       const before = Number(item.before_pm25) || 200;
       const after = Number(item.after_pm25) || 100;
       const hours = typeof item.hours === 'number' && item.hours > 0 ? Number(item.hours) : 2;
@@ -165,33 +174,38 @@ Rules: hours > 0; before_pm25 > after_pm25; keep action <= 12 words and reason <
       plan: validated,
       source: 'gemini',
     };
-  } catch (err: any) {
-    const attemptsDetail = Array.isArray(err?.attempts)
-      ? err.attempts
-          .map((a: any) => `${a.model} status=${a.status} (${String(a.error || '').slice(0, 120)})`)
+  } catch (err: unknown) {
+    const clientErr = err as GeminiClientError;
+    const attemptsDetail = Array.isArray(clientErr?.attempts)
+      ? clientErr.attempts
+          .map((a) => `${a.model} status=${a.status} (${String(a.error || '').slice(0, 120)})`)
           .join(' | ')
       : 'no_attempt_details';
+    const message = getErrorMessage(err);
     console.warn(
-      `[api/plan] Gemini failure (${attemptsDetail}) — falling back to rule-based plan. Error: ${err?.message || err}`,
+      `[api/plan] Gemini failure (${attemptsDetail}) — falling back to rule-based plan. Error: ${message}`,
     );
     const fallbackPlan = generateRuleBasedPlan(profile, forecast);
     return {
       plan: fallbackPlan,
       source: 'rule_based_fallback',
-      error: err?.message || 'gemini_failed',
+      error: message || 'gemini_failed',
     };
   }
 }
 
 // Vercel Serverless Function default export
-export default async function handler(req: any, res: any) {
+export default async function handler(req: ApiRequest, res: ApiResponse) {
   if (req.method !== 'POST') {
     res.setHeader('Allow', 'POST');
     return res.status(405).json({ error: 'Method not allowed. Use POST.' });
   }
 
   const apiKey = process.env.GEMINI_API_KEY;
-  const body = typeof req.body === 'string' ? JSON.parse(req.body) : req.body || {};
+  const body = parseRequestBody(req.body) as {
+    profile?: UserProfile;
+    forecast?: ForecastDataPoint[];
+  };
   const result = await processPlanRequest(body, apiKey);
 
   return res.status(200).json(result);

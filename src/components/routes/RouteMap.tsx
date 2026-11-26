@@ -2,6 +2,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import { EvaluatedRouteOption, LatLon } from '../../lib/routeExposure';
+import type { GoogleMapInstance, GooglePolylineInstance } from '../../types/maps';
 
 interface RouteMapProps {
   origin: LatLon;
@@ -135,8 +136,8 @@ export const RouteMap: React.FC<RouteMapProps> = ({
   const googleContainerRef = useRef<HTMLDivElement>(null);
   const leafletContainerRef = useRef<HTMLDivElement>(null);
 
-  const googleMapRef = useRef<any>(null);
-  const googleOverlaysRef = useRef<any[]>([]);
+  const googleMapRef = useRef<GoogleMapInstance | null>(null);
+  const googleOverlaysRef = useRef<GooglePolylineInstance[]>([]);
 
   const leafletMapRef = useRef<L.Map | null>(null);
   const leafletLayerGroupRef = useRef<L.LayerGroup | null>(null);
@@ -190,18 +191,22 @@ export const RouteMap: React.FC<RouteMapProps> = ({
 
   // 2. Render & update Google Map when active
   useEffect(() => {
+    const maps = window.google?.maps;
     if (
       provider !== 'google' ||
       !googleReady ||
       !googleContainerRef.current ||
-      !window.google?.maps
+      !maps?.Map ||
+      !maps.LatLngBounds ||
+      !maps.Polyline ||
+      !maps.SymbolPath
     ) {
       return;
     }
 
     try {
       if (!googleMapRef.current) {
-        googleMapRef.current = new window.google.maps.Map(googleContainerRef.current, {
+        googleMapRef.current = new maps.Map(googleContainerRef.current, {
           center: { lat: origin.lat, lng: origin.lon },
           zoom: 12,
           styles: DARK_GOOGLE_MAP_STYLES,
@@ -217,11 +222,11 @@ export const RouteMap: React.FC<RouteMapProps> = ({
       googleOverlaysRef.current.forEach((ov) => ov.setMap(null));
       googleOverlaysRef.current = [];
 
-      const bounds = new window.google.maps.LatLngBounds();
+      const bounds = new maps.LatLngBounds();
       bounds.extend({ lat: origin.lat, lng: origin.lon });
 
       // Origin pin (fixed-pixel polyline circle icon — avoids deprecated google.maps.Marker warnings)
-      const originPin = new window.google.maps.Polyline({
+      const originPin = new maps.Polyline({
         path: [
           { lat: origin.lat, lng: origin.lon },
           { lat: origin.lat, lng: origin.lon },
@@ -230,7 +235,7 @@ export const RouteMap: React.FC<RouteMapProps> = ({
         icons: [
           {
             icon: {
-              path: window.google.maps.SymbolPath.CIRCLE,
+              path: maps.SymbolPath.CIRCLE,
               scale: 7,
               fillColor: '#2DD4BF',
               fillOpacity: 1,
@@ -248,7 +253,7 @@ export const RouteMap: React.FC<RouteMapProps> = ({
       // Destination pin (amber)
       if (destination) {
         bounds.extend({ lat: destination.lat, lng: destination.lon });
-        const destPin = new window.google.maps.Polyline({
+        const destPin = new maps.Polyline({
           path: [
             { lat: destination.lat, lng: destination.lon },
             { lat: destination.lat, lng: destination.lon },
@@ -257,7 +262,7 @@ export const RouteMap: React.FC<RouteMapProps> = ({
           icons: [
             {
               icon: {
-                path: window.google.maps.SymbolPath.CIRCLE,
+                path: maps.SymbolPath.CIRCLE,
                 scale: 7,
                 fillColor: '#F59E0B',
                 fillOpacity: 1,
@@ -278,6 +283,7 @@ export const RouteMap: React.FC<RouteMapProps> = ({
         a.id === selectedRouteId ? 1 : b.id === selectedRouteId ? -1 : 0,
       );
 
+      const PolylineCtor = maps.Polyline;
       sortedRoutes.forEach((route) => {
         if (!route.path || route.path.length < 2) return;
         const isSelected = route.id === selectedRouteId;
@@ -286,7 +292,7 @@ export const RouteMap: React.FC<RouteMapProps> = ({
           return { lat: p.lat, lng: p.lon };
         });
 
-        const polyline = new window.google.maps.Polyline({
+        const polyline = new PolylineCtor({
           path: pathLatLng,
           geodesic: true,
           strokeColor: route.strokeColor,

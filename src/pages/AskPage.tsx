@@ -7,6 +7,11 @@ import { useAirQuality } from '../components/layout/AppLayout';
 import { fetchSmartForecast, ForecastDataPoint } from '../lib/forecast';
 import { parsePlanCache } from '../lib/planGenerator';
 import { ProfileFamilyMember, RawPlanItem } from '../types';
+import type {
+  SpeechRecognitionConstructor,
+  SpeechRecognitionInstance,
+  SpeechRecognitionResultEvent,
+} from '../types/maps';
 
 interface MiniCardData {
   timeLabel: string;
@@ -77,9 +82,9 @@ const SPEECH_LOCALE_MAP: Record<string, string> = {
   mr: 'mr-IN',
 };
 
-function getSpeechRecognitionCtor(): any {
+function getSpeechRecognitionCtor(): SpeechRecognitionConstructor | null {
   if (typeof window === 'undefined') return null;
-  return (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition || null;
+  return window.SpeechRecognition || window.webkitSpeechRecognition || null;
 }
 
 /**
@@ -121,7 +126,7 @@ export const AskPage: React.FC = () => {
   // Voice (Web Speech API) state — button hidden completely if unsupported
   const speechSupported = useMemo(() => Boolean(getSpeechRecognitionCtor()), []);
   const [isListening, setIsListening] = useState(false);
-  const recognitionRef = useRef<any>(null);
+  const recognitionRef = useRef<SpeechRecognitionInstance | null>(null);
 
   // Live context for /api/ask (next 24h forecast + today's plan)
   const [forecast24h, setForecast24h] = useState<ForecastDataPoint[]>([]);
@@ -301,7 +306,7 @@ export const AskPage: React.FC = () => {
       recognition.onstart = () => setIsListening(true);
       recognition.onend = () => setIsListening(false);
       recognition.onerror = () => setIsListening(false);
-      recognition.onresult = (event: any) => {
+      recognition.onresult = (event: SpeechRecognitionResultEvent) => {
         const transcript = event?.results?.[0]?.[0]?.transcript;
         if (transcript && typeof transcript === 'string') {
           setInput(transcript);

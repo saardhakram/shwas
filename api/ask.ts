@@ -13,6 +13,8 @@
  */
 
 import { callGeminiWithRetry } from './_lib/geminiClient.js';
+import type { ApiRequest, ApiResponse } from './_lib/types.js';
+import { getErrorMessage, parseRequestBody } from './_lib/types.js';
 import type { UserProfile, RawPlanItem } from '../src/types/index.js';
 import type { ForecastDataPoint } from '../src/shared/forecastWindow.js';
 
@@ -331,32 +333,33 @@ Return STRICT JSON only:
       remainingToday,
       limit: DAILY_QUESTION_LIMIT,
     };
-  } catch (err: any) {
-    console.warn('[api/ask] Gemini request failed:', err?.message || err);
+  } catch (err: unknown) {
+    const message = getErrorMessage(err);
+    console.warn('[api/ask] Gemini request failed:', message);
     return {
       answer: getFriendlyFallbackMessage(language),
       source: 'offline',
       miniCard: null,
       remainingToday,
       limit: DAILY_QUESTION_LIMIT,
-      error: err?.message || 'gemini_failed',
+      error: message || 'gemini_failed',
     };
   }
 }
 
 // Vercel Serverless Function default export
-export default async function handler(req: any, res: any) {
+export default async function handler(req: ApiRequest, res: ApiResponse) {
   if (req.method !== 'POST') {
     res.setHeader('Allow', 'POST');
     return res.status(405).json({ error: 'Method not allowed. Use POST.' });
   }
 
   const apiKey = process.env.GEMINI_API_KEY;
-  const body = typeof req.body === 'string' ? JSON.parse(req.body) : req.body || {};
+  const body = parseRequestBody(req.body) as AskRequestBody;
+  const forwarded = req.headers?.['x-forwarded-for'];
   const clientIp =
-    (typeof req.headers?.['x-forwarded-for'] === 'string'
-      ? req.headers['x-forwarded-for'].split(',')[0].trim()
-      : req.socket?.remoteAddress) || 'anonymous';
+    (typeof forwarded === 'string' ? forwarded.split(',')[0].trim() : req.socket?.remoteAddress) ||
+    'anonymous';
 
   const result = await processAskRequest(body, apiKey, clientIp);
   return res.status(200).json(result);

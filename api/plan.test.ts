@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { processPlanRequest, clearPlanCacheForTesting } from './plan.js';
 import type { UserProfile } from '../src/types/index.js';
+import type { GeminiGenerateContentRequest } from './_lib/types.js';
 
 describe('Serverless Plan API (/api/plan)', () => {
   const profile: UserProfile = {
@@ -49,13 +50,13 @@ describe('Serverless Plan API (/api/plan)', () => {
 
   it('sends x-goog-api-key header and uses gemini-3.5-flash by default without key in URL', async () => {
     let capturedUrl = '';
-    let capturedHeaders: any = {};
-    let capturedBody: any = {};
+    let capturedHeaders: Record<string, string> = {};
+    let capturedBody: Partial<GeminiGenerateContentRequest> = {};
 
-    globalThis.fetch = vi.fn().mockImplementation(async (url: string, options: any) => {
+    globalThis.fetch = vi.fn().mockImplementation(async (url: string, options?: RequestInit) => {
       capturedUrl = url;
-      capturedHeaders = options.headers;
-      capturedBody = JSON.parse(options.body);
+      capturedHeaders = (options?.headers as Record<string, string>) || {};
+      capturedBody = JSON.parse(String(options?.body || '{}')) as GeminiGenerateContentRequest;
 
       return {
         ok: true,

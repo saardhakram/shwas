@@ -7,6 +7,7 @@ import {
 } from './ask.js';
 import type { UserProfile } from '../src/types/index.js';
 import type { ForecastDataPoint } from '../src/shared/forecastWindow.js';
+import type { GeminiGenerateContentRequest, GeminiGenerationConfig } from './_lib/types.js';
 
 describe('Serverless Ask Shwas API (/api/ask)', () => {
   const originalFetch = global.fetch;
@@ -79,12 +80,13 @@ describe('Serverless Ask Shwas API (/api/ask)', () => {
   it('sends profile, forecast, plan, and safety instructions to Gemini and computes inline mini-card in code', async () => {
     let capturedPrompt = '';
     let capturedHeaders: Record<string, string> = {};
-    let capturedGenConfig: Record<string, any> = {};
+    let capturedGenConfig: Partial<GeminiGenerationConfig> = {};
 
-    global.fetch = vi.fn().mockImplementation(async (_url: string, opts: any) => {
-      capturedHeaders = opts.headers;
-      const body = JSON.parse(opts.body);
-      capturedPrompt = body.contents[0].parts[0].text;
+    global.fetch = vi.fn().mockImplementation(async (_url: string, opts?: RequestInit) => {
+      capturedHeaders = (opts?.headers as Record<string, string>) || {};
+      const body = JSON.parse(String(opts?.body || '{}')) as GeminiGenerateContentRequest;
+      const firstPart = body.contents[0].parts[0];
+      capturedPrompt = 'text' in firstPart ? firstPart.text : '';
       capturedGenConfig = body.generationConfig;
 
       return {

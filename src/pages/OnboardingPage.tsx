@@ -174,9 +174,13 @@ export const OnboardingPage: React.FC = () => {
         )}&countrycodes=in&limit=5`,
       );
       if (res.ok) {
-        const list = await res.json();
-        const mapped: ProfileLocation[] = list.map((item: any) => ({
-          name: item.display_name.split(',')[0],
+        const list = (await res.json()) as Array<{
+          display_name?: string;
+          lat: string;
+          lon: string;
+        }>;
+        const mapped: ProfileLocation[] = list.map((item) => ({
+          name: (item.display_name || '').split(',')[0],
           lat: parseFloat(item.lat),
           lon: parseFloat(item.lon),
         }));

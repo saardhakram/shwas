@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { processScanRequest } from './scan.js';
+import type { GeminiGenerateContentRequest, GeminiInlineDataPart } from './_lib/types.js';
 
 describe('/api/scan serverless handler', () => {
   const originalFetch = global.fetch;
@@ -57,14 +58,14 @@ describe('/api/scan serverless handler', () => {
       ],
     };
 
-    let requestedHeaders: any = {};
+    let requestedHeaders: Record<string, string> = {};
     let requestedUrl = '';
-    let requestedBody: any = {};
+    let requestedBody: Partial<GeminiGenerateContentRequest> = {};
 
-    global.fetch = vi.fn().mockImplementation(async (url: string, opts: any) => {
+    global.fetch = vi.fn().mockImplementation(async (url: string, opts?: RequestInit) => {
       requestedUrl = url;
-      requestedHeaders = opts.headers;
-      requestedBody = JSON.parse(opts.body);
+      requestedHeaders = (opts?.headers as Record<string, string>) || {};
+      requestedBody = JSON.parse(String(opts?.body || '{}')) as GeminiGenerateContentRequest;
       return {
         ok: true,
         status: 200,
@@ -82,8 +83,9 @@ describe('/api/scan serverless handler', () => {
 
     expect(requestedUrl).toContain('gemini-3.5-flash:generateContent');
     expect(requestedHeaders['x-goog-api-key']).toBe('test-gemini-key');
-    expect(requestedBody.generationConfig.responseMimeType).toBe('application/json');
-    expect(requestedBody.contents[0].parts[1].inlineData.data).toBe('sampleimagebytes');
+    expect(requestedBody.generationConfig?.responseMimeType).toBe('application/json');
+    const secondPart = requestedBody.contents?.[0]?.parts[1] as GeminiInlineDataPart;
+    expect(secondPart.inlineData.data).toBe('sampleimagebytes');
 
     expect(result.source).toBe('gemini');
     expect(result.room).toBe('living');

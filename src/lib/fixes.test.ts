@@ -54,8 +54,8 @@ describe('fixes.ts (Shwas Scan Fixes & Cigarette Impact Engine)', () => {
   });
 
   it('gracefully handles unknown source IDs by defaulting to "other"', () => {
-    const source = {
-      id: 'unregistered_hazard' as any,
+    const source: DetectedSource = {
+      id: 'unregistered_hazard' as unknown as DetectedSource['id'],
       label: 'Random Smoke',
       box: { x: 0.2, y: 0.2, w: 0.4, h: 0.4 },
     };

@@ -57,7 +57,7 @@ describe('planFetcher.ts (single POST /api/plan per page load)', () => {
   });
 
   it('does not call /api/plan until both profileReady and forecastReady are true', () => {
-    const fetchSpy = vi.fn();
+    const fetchSpy = vi.fn<typeof fetch>();
     const storage = createMemoryStorage();
 
     expect(
@@ -66,7 +66,7 @@ describe('planFetcher.ts (single POST /api/plan per page load)', () => {
         forecast: makeForecast(),
         profileReady: false,
         forecastReady: true,
-        fetchImpl: fetchSpy as any,
+        fetchImpl: fetchSpy,
         storage,
       }),
     ).toBeNull();
@@ -77,7 +77,7 @@ describe('planFetcher.ts (single POST /api/plan per page load)', () => {
         forecast: makeForecast(),
         profileReady: true,
         forecastReady: false,
-        fetchImpl: fetchSpy as any,
+        fetchImpl: fetchSpy,
         storage,
       }),
     ).toBeNull();
@@ -87,11 +87,13 @@ describe('planFetcher.ts (single POST /api/plan per page load)', () => {
 
   it('calls POST /api/plan exactly ONCE across repeated renders, StrictMode double-mounts, and new forecast/location object identities', async () => {
     const geminiPlan = generateRuleBasedPlan(makeProfile());
-    const fetchSpy = vi.fn().mockImplementation(async () => ({
-      ok: true,
-      status: 200,
-      json: async () => ({ source: 'gemini', plan: geminiPlan }),
-    }));
+    const fetchSpy = vi.fn<typeof fetch>().mockImplementation(
+      async () =>
+        new Response(JSON.stringify({ source: 'gemini', plan: geminiPlan }), {
+          status: 200,
+          headers: { 'Content-Type': 'application/json' },
+        }),
+    );
     const storage = createMemoryStorage();
 
     // Simulate 4 back-to-back renders with freshly allocated profile, location, and forecast objects
@@ -101,7 +103,7 @@ describe('planFetcher.ts (single POST /api/plan per page load)', () => {
       profileReady: true,
       forecastReady: true,
       dateStr: '2026-11-26',
-      fetchImpl: fetchSpy as any,
+      fetchImpl: fetchSpy,
       storage,
     });
     const p2 = requestDailyPlanOnce({
@@ -110,7 +112,7 @@ describe('planFetcher.ts (single POST /api/plan per page load)', () => {
       profileReady: true,
       forecastReady: true,
       dateStr: '2026-11-26',
-      fetchImpl: fetchSpy as any,
+      fetchImpl: fetchSpy,
       storage,
     });
     const p3 = requestDailyPlanOnce({
@@ -119,7 +121,7 @@ describe('planFetcher.ts (single POST /api/plan per page load)', () => {
       profileReady: true,
       forecastReady: true,
       dateStr: '2026-11-26',
-      fetchImpl: fetchSpy as any,
+      fetchImpl: fetchSpy,
       storage,
     });
 
@@ -132,7 +134,7 @@ describe('planFetcher.ts (single POST /api/plan per page load)', () => {
       profileReady: true,
       forecastReady: true,
       dateStr: '2026-11-26',
-      fetchImpl: fetchSpy as any,
+      fetchImpl: fetchSpy,
       storage,
     })!;
 
@@ -152,11 +154,12 @@ describe('planFetcher.ts (single POST /api/plan per page load)', () => {
       serializePlanCache('offline', offlineItems),
     );
 
-    const fetchSpy = vi.fn().mockResolvedValue({
-      ok: true,
-      status: 200,
-      json: async () => ({ source: 'gemini', plan: offlineItems }),
-    });
+    const fetchSpy = vi.fn<typeof fetch>().mockResolvedValue(
+      new Response(JSON.stringify({ source: 'gemini', plan: offlineItems }), {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' },
+      }),
+    );
 
     const result = await requestDailyPlanOnce({
       profile,
@@ -164,7 +167,7 @@ describe('planFetcher.ts (single POST /api/plan per page load)', () => {
       profileReady: true,
       forecastReady: true,
       dateStr: '2026-11-26',
-      fetchImpl: fetchSpy as any,
+      fetchImpl: fetchSpy,
       storage,
     })!;
 
@@ -179,7 +182,7 @@ describe('planFetcher.ts (single POST /api/plan per page load)', () => {
       profileReady: true,
       forecastReady: true,
       dateStr: '2026-11-26',
-      fetchImpl: fetchSpy as any,
+      fetchImpl: fetchSpy,
       storage,
     })!;
 

@@ -13,6 +13,8 @@
  */
 
 import { callGeminiWithRetry } from './_lib/geminiClient.js';
+import type { ApiRequest, ApiResponse } from './_lib/types.js';
+import { isRecord, parseRequestBody } from './_lib/types.js';
 
 export interface ScanRequestBody {
   image?: string; // base64 string or data URL
@@ -157,19 +159,22 @@ CRITICAL REQUIREMENTS:
       .replace(/```/g, '')
       .trim();
 
-    const parsed = JSON.parse(cleanedJson);
+    const parsed: unknown = JSON.parse(cleanedJson);
+    const parsedObj = isRecord(parsed) ? parsed : {};
 
     // Validate structure
-    const room = ALLOWED_ROOMS.has(parsed.room) ? parsed.room : 'other';
-    const rawSources = Array.isArray(parsed.sources) ? parsed.sources : [];
+    const roomStr = typeof parsedObj.room === 'string' ? parsedObj.room : 'other';
+    const room = (ALLOWED_ROOMS.has(roomStr) ? roomStr : 'other') as ScanResponseBody['room'];
+    const rawSources = Array.isArray(parsedObj.sources) ? parsedObj.sources : [];
 
     const validatedSources: ScanSourceItem[] = rawSources
-      .filter((s: any) => s && typeof s === 'object')
-      .map((s: any) => {
-        const id = ALLOWED_SOURCE_IDS.has(s.id) ? s.id : 'other';
-        const rawBox = s.box || {};
-        const clamp = (val: any, def: number) => {
-          const num = typeof val === 'number' ? val : parseFloat(val);
+      .filter((s): s is Record<string, unknown> => isRecord(s))
+      .map((s) => {
+        const rawId = typeof s.id === 'string' ? s.id : 'other';
+        const id = ALLOWED_SOURCE_IDS.has(rawId) ? rawId : 'other';
+        const rawBox = isRecord(s.box) ? s.box : {};
+        const clamp = (val: unknown, def: number) => {
+          const num = typeof val === 'number' ? val : parseFloat(String(val));
           if (isNaN(num)) return def;
           return Math.max(0, Math.min(1, num));
         };
@@ -197,7 +202,7 @@ CRITICAL REQUIREMENTS:
       sources: validatedSources,
       source: 'gemini',
     };
-  } catch (err: any) {
+  } catch (err: unknown) {
     console.error('[api/scan] Failed to scan image:', err);
     return {
       room: 'other',
@@ -209,14 +214,14 @@ CRITICAL REQUIREMENTS:
 }
 
 // Default export for Vercel serverless environment
-export default async function handler(req: any, res: any) {
+export default async function handler(req: ApiRequest, res: ApiResponse) {
   if (req.method !== 'POST') {
     res.setHeader('Allow', 'POST');
     return res.status(405).json({ error: 'Method not allowed' });
   }
 
   const apiKey = process.env.GEMINI_API_KEY;
-  const body = typeof req.body === 'string' ? JSON.parse(req.body) : req.body || {};
+  const body = parseRequestBody(req.body) as ScanRequestBody;
   const result = await processScanRequest(body, apiKey);
   return res.status(200).json(result);
 }

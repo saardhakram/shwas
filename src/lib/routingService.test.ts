@@ -1,9 +1,15 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { fetchRoutesForTrip } from './routingService';
+import type { GoogleNamespace, GoogleRoutesComputeRequest } from '../types/maps';
+
+interface TestWindowHolder {
+  window?: { google?: GoogleNamespace };
+}
 
 describe('routingService.ts (Google Routes -> OSRM)', () => {
   const originalFetch = global.fetch;
-  const originalWindow = (globalThis as any).window;
+  const globalHolder = globalThis as unknown as TestWindowHolder;
+  const originalWindow = globalHolder.window;
 
   beforeEach(() => {
     vi.restoreAllMocks();
@@ -12,23 +18,23 @@ describe('routingService.ts (Google Routes -> OSRM)', () => {
   afterEach(() => {
     global.fetch = originalFetch;
     if (originalWindow === undefined) {
-      delete (globalThis as any).window;
+      delete globalHolder.window;
     } else {
-      (globalThis as any).window = originalWindow;
+      globalHolder.window = originalWindow;
     }
   });
 
   it('calls google.maps.routes.Route.computeRoutes with valid fields (path, distanceMeters, durationMillis) and no polyline field', async () => {
-    const capturedRequests: any[] = [];
+    const capturedRequests: GoogleRoutesComputeRequest[] = [];
     const directionsSpy = vi.fn();
 
-    (globalThis as any).window = {
+    globalHolder.window = {
       google: {
         maps: {
           DirectionsService: directionsSpy,
           importLibrary: vi.fn().mockResolvedValue({
             Route: {
-              computeRoutes: vi.fn().mockImplementation(async (req: any) => {
+              computeRoutes: vi.fn().mockImplementation(async (req: GoogleRoutesComputeRequest) => {
                 capturedRequests.push(req);
                 return {
                   routes: [
@@ -75,7 +81,7 @@ describe('routingService.ts (Google Routes -> OSRM)', () => {
     const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
     const directionsSpy = vi.fn();
 
-    (globalThis as any).window = {
+    globalHolder.window = {
       google: {
         maps: {
           DirectionsService: directionsSpy,
