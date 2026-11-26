@@ -5,15 +5,15 @@
  */
 
 export interface ForecastDataPoint {
-  isoTime: string;      // e.g. "2026-11-20T14:00"
-  timestamp: number;    // epoch milliseconds
-  time: string;         // e.g. "2 PM"
-  fullTime: string;     // e.g. "2:00 PM"
-  hour: number;         // 0 - 23
+  isoTime: string; // e.g. "2026-11-20T14:00"
+  timestamp: number; // epoch milliseconds
+  time: string; // e.g. "2 PM"
+  fullTime: string; // e.g. "2:00 PM"
+  hour: number; // 0 - 23
   day: 'Today' | 'Tomorrow' | string;
-  pm25: number;         // raw PM2.5 in µg/m³
-  usAqi: number;        // Direct from Open-Meteo's us_aqi
-  aqi: number;          // alias for usAqi
+  pm25: number; // raw PM2.5 in µg/m³
+  usAqi: number; // Direct from Open-Meteo's us_aqi
+  aqi: number; // alias for usAqi
   isPast: boolean;
 }
 
@@ -52,7 +52,7 @@ export function formatHourFull(hour: number): string {
  */
 export function computeBestWindow(
   forecast: ForecastDataPoint[],
-  fromDate: Date = new Date()
+  fromDate: Date = new Date(),
 ): BestAirWindow {
   const fromTime = fromDate.getTime();
   const maxUpcomingTime = fromTime + 24 * 3600 * 1000;
@@ -94,8 +94,7 @@ export function computeBestWindow(
   const startPt = upcoming[bestIdx];
   const endPt = upcoming[bestIdx + 1];
 
-  const sameDayAsNow =
-    new Date(startPt.timestamp).toDateString() === fromDate.toDateString();
+  const sameDayAsNow = new Date(startPt.timestamp).toDateString() === fromDate.toDateString();
   const dayPrefix = sameDayAsNow ? '' : `${startPt.day} `;
 
   const label = `${dayPrefix}${startPt.fullTime} – ${endPt.fullTime}`;

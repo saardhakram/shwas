@@ -54,7 +54,7 @@ describe('routingService.ts (Google Routes -> OSRM)', () => {
       { lat: 28.6139, lon: 77.209 },
       { lat: 28.6315, lon: 77.2167 },
       new Date(),
-      true
+      true,
     );
 
     expect(res.provider).toBe('google_routes');
@@ -113,7 +113,7 @@ describe('routingService.ts (Google Routes -> OSRM)', () => {
       { lat: 28.6139, lon: 77.209 },
       { lat: 28.6315, lon: 77.2167 },
       new Date(),
-      true
+      true,
     );
 
     expect(res.provider).toBe('osrm');

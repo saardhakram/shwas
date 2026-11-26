@@ -11,10 +11,11 @@ Produces:
 from __future__ import annotations
 
 import json
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 import joblib
 import matplotlib
+
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 import numpy as np
@@ -50,7 +51,9 @@ def _style_dark_axes(ax: plt.Axes) -> None:
 
 def plot_predicted_vs_actual(test_df: pd.DataFrame, preds: np.ndarray) -> None:
     """Plots a 7-day winter snippet (horizon=6h) + overall scatter."""
-    df = test_df[["origin_time", "target_time", "location_id", "horizon", "y", "baseline_persistence"]].copy()
+    df = test_df[
+        ["origin_time", "target_time", "location_id", "horizon", "y", "baseline_persistence"]
+    ].copy()
     df["pred"] = preds
 
     fig, axes = plt.subplots(1, 2, figsize=(13, 4.8), facecolor="#0B0F17")
@@ -65,7 +68,9 @@ def plot_predicted_vs_actual(test_df: pd.DataFrame, preds: np.ndarray) -> None:
     ax0 = axes[0]
     _style_dark_axes(ax0)
     ax0.plot(sub["target_time"], sub["y"], label="Actual PM2.5", color="#F8FAFC", linewidth=2.0)
-    ax0.plot(sub["target_time"], sub["pred"], label="Shwas ML (LightGBM)", color="#2DD4BF", linewidth=1.8)
+    ax0.plot(
+        sub["target_time"], sub["pred"], label="Shwas ML (LightGBM)", color="#2DD4BF", linewidth=1.8
+    )
     ax0.plot(
         sub["target_time"],
         sub["baseline_persistence"],
@@ -85,9 +90,18 @@ def plot_predicted_vs_actual(test_df: pd.DataFrame, preds: np.ndarray) -> None:
     idx = rng.choice(len(df), size=min(4000, len(df)), replace=False)
     ax1 = axes[1]
     _style_dark_axes(ax1)
-    ax1.scatter(df["y"].iloc[idx], df["pred"].iloc[idx], s=8, alpha=0.35, color="#2DD4BF", edgecolors="none")
+    ax1.scatter(
+        df["y"].iloc[idx], df["pred"].iloc[idx], s=8, alpha=0.35, color="#2DD4BF", edgecolors="none"
+    )
     max_val = float(np.percentile(df["y"], 99))
-    ax1.plot([0, max_val], [0, max_val], color="#F59E0B", linestyle="--", linewidth=1.4, label="Ideal (y = x)")
+    ax1.plot(
+        [0, max_val],
+        [0, max_val],
+        color="#F59E0B",
+        linestyle="--",
+        linewidth=1.4,
+        label="Ideal (y = x)",
+    )
     ax1.set_xlim(0, max_val)
     ax1.set_ylim(0, max_val)
     ax1.set_xlabel("Actual PM2.5 (µg/m³)", color="#CBD5E1", fontsize=9)
@@ -103,7 +117,13 @@ def plot_predicted_vs_actual(test_df: pd.DataFrame, preds: np.ndarray) -> None:
 def plot_error_by_horizon(horizon_df: pd.DataFrame) -> None:
     fig, ax = plt.subplots(figsize=(9.5, 4.6), facecolor="#0B0F17")
     _style_dark_axes(ax)
-    ax.plot(horizon_df["horizon"], horizon_df["lgbm_mae"], label="Shwas ML (LightGBM)", color="#2DD4BF", linewidth=2.4)
+    ax.plot(
+        horizon_df["horizon"],
+        horizon_df["lgbm_mae"],
+        label="Shwas ML (LightGBM)",
+        color="#2DD4BF",
+        linewidth=2.4,
+    )
     ax.plot(
         horizon_df["horizon"],
         horizon_df["persistence_mae"],
@@ -122,7 +142,12 @@ def plot_error_by_horizon(horizon_df: pd.DataFrame) -> None:
     )
     ax.set_xlabel("Forecast Horizon (hours ahead)", color="#CBD5E1", fontsize=10)
     ax.set_ylabel("Mean Absolute Error (µg/m³)", color="#CBD5E1", fontsize=10)
-    ax.set_title("Test MAE by Forecast Horizon (1–48 Hours, Latest Winter)", color="#F8FAFC", fontsize=12, pad=10)
+    ax.set_title(
+        "Test MAE by Forecast Horizon (1–48 Hours, Latest Winter)",
+        color="#F8FAFC",
+        fontsize=12,
+        pad=10,
+    )
     ax.set_xticks([1, 6, 12, 18, 24, 30, 36, 42, 48])
     ax.legend(facecolor="#0F172A", edgecolor="#334155", labelcolor="#E2E8F0", fontsize=9)
     plt.tight_layout()
@@ -144,7 +169,7 @@ def plot_shap_importance(model, test_df: pd.DataFrame) -> list[tuple[str, float]
     names = [f for f, _ in reversed(top_features)]
     vals = [v for _, v in reversed(top_features)]
     bars = ax.barh(names, vals, color="#2DD4BF", alpha=0.9)
-    for bar, val in zip(bars, vals):
+    for bar, val in zip(bars, vals, strict=True):
         ax.text(
             val + max(vals) * 0.015,
             bar.get_y() + bar.get_height() / 2,
@@ -153,8 +178,12 @@ def plot_shap_importance(model, test_df: pd.DataFrame) -> list[tuple[str, float]
             color="#E2E8F0",
             fontsize=8,
         )
-    ax.set_xlabel("Mean |SHAP value| (µg/m³ impact on PM2.5 prediction)", color="#CBD5E1", fontsize=9)
-    ax.set_title("Shwas Forecast — Top 15 SHAP Feature Importances", color="#F8FAFC", fontsize=12, pad=10)
+    ax.set_xlabel(
+        "Mean |SHAP value| (µg/m³ impact on PM2.5 prediction)", color="#CBD5E1", fontsize=9
+    )
+    ax.set_title(
+        "Shwas Forecast — Top 15 SHAP Feature Importances", color="#F8FAFC", fontsize=12, pad=10
+    )
     ax.set_xlim(0, max(vals) * 1.15)
     plt.tight_layout()
     fig.savefig(REPORTS_DIR / "shap_importance.png", dpi=150, facecolor=fig.get_facecolor())
@@ -192,8 +221,12 @@ def main() -> None:
             {
                 "horizon": h,
                 "lgbm_mae": round(float(mean_absolute_error(y_true[mask], y_lgbm[mask])), 2),
-                "persistence_mae": round(float(mean_absolute_error(y_true[mask], y_persist[mask])), 2),
-                "same_hour_mae": round(float(mean_absolute_error(y_true[mask], y_same_hr[mask])), 2),
+                "persistence_mae": round(
+                    float(mean_absolute_error(y_true[mask], y_persist[mask])), 2
+                ),
+                "same_hour_mae": round(
+                    float(mean_absolute_error(y_true[mask], y_same_hr[mask])), 2
+                ),
             }
         )
     horizon_df = pd.DataFrame(horizon_rows)
@@ -207,7 +240,11 @@ def main() -> None:
         pers_b = round(float(mean_absolute_error(y_true[mask], y_persist[mask])), 2)
         same_b = round(float(mean_absolute_error(y_true[mask], y_same_hr[mask])), 2)
         best_name = min(
-            [("Shwas ML (LightGBM)", lgbm_b), ("Persistence", pers_b), ("Same-Hour Yesterday", same_b)],
+            [
+                ("Shwas ML (LightGBM)", lgbm_b),
+                ("Persistence", pers_b),
+                ("Same-Hour Yesterday", same_b),
+            ],
             key=lambda x: x[1],
         )[0]
         bucket_rows.append(
@@ -238,13 +275,14 @@ def main() -> None:
     if overall_winner == "Shwas ML (LightGBM)":
         verdict = (
             f"**Winner: Shwas ML (LightGBM)** — beats the strongest baseline by "
-            f"**{improvement_pct:+.1f}%** MAE ({m_lgbm['mae']:.2f} vs {best_baseline_mae:.2f} µg/m³) "
+            f"**{improvement_pct:+.1f}%** MAE "
+            f"({m_lgbm['mae']:.2f} vs {best_baseline_mae:.2f} µg/m³) "
             f"on the held-out latest winter test set."
         )
     else:
         verdict = (
             f"**Honest result: {overall_winner} wins overall on MAE** "
-            f"({min(m_persist['mae'], m_same_hr['mae']):.2f} vs LightGBM {m_lgbm['mae']:.2f} µg/m³). "
+            f"({best_baseline_mae:.2f} vs LightGBM {m_lgbm['mae']:.2f} µg/m³). "
             f"See horizon breakdown below for where ML vs baselines perform best."
         )
 
@@ -257,20 +295,34 @@ def main() -> None:
         )
 
     # Build metrics.md
+    test_start_str, test_end_str = meta["splits"]["test_range"]
+    test_rows = meta["splits"]["test_rows"]
     lines = [
         "# Shwas Forecast (ML) — Evaluation Report",
         "",
         f"- **Model:** `{MODEL_VERSION}` (LightGBM Regressor with horizon 1–48h as a feature)",
-        f"- **Evaluated at:** {datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M UTC')}",
-        f"- **Held-out Test Split (Latest Winter):** `{meta['splits']['test_range'][0]}` → `{meta['splits']['test_range'][1]}` ({meta['splits']['test_rows']:,} forecast rows across 3 Delhi stations)",
+        f"- **Evaluated at:** {datetime.now(UTC).strftime('%Y-%m-%d %H:%M UTC')}",
+        (
+            f"- **Held-out Test Split (Latest Winter):** `{test_start_str}` → `{test_end_str}` "
+            f"({test_rows:,} forecast rows across 3 Delhi stations)"
+        ),
         "",
         "## Overall Test Metrics (1–48h)",
         "",
         "| Model | MAE (µg/m³) | RMSE (µg/m³) | AQI Category Accuracy |",
         "|---|---:|---:|---:|",
-        f"| **Shwas ML (LightGBM)** | **{m_lgbm['mae']:.2f}** | **{m_lgbm['rmse']:.2f}** | **{m_lgbm['aqi_category_accuracy_pct']:.1f}%** |",
-        f"| Baseline: Persistence (next = now) | {m_persist['mae']:.2f} | {m_persist['rmse']:.2f} | {m_persist['aqi_category_accuracy_pct']:.1f}% |",
-        f"| Baseline: Same-Hour Yesterday | {m_same_hr['mae']:.2f} | {m_same_hr['rmse']:.2f} | {m_same_hr['aqi_category_accuracy_pct']:.1f}% |",
+        (
+            f"| **Shwas ML (LightGBM)** | **{m_lgbm['mae']:.2f}** | "
+            f"**{m_lgbm['rmse']:.2f}** | **{m_lgbm['aqi_category_accuracy_pct']:.1f}%** |"
+        ),
+        (
+            f"| Baseline: Persistence (next = now) | {m_persist['mae']:.2f} | "
+            f"{m_persist['rmse']:.2f} | {m_persist['aqi_category_accuracy_pct']:.1f}% |"
+        ),
+        (
+            f"| Baseline: Same-Hour Yesterday | {m_same_hr['mae']:.2f} | "
+            f"{m_same_hr['rmse']:.2f} | {m_same_hr['aqi_category_accuracy_pct']:.1f}% |"
+        ),
         "",
         verdict,
         "",
@@ -281,7 +333,8 @@ def main() -> None:
     ]
     for r in bucket_rows:
         lines.append(
-            f"| {r['bucket']} | {r['lgbm_mae']:.2f} | {r['persistence_mae']:.2f} | {r['same_hour_mae']:.2f} | {r['winner']} |"
+            f"| {r['bucket']} | {r['lgbm_mae']:.2f} | {r['persistence_mae']:.2f} | "
+            f"{r['same_hour_mae']:.2f} | {r['winner']} |"
         )
 
     lines += [
@@ -321,14 +374,17 @@ def main() -> None:
         "aqiCategoryAccuracyPct": m_lgbm["aqi_category_accuracy_pct"],
         "persistenceMae": m_persist["mae"],
         "sameHourYesterdayMae": m_same_hr["mae"],
-        "evaluatedAt": datetime.now(timezone.utc).isoformat(),
+        "evaluatedAt": datetime.now(UTC).isoformat(),
     }
     FRONTEND_METRICS_JSON.write_text(json.dumps(frontend_summary, indent=2), encoding="utf-8")
 
     print(f"[evaluate] Wrote {metrics_md_path}, charts, and {FRONTEND_METRICS_JSON}")
-    print(f"[evaluate] LightGBM MAE={m_lgbm['mae']:.2f} | Persistence MAE={m_persist['mae']:.2f} | Same-Hr MAE={m_same_hr['mae']:.2f}")
+    print(
+        f"[evaluate] LightGBM MAE={m_lgbm['mae']:.2f} | "
+        f"Persistence MAE={m_persist['mae']:.2f} | "
+        f"Same-Hr MAE={m_same_hr['mae']:.2f}"
+    )
 
 
 if __name__ == "__main__":
     main()
-

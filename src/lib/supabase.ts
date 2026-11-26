@@ -6,9 +6,7 @@ const supabasePublishableKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY || 
 
 // Fallback dummy client if keys are not provided yet in the environment
 export const isSupabaseConfigured = Boolean(
-  supabaseUrl && 
-  supabasePublishableKey && 
-  supabasePublishableKey.length > 5
+  supabaseUrl && supabasePublishableKey && supabasePublishableKey.length > 5,
 );
 
 export const supabase: SupabaseClient = createClient(
@@ -20,7 +18,7 @@ export const supabase: SupabaseClient = createClient(
       autoRefreshToken: true,
       detectSessionInUrl: true,
     },
-  }
+  },
 );
 
 /**
@@ -34,7 +32,10 @@ export async function initAnonymousAuth() {
   }
 
   try {
-    const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+    const {
+      data: { session },
+      error: sessionError,
+    } = await supabase.auth.getSession();
     if (sessionError) {
       console.warn('[Shwas] Error fetching session:', sessionError.message);
     }
@@ -88,9 +89,7 @@ export async function upsertProfile(profile: UserProfile): Promise<boolean> {
       home: profile.home,
     };
 
-    const { error } = await supabase
-      .from('profiles')
-      .upsert(payload, { onConflict: 'id' });
+    const { error } = await supabase.from('profiles').upsert(payload, { onConflict: 'id' });
 
     if (error) {
       console.warn('[Shwas] Notice on profile upsert:', error.message);

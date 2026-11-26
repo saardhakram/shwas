@@ -60,7 +60,7 @@ export const CommunityPage: React.FC = () => {
   }, [userProfile?.family]);
 
   const [activeGroup, setActiveGroup] = useState<CommunityGroup | null>(() =>
-    getActiveCommunityGroup()
+    getActiveCommunityGroup(),
   );
   const [currentUserId, setCurrentUserId] = useState<string>('');
   const [members, setMembers] = useState<CommunityMember[]>([]);
@@ -122,13 +122,18 @@ export const CommunityPage: React.FC = () => {
       .channel(`community_${activeGroup.id}`)
       .on(
         'postgres_changes',
-        { event: '*', schema: 'public', table: 'daily_savings', filter: `group_id=eq.${activeGroup.id}` },
-        () => refreshSnapshot(activeGroup)
+        {
+          event: '*',
+          schema: 'public',
+          table: 'daily_savings',
+          filter: `group_id=eq.${activeGroup.id}`,
+        },
+        () => refreshSnapshot(activeGroup),
       )
       .on(
         'postgres_changes',
         { event: '*', schema: 'public', table: 'alerts', filter: `group_id=eq.${activeGroup.id}` },
-        () => refreshSnapshot(activeGroup)
+        () => refreshSnapshot(activeGroup),
       )
       .subscribe();
 
@@ -139,7 +144,7 @@ export const CommunityPage: React.FC = () => {
 
   const weeklyStats = useMemo(
     () => aggregateWeeklyCommunityStats(members, savings, new Date()),
-    [members, savings]
+    [members, savings],
   );
 
   // Today's saved cigarettes for the share card (user's own today saving, or group today sum if > 0)
@@ -152,7 +157,7 @@ export const CommunityPage: React.FC = () => {
 
   const shareText = useMemo(
     () => buildShareText(myTodaySaved, activeGroup?.name),
-    [myTodaySaved, activeGroup?.name]
+    [myTodaySaved, activeGroup?.name],
   );
 
   const handleCreateGroup = async (e: React.FormEvent) => {
@@ -218,7 +223,7 @@ export const CommunityPage: React.FC = () => {
         alertType,
         alertMessage,
         userProfile?.location?.lat,
-        userProfile?.location?.lon
+        userProfile?.location?.lon,
       );
       setAlerts((prev) => [saved, ...prev]);
       setAlertMessage('');
@@ -266,7 +271,11 @@ export const CommunityPage: React.FC = () => {
           const blob = await (await fetch(dataUrl)).blob();
           const file = new File([blob], 'shwas-day.png', { type: 'image/png' });
           if (navigator.canShare && navigator.canShare({ files: [file] })) {
-            await navigator.share({ title: 'Shwas — Clean Air Progress', text: shareText, files: [file] });
+            await navigator.share({
+              title: 'Shwas — Clean Air Progress',
+              text: shareText,
+              files: [file],
+            });
             setShareFeedback('Shared successfully!');
             return;
           }
@@ -276,7 +285,9 @@ export const CommunityPage: React.FC = () => {
         return;
       }
 
-      setShareFeedback('Web Share is not supported in this browser — use WhatsApp or Download below.');
+      setShareFeedback(
+        'Web Share is not supported in this browser — use WhatsApp or Download below.',
+      );
     } catch (err: any) {
       if (err?.name !== 'AbortError') {
         setShareFeedback('Use WhatsApp or Download PNG below to share.');
@@ -308,19 +319,22 @@ export const CommunityPage: React.FC = () => {
       <div className="space-y-4 animate-in fade-in duration-300 pb-8">
         <div className="flex items-center justify-between">
           <div>
-            <h2 className="text-base font-bold text-white">
-              {t('community.title', 'Community')}
-            </h2>
+            <h2 className="text-base font-bold text-white">{t('community.title', 'Community')}</h2>
             <p className="text-xs text-slate-400">
               {t('community.subtitle', 'Track clean air savings with your society or school')}
             </p>
           </div>
-          <Badge variant="mint" size="sm">Groups</Badge>
+          <Badge variant="mint" size="sm">
+            Groups
+          </Badge>
         </div>
 
         {/* Display Name input */}
         <GlassCard variant="subtle" className="p-3.5 space-y-1.5">
-          <label htmlFor="community-family-name" className="text-[11px] font-semibold text-slate-300 block">
+          <label
+            htmlFor="community-family-name"
+            className="text-[11px] font-semibold text-slate-300 block"
+          >
             Your Family Display Name
           </label>
           <input
@@ -335,7 +349,10 @@ export const CommunityPage: React.FC = () => {
         </GlassCard>
 
         {formError && (
-          <div role="alert" className="p-2.5 rounded-xl bg-amber-500/10 border border-amber-500/30 text-xs text-amber-200">
+          <div
+            role="alert"
+            className="p-2.5 rounded-xl bg-amber-500/10 border border-amber-500/30 text-xs text-amber-200"
+          >
             {formError}
           </div>
         )}
@@ -415,7 +432,8 @@ export const CommunityPage: React.FC = () => {
               <span>Preview Green Park Society</span>
             </div>
             <p className="text-[11px] text-slate-300 mt-0.5">
-              Explore a live leaderboard & local alerts feed (code <span className="font-mono text-teal-300">GRNPK6</span>).
+              Explore a live leaderboard & local alerts feed (code{' '}
+              <span className="font-mono text-teal-300">GRNPK6</span>).
             </p>
           </div>
           <button
@@ -476,7 +494,10 @@ export const CommunityPage: React.FC = () => {
       </div>
 
       {loadError && (
-        <div role="alert" className="p-2.5 rounded-xl bg-amber-500/10 border border-amber-500/30 text-xs text-amber-200">
+        <div
+          role="alert"
+          className="p-2.5 rounded-xl bg-amber-500/10 border border-amber-500/30 text-xs text-amber-200"
+        >
           {loadError}
         </div>
       )}
@@ -534,9 +555,7 @@ export const CommunityPage: React.FC = () => {
               <div
                 key={member.userId}
                 className={`flex items-center justify-between gap-2 p-2.5 rounded-xl border text-xs ${
-                  isMe
-                    ? 'bg-teal-500/15 border-teal-400/40'
-                    : 'bg-white/[0.04] border-white/[0.06]'
+                  isMe ? 'bg-teal-500/15 border-teal-400/40' : 'bg-white/[0.04] border-white/[0.06]'
                 }`}
               >
                 <div className="flex items-center gap-2.5 min-w-0">
@@ -595,7 +614,9 @@ export const CommunityPage: React.FC = () => {
           <button
             type="button"
             aria-expanded={showReportForm}
-            aria-label={showReportForm ? 'Close local alert form' : 'Report local smoke or dust alert'}
+            aria-label={
+              showReportForm ? 'Close local alert form' : 'Report local smoke or dust alert'
+            }
             onClick={() => setShowReportForm((v) => !v)}
             className="px-3 py-1 rounded-lg bg-amber-500/20 hover:bg-amber-500/30 border border-amber-400/40 text-amber-200 font-semibold text-[11px] flex items-center gap-1 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-400"
           >

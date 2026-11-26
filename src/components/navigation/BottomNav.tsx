@@ -1,13 +1,7 @@
 import React from 'react';
 import { NavLink } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import {
-  CalendarDays,
-  ScanEye,
-  Route,
-  Users2,
-  MessageSquareHeart,
-} from 'lucide-react';
+import { CalendarDays, ScanEye, Route, Users2, MessageSquareHeart } from 'lucide-react';
 
 export const BottomNav: React.FC = () => {
   const { t } = useTranslation();
@@ -54,9 +48,7 @@ export const BottomNav: React.FC = () => {
               to={item.to}
               className={({ isActive }) =>
                 `group relative flex flex-col items-center justify-center py-1 px-2.5 rounded-xl transition-all duration-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-teal-400 ${
-                  isActive
-                    ? 'text-teal-400 font-medium'
-                    : 'text-slate-400 hover:text-slate-200'
+                  isActive ? 'text-teal-400 font-medium' : 'text-slate-400 hover:text-slate-200'
                 }`
               }
             >
@@ -69,7 +61,10 @@ export const BottomNav: React.FC = () => {
                         : 'group-hover:bg-white/[0.04]'
                     }`}
                   >
-                    <Icon className="w-5 h-5 transition-transform duration-200 group-active:scale-90" aria-hidden="true" />
+                    <Icon
+                      className="w-5 h-5 transition-transform duration-200 group-active:scale-90"
+                      aria-hidden="true"
+                    />
                     {isActive && (
                       <span
                         aria-hidden="true"
@@ -77,9 +72,7 @@ export const BottomNav: React.FC = () => {
                       />
                     )}
                   </div>
-                  <span className="text-[10px] tracking-tight mt-1 leading-none">
-                    {item.label}
-                  </span>
+                  <span className="text-[10px] tracking-tight mt-1 leading-none">{item.label}</span>
                 </>
               )}
             </NavLink>

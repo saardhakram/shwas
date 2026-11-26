@@ -8,11 +8,7 @@
 
 import type { UserProfile, RawPlanItem } from '../types/index.js';
 import type { ForecastDataPoint } from '../shared/forecastWindow.js';
-import {
-  generateRuleBasedPlan,
-  parsePlanCache,
-  serializePlanCache,
-} from './planGenerator.js';
+import { generateRuleBasedPlan, parsePlanCache, serializePlanCache } from './planGenerator.js';
 
 export interface DailyPlanFetchResult {
   items: RawPlanItem[];
@@ -31,7 +27,7 @@ const completedRequests = new Map<string, DailyPlanFetchResult>();
 export function buildPlanDedupeKey(
   language: string,
   locationName: string,
-  dateStr: string = new Date().toISOString().slice(0, 10)
+  dateStr: string = new Date().toISOString().slice(0, 10),
 ): string {
   return `${dateStr}_${language || 'en'}_${locationName || 'city'}`;
 }
@@ -57,7 +53,7 @@ export interface FetchDailyPlanParams {
  * Returns null if profile or forecast is not ready yet.
  */
 export function requestDailyPlanOnce(
-  params: FetchDailyPlanParams
+  params: FetchDailyPlanParams,
 ): Promise<DailyPlanFetchResult> | null {
   const {
     profile,
@@ -77,7 +73,7 @@ export function requestDailyPlanOnce(
   const dedupeKey = buildPlanDedupeKey(
     profile.language || 'en',
     profile.location?.name || 'city',
-    dateStr
+    dateStr,
   );
   const cacheKey = `shwas_plan_${dedupeKey}`;
 

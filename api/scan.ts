@@ -57,18 +57,11 @@ const ALLOWED_SOURCE_IDS = new Set([
   'other',
 ]);
 
-const ALLOWED_ROOMS = new Set([
-  'kitchen',
-  'bedroom',
-  'living',
-  'balcony',
-  'outdoor',
-  'other',
-]);
+const ALLOWED_ROOMS = new Set(['kitchen', 'bedroom', 'living', 'balcony', 'outdoor', 'other']);
 
 export async function processScanRequest(
   body: ScanRequestBody,
-  apiKey?: string
+  apiKey?: string,
 ): Promise<ScanResponseBody> {
   const language = body.language || 'en';
 

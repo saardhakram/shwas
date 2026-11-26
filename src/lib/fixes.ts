@@ -73,7 +73,8 @@ export const FIXES_TABLE: Record<PollutionSourceId, FixDefinition> = {
     fixKey: 'fixes.incense.fix',
     defaultFix: 'Switch to reed diffusers or smokeless essential oils; ventilate during prayer.',
     whyKey: 'fixes.incense.why',
-    defaultWhy: 'A single incense stick emits particulate matter equivalent to several cigarettes in an enclosed room.',
+    defaultWhy:
+      'A single incense stick emits particulate matter equivalent to several cigarettes in an enclosed room.',
     reductionPercent: 35,
     category: 'routine',
   },
@@ -84,7 +85,8 @@ export const FIXES_TABLE: Record<PollutionSourceId, FixDefinition> = {
     fixKey: 'fixes.mosquito_coil.fix',
     defaultFix: 'Use window mosquito nets or liquid vaporizers instead of smoldering coils.',
     whyKey: 'fixes.mosquito_coil.why',
-    defaultWhy: 'Burning one mosquito coil overnight releases as much PM2.5 as 75 to 100 cigarettes.',
+    defaultWhy:
+      'Burning one mosquito coil overnight releases as much PM2.5 as 75 to 100 cigarettes.',
     reductionPercent: 45,
     category: 'routine',
   },
@@ -93,9 +95,11 @@ export const FIXES_TABLE: Record<PollutionSourceId, FixDefinition> = {
     labelKey: 'fixes.gas_stove_no_chimney.label',
     defaultLabel: 'Unvented Gas Stove',
     fixKey: 'fixes.gas_stove_no_chimney.fix',
-    defaultFix: 'Turn on kitchen exhaust fan while cooking, or open window with door to living room shut.',
+    defaultFix:
+      'Turn on kitchen exhaust fan while cooking, or open window with door to living room shut.',
     whyKey: 'fixes.gas_stove_no_chimney.why',
-    defaultWhy: 'Unvented LPG cooking creates sharp spikes of PM2.5 and NO2 that spread into bedrooms.',
+    defaultWhy:
+      'Unvented LPG cooking creates sharp spikes of PM2.5 and NO2 that spread into bedrooms.',
     reductionPercent: 30,
     category: 'ventilate',
   },
@@ -104,9 +108,11 @@ export const FIXES_TABLE: Record<PollutionSourceId, FixDefinition> = {
     labelKey: 'fixes.wood_or_coal_stove.label',
     defaultLabel: 'Solid Biomass / Chulha Smoke',
     fixKey: 'fixes.wood_or_coal_stove.fix',
-    defaultFix: 'Transition to an electric induction plate or cook in an open, well-ventilated veranda.',
+    defaultFix:
+      'Transition to an electric induction plate or cook in an open, well-ventilated veranda.',
     whyKey: 'fixes.wood_or_coal_stove.why',
-    defaultWhy: 'Solid fuel combustion produces extreme hazardous particulate concentrations exceeding 1,000 µg/m³.',
+    defaultWhy:
+      'Solid fuel combustion produces extreme hazardous particulate concentrations exceeding 1,000 µg/m³.',
     reductionPercent: 60,
     category: 'routine',
   },
@@ -115,9 +121,11 @@ export const FIXES_TABLE: Record<PollutionSourceId, FixDefinition> = {
     labelKey: 'fixes.open_window_road.label',
     defaultLabel: 'Road-Facing Open Windows',
     fixKey: 'fixes.open_window_road.fix',
-    defaultFix: 'Keep road-facing windows closed during morning (7–11 AM) and evening (6–10 PM) rush hours.',
+    defaultFix:
+      'Keep road-facing windows closed during morning (7–11 AM) and evening (6–10 PM) rush hours.',
     whyKey: 'fixes.open_window_road.why',
-    defaultWhy: 'Vehicular exhaust and resuspended tire dust flow directly into roadside living rooms.',
+    defaultWhy:
+      'Vehicular exhaust and resuspended tire dust flow directly into roadside living rooms.',
     reductionPercent: 25,
     category: 'seal',
   },
@@ -148,7 +156,8 @@ export const FIXES_TABLE: Record<PollutionSourceId, FixDefinition> = {
     labelKey: 'fixes.dust_carpet.label',
     defaultLabel: 'Dusty Carpet / Unswept Upholstery',
     fixKey: 'fixes.dust_carpet.fix',
-    defaultFix: 'Damp-mop hard floors and use a vacuum with HEPA filtration rather than dry sweeping.',
+    defaultFix:
+      'Damp-mop hard floors and use a vacuum with HEPA filtration rather than dry sweeping.',
     whyKey: 'fixes.dust_carpet.why',
     defaultWhy: 'Dry brooms stir settled fine dust back into the air where children inhale it.',
     reductionPercent: 15,
@@ -161,7 +170,8 @@ export const FIXES_TABLE: Record<PollutionSourceId, FixDefinition> = {
     fixKey: 'fixes.no_purifier.fix',
     defaultFix: 'Run an air purifier with a genuine True HEPA (H13) filter in the primary bedroom.',
     whyKey: 'fixes.no_purifier.why',
-    defaultWhy: 'HEPA filters trap 99.97% of fine particles, drastically cutting overnight exposure.',
+    defaultWhy:
+      'HEPA filters trap 99.97% of fine particles, drastically cutting overnight exposure.',
     reductionPercent: 55,
     category: 'purify',
   },
@@ -172,7 +182,8 @@ export const FIXES_TABLE: Record<PollutionSourceId, FixDefinition> = {
     fixKey: 'fixes.cooler_no_filter.fix',
     defaultFix: 'Add a dust pre-filter mesh on air intake pads and clean cooler tank weekly.',
     whyKey: 'fixes.cooler_no_filter.why',
-    defaultWhy: 'Evaporative coolers suck in dirty ambient air directly without particulate filtration.',
+    defaultWhy:
+      'Evaporative coolers suck in dirty ambient air directly without particulate filtration.',
     reductionPercent: 20,
     category: 'seal',
   },
@@ -181,9 +192,11 @@ export const FIXES_TABLE: Record<PollutionSourceId, FixDefinition> = {
     labelKey: 'fixes.burning_waste.label',
     defaultLabel: 'Nearby Leaf / Waste Burning Plume',
     fixKey: 'fixes.burning_waste.fix',
-    defaultFix: 'Close all balcony doors immediately, seal gaps with wet towels, and report via 311 / municipal app.',
+    defaultFix:
+      'Close all balcony doors immediately, seal gaps with wet towels, and report via 311 / municipal app.',
     whyKey: 'fixes.burning_waste.why',
-    defaultWhy: 'Plastic and garbage smoke contains toxic dioxins, furans, and dense toxic particulates.',
+    defaultWhy:
+      'Plastic and garbage smoke contains toxic dioxins, furans, and dense toxic particulates.',
     reductionPercent: 40,
     category: 'seal',
   },
@@ -194,7 +207,8 @@ export const FIXES_TABLE: Record<PollutionSourceId, FixDefinition> = {
     fixKey: 'fixes.construction_dust.fix',
     defaultFix: 'Apply foam weatherstripping to exterior doors and keep balconies washed down.',
     whyKey: 'fixes.construction_dust.why',
-    defaultWhy: 'Silica and cement dust particles cause immediate airway inflammation and coughing.',
+    defaultWhy:
+      'Silica and cement dust particles cause immediate airway inflammation and coughing.',
     reductionPercent: 25,
     category: 'seal',
   },
@@ -203,9 +217,11 @@ export const FIXES_TABLE: Record<PollutionSourceId, FixDefinition> = {
     labelKey: 'fixes.other.label',
     defaultLabel: 'Unidentified Air Quality Concern',
     fixKey: 'fixes.other.fix',
-    defaultFix: 'Improve cross-ventilation during clean afternoon air windows and keep doors sealed during smog hours.',
+    defaultFix:
+      'Improve cross-ventilation during clean afternoon air windows and keep doors sealed during smog hours.',
     whyKey: 'fixes.other.why',
-    defaultWhy: 'Any localized particulate buildup degrades indoor breathing air over extended hours.',
+    defaultWhy:
+      'Any localized particulate buildup degrades indoor breathing air over extended hours.',
     reductionPercent: 15,
     category: 'ventilate',
   },
@@ -252,10 +268,9 @@ export function computeFixImpact(
   source: DetectedSource,
   outdoorPm25: number,
   home?: ProfileHome | null,
-  indoorHours = 14
+  indoorHours = 14,
 ): ComputedFix {
-  const normalizedId: PollutionSourceId =
-    source.id in FIXES_TABLE ? source.id : 'other';
+  const normalizedId: PollutionSourceId = source.id in FIXES_TABLE ? source.id : 'other';
   const def = FIXES_TABLE[normalizedId];
 
   const effectiveHome: ProfileHome = home || {
@@ -305,14 +320,15 @@ export function computeFixImpact(
 export function computeScanResults(
   sources: DetectedSource[],
   outdoorPm25: number,
-  profile?: UserProfile | null
+  profile?: UserProfile | null,
 ): {
   fixes: ComputedFix[];
   totalCigarettesSaved: number;
 } {
   const home = profile?.home || null;
   // Use self routine indoor hours if available (24 - outside - away) or default to 14
-  const selfMember = profile?.family?.find((m) => m.id === 'me' || m.relation === 'self') || profile?.family?.[0];
+  const selfMember =
+    profile?.family?.find((m) => m.id === 'me' || m.relation === 'self') || profile?.family?.[0];
   const indoorHours = selfMember
     ? Math.max(4, 24 - (selfMember.routine.hoursOutside + selfMember.routine.hoursAway))
     : 14;
@@ -332,7 +348,9 @@ export function computeScanResults(
   const cleanTargetCigs = (15 * indoorHours) / 528;
   const maxPossibleSaving = savingFromAction(baselineIndoorCigs, cleanTargetCigs);
   const totalCigarettesSaved = Number(
-    Math.min(rawTotalSavings, maxPossibleSaving > 0 ? maxPossibleSaving : rawTotalSavings).toFixed(1)
+    Math.min(rawTotalSavings, maxPossibleSaving > 0 ? maxPossibleSaving : rawTotalSavings).toFixed(
+      1,
+    ),
   );
 
   return {

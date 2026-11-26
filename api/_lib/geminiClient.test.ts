@@ -127,7 +127,7 @@ describe('api/_lib/geminiClient.ts (Gemini resilient retry & fallback)', () => {
         prompt: 'test',
         primaryModel: 'gemini-3.5-flash',
         fallbackModel: 'gemini-3.1-flash-lite',
-      })
+      }),
     ).rejects.toThrow('All Gemini attempts failed');
 
     expect(callCount).toBe(3);

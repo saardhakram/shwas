@@ -1,10 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import {
-  FIXES_TABLE,
-  computeFixImpact,
-  computeScanResults,
-  DetectedSource,
-} from './fixes';
+import { FIXES_TABLE, computeFixImpact, computeScanResults, DetectedSource } from './fixes';
 import { UserProfile } from '../types';
 
 describe('fixes.ts (Shwas Scan Fixes & Cigarette Impact Engine)', () => {
@@ -49,7 +44,7 @@ describe('fixes.ts (Shwas Scan Fixes & Cigarette Impact Engine)', () => {
         commuteMode: 'metro',
         windowsShut: true,
       },
-      14 // 14 hours at home
+      14, // 14 hours at home
     );
 
     expect(impact.id).toBe('mosquito_coil');

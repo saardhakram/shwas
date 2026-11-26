@@ -13,7 +13,7 @@ describe('Daily Air Plan Generator Engine', () => {
   const sampleProfile: UserProfile = {
     id: 'test-user',
     language: 'en',
-    location: { lat: 28.6139, lon: 77.2090, name: 'Delhi NCR' },
+    location: { lat: 28.6139, lon: 77.209, name: 'Delhi NCR' },
     family: [
       {
         id: 'me',
@@ -103,9 +103,7 @@ describe('Daily Air Plan Generator Engine', () => {
     const maxAllowedSavings = Math.floor(heroCigarettes * 0.7 * 10 + 1e-9) / 10; // 0.8
     const enriched = buildEnrichedPlan(items, {}, heroCigarettes);
 
-    const totalSaved = Number(
-      enriched.reduce((sum, it) => sum + it.cigarettesSaved, 0).toFixed(1)
-    );
+    const totalSaved = Number(enriched.reduce((sum, it) => sum + it.cigarettesSaved, 0).toFixed(1));
     expect(totalSaved).toBeLessThanOrEqual(maxAllowedSavings);
     expect(totalSaved).toBeLessThanOrEqual(heroCigarettes * 0.7);
   });
@@ -116,9 +114,7 @@ describe('Daily Air Plan Generator Engine', () => {
 
     const hero = 0.9;
     const enriched = buildEnrichedPlan(rawPlan, {}, hero);
-    const totalSaved = Number(
-      enriched.reduce((sum, it) => sum + it.cigarettesSaved, 0).toFixed(1)
-    );
+    const totalSaved = Number(enriched.reduce((sum, it) => sum + it.cigarettesSaved, 0).toFixed(1));
     const target = Number((hero - totalSaved).toFixed(1));
 
     // 70% of 0.9 is 0.63 -> floored to 1 decimal place is 0.6
@@ -131,7 +127,7 @@ describe('Daily Air Plan Generator Engine', () => {
     const overnightPurifier = enriched[6];
     const shortVentilate = enriched[2];
     expect(overnightPurifier.cigarettesSaved).toBeGreaterThanOrEqual(
-      shortVentilate.cigarettesSaved
+      shortVentilate.cigarettesSaved,
     );
   });
 
@@ -141,7 +137,7 @@ describe('Daily Air Plan Generator Engine', () => {
     // Very clean day / low-exposure member (hero = 0.4 -> 70% = 0.28 -> max 0.2)
     const lowEnriched = buildEnrichedPlan(rawPlan, {}, 0.4);
     const lowTotal = Number(
-      lowEnriched.reduce((sum, it) => sum + it.cigarettesSaved, 0).toFixed(1)
+      lowEnriched.reduce((sum, it) => sum + it.cigarettesSaved, 0).toFixed(1),
     );
     expect(lowTotal).toBeLessThanOrEqual(0.4 * 0.7);
     expect(lowTotal).toBe(0.2);
@@ -195,8 +191,8 @@ describe('Daily Air Plan Generator Engine', () => {
     const severeForecast = Array.from({ length: 24 }, (_, i) => ({
       isoTime: new Date(now + i * 3600 * 1000).toISOString(),
       timestamp: now + i * 3600 * 1000,
-      time: `${(i % 12) || 12} ${i < 12 ? 'AM' : 'PM'}`,
-      fullTime: `${(i % 12) || 12}:00 ${i < 12 ? 'AM' : 'PM'}`,
+      time: `${i % 12 || 12} ${i < 12 ? 'AM' : 'PM'}`,
+      fullTime: `${i % 12 || 12}:00 ${i < 12 ? 'AM' : 'PM'}`,
       hour: i,
       day: 'Today',
       pm25: 260,
@@ -211,20 +207,32 @@ describe('Daily Air Plan Generator Engine', () => {
     }
 
     const enriched = buildEnrichedPlan(offlineItems, {}, 0.9);
-    const totalSaved = Number(
-      enriched.reduce((sum, it) => sum + it.cigarettesSaved, 0).toFixed(1)
-    );
+    const totalSaved = Number(enriched.reduce((sum, it) => sum + it.cigarettesSaved, 0).toFixed(1));
     expect(totalSaved).toBeGreaterThan(0);
     expect(Number((0.9 - totalSaved).toFixed(1))).toBeLessThan(0.9);
 
     // 2. Even if cached/API items have equal or missing before/after PM2.5, savings are still > 0 for hero = 0.9
     const zeroDeltaItems: RawPlanItem[] = [
-      { time: '8:00 AM', action: 'Shut windows', reason: 'Peak', category: 'seal', before_pm25: 100, after_pm25: 100 },
-      { time: '2:00 PM', action: 'Air room', reason: 'Window', category: 'ventilate', before_pm25: 100, after_pm25: 100 },
+      {
+        time: '8:00 AM',
+        action: 'Shut windows',
+        reason: 'Peak',
+        category: 'seal',
+        before_pm25: 100,
+        after_pm25: 100,
+      },
+      {
+        time: '2:00 PM',
+        action: 'Air room',
+        reason: 'Window',
+        category: 'ventilate',
+        before_pm25: 100,
+        after_pm25: 100,
+      },
     ];
     const fallbackEnriched = buildEnrichedPlan(zeroDeltaItems, {}, 0.9);
     const fallbackSaved = Number(
-      fallbackEnriched.reduce((sum, it) => sum + it.cigarettesSaved, 0).toFixed(1)
+      fallbackEnriched.reduce((sum, it) => sum + it.cigarettesSaved, 0).toFixed(1),
     );
     expect(fallbackSaved).toBe(0.6);
     expect(fallbackSaved).toBeLessThanOrEqual(0.9 * 0.7);
@@ -242,22 +250,22 @@ describe('Daily Air Plan Generator Engine', () => {
           sampleProfile.home,
           memberId,
           rawPlan,
-          {}
+          {},
         );
 
         // When no items are checked, hero display MUST equal pill start (heroCigarettes)
         expect(summary.currentCigarettes).toBe(summary.heroCigarettes);
         // Pill math MUST be exact to 1 decimal place: hero - badgeSavings === target
-        expect(
-          Number((summary.heroCigarettes - summary.totalPotentialSavings).toFixed(1))
-        ).toBe(summary.targetCigarettes);
+        expect(Number((summary.heroCigarettes - summary.totalPotentialSavings).toFixed(1))).toBe(
+          summary.targetCigarettes,
+        );
         // Badge savings must respect the 70% cap of the same heroCigarettes base
         expect(summary.totalPotentialSavings).toBeLessThanOrEqual(
-          Number((summary.heroCigarettes * 0.7 + 1e-9).toFixed(2))
+          Number((summary.heroCigarettes * 0.7 + 1e-9).toFixed(2)),
         );
         // Sum of item badges must equal totalPotentialSavings
         const itemSum = Number(
-          summary.planItems.reduce((s, it) => s + it.cigarettesSaved, 0).toFixed(1)
+          summary.planItems.reduce((s, it) => s + it.cigarettesSaved, 0).toFixed(1),
         );
         expect(itemSum).toBe(summary.totalPotentialSavings);
       }
@@ -270,11 +278,15 @@ describe('Daily Air Plan Generator Engine', () => {
       sampleProfile.home,
       'all',
       rawPlan,
-      { plan_1: true }
+      { plan_1: true },
     );
     expect(checked.checkedSavings).toBe(checked.planItems[0].cigarettesSaved);
     expect(checked.currentCigarettes).toBe(
-      Number(Math.max(checked.targetCigarettes, checked.heroCigarettes - checked.checkedSavings).toFixed(1))
+      Number(
+        Math.max(checked.targetCigarettes, checked.heroCigarettes - checked.checkedSavings).toFixed(
+          1,
+        ),
+      ),
     );
   });
 });

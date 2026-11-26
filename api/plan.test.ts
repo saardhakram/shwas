@@ -6,7 +6,7 @@ describe('Serverless Plan API (/api/plan)', () => {
   const profile: UserProfile = {
     id: 'test-user',
     language: 'en',
-    location: { lat: 28.6139, lon: 77.2090, name: 'Delhi NCR' },
+    location: { lat: 28.6139, lon: 77.209, name: 'Delhi NCR' },
     family: [
       {
         id: 'me',
@@ -129,7 +129,7 @@ describe('Serverless Plan API (/api/plan)', () => {
 
     // 1. Model in URL should be gemini-3.5-flash
     expect(capturedUrl).toBe(
-      'https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash:generateContent'
+      'https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash:generateContent',
     );
     // 2. Key must not be in URL
     expect(capturedUrl).not.toContain('key=');
@@ -162,11 +162,46 @@ describe('Serverless Plan API (/api/plan)', () => {
                 parts: [
                   {
                     text: JSON.stringify([
-                      { time: '1', action: 'a', reason: 'r', category: 's', before_pm25: 200, after_pm25: 100 },
-                      { time: '2', action: 'a', reason: 'r', category: 's', before_pm25: 200, after_pm25: 100 },
-                      { time: '3', action: 'a', reason: 'r', category: 's', before_pm25: 200, after_pm25: 100 },
-                      { time: '4', action: 'a', reason: 'r', category: 's', before_pm25: 200, after_pm25: 100 },
-                      { time: '5', action: 'a', reason: 'r', category: 's', before_pm25: 200, after_pm25: 100 },
+                      {
+                        time: '1',
+                        action: 'a',
+                        reason: 'r',
+                        category: 's',
+                        before_pm25: 200,
+                        after_pm25: 100,
+                      },
+                      {
+                        time: '2',
+                        action: 'a',
+                        reason: 'r',
+                        category: 's',
+                        before_pm25: 200,
+                        after_pm25: 100,
+                      },
+                      {
+                        time: '3',
+                        action: 'a',
+                        reason: 'r',
+                        category: 's',
+                        before_pm25: 200,
+                        after_pm25: 100,
+                      },
+                      {
+                        time: '4',
+                        action: 'a',
+                        reason: 'r',
+                        category: 's',
+                        before_pm25: 200,
+                        after_pm25: 100,
+                      },
+                      {
+                        time: '5',
+                        action: 'a',
+                        reason: 'r',
+                        category: 's',
+                        before_pm25: 200,
+                        after_pm25: 100,
+                      },
                     ]),
                   },
                 ],
@@ -179,7 +214,7 @@ describe('Serverless Plan API (/api/plan)', () => {
 
     await processPlanRequest({ profile }, 'test_key');
     expect(capturedUrl).toBe(
-      'https://generativelanguage.googleapis.com/v1beta/models/gemini-custom-model:generateContent'
+      'https://generativelanguage.googleapis.com/v1beta/models/gemini-custom-model:generateContent',
     );
   });
 

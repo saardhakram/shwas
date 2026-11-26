@@ -15,7 +15,7 @@ import argparse
 import email.utils
 import os
 import time
-from datetime import date, datetime, timedelta
+from datetime import date, timedelta
 from pathlib import Path
 
 import pandas as pd
@@ -39,7 +39,7 @@ WEATHER_VARS = [
 
 
 def detect_server_today() -> date:
-    """Detects real UTC date from Open-Meteo HTTP Date header so local clock skew never breaks queries."""
+    """Detects real UTC date from Open-Meteo HTTP Date header to avoid local clock skew."""
     try:
         resp = requests.get(
             OPEN_METEO_AQ_URL,
@@ -146,7 +146,8 @@ def fetch_openaq_pm25(
 
         if len(rows) < 24 * 180:
             print(
-                f"[collect] OpenAQ returned only {len(rows)} rows for {station.name}; falling back to Open-Meteo."
+                f"[collect] OpenAQ returned only {len(rows)} rows for {station.name}; "
+                "falling back to Open-Meteo."
             )
             return None
 
@@ -223,7 +224,8 @@ def fetch_open_meteo_weather(station: StationConfig, start: date, end: date) -> 
                 continue
         except Exception as exc:
             print(
-                f"[collect] Historical-forecast API chunk {c_start}..{c_end} failed ({exc}); using archive API."
+                f"[collect] Historical-forecast API chunk {c_start}..{c_end} failed ({exc}); "
+                "using archive API."
             )
 
         # Fallback to ERA5 Archive API (without boundary_layer_height if unsupported)
@@ -266,10 +268,12 @@ def collect_all(years: float = 2.5, force: bool = False) -> list[Path]:
     start_date = end_date - timedelta(days=int(round(years * 365)))
     openaq_key = os.getenv("OPENAQ_API_KEY", "").strip()
 
+    pm25_source_label = (
+        "OpenAQ v3 -> Open-Meteo fallback" if openaq_key else "Open-Meteo Air Quality Historical"
+    )
     print(
         f"[collect] Collecting {years:.1f} years ({start_date} -> {end_date}) "
-        f"for {len(DELHI_STATIONS)} Delhi locations "
-        f"(PM2.5 source: {'OpenAQ v3 -> Open-Meteo fallback' if openaq_key else 'Open-Meteo Air Quality Historical'})"
+        f"for {len(DELHI_STATIONS)} Delhi locations (PM2.5 source: {pm25_source_label})"
     )
 
     saved_paths: list[Path] = []
@@ -318,4 +322,3 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
-

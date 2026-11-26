@@ -2,8 +2,8 @@
 
 from __future__ import annotations
 
+from collections.abc import Iterable
 from datetime import timedelta
-from typing import Iterable
 
 import numpy as np
 import pandas as pd
@@ -97,7 +97,7 @@ def pm25_to_aqi_category(pm25: np.ndarray | pd.Series | float) -> np.ndarray | s
     labels = ["Good", "Moderate", "Poor", "Very Poor", "Severe", "Hazardous"]
     if np.isscalar(pm25):
         val = float(pm25)
-        for upper, label in zip(bins[1:], labels):
+        for upper, label in zip(bins[1:], labels, strict=True):
             if val <= upper:
                 return label
         return "Hazardous"
@@ -127,7 +127,7 @@ def clean_station_df(df: pd.DataFrame) -> pd.DataFrame:
     """Cleans raw hourly station dataframe:
     1. Parse timestamps into IST timezone and resample to strict 1-hour grid.
     2. Drop sensor errors: negative PM2.5, PM2.5 > 999, and flat-lines longer than 6h.
-    3. Interpolate gaps up to 3h; leave longer gaps as NaN (dropped later during supervised framing).
+    3. Interpolate gaps up to 3h; leave longer gaps as NaN (dropped later during framing).
     """
     out = df.copy()
     ts = pd.to_datetime(out["timestamp"], utc=True, errors="coerce")
@@ -158,7 +158,7 @@ def clean_station_df(df: pd.DataFrame) -> pd.DataFrame:
     pm_interp[is_na & (na_run_len > 3)] = np.nan
     hourly["pm25"] = pm_interp
 
-    # Weather columns: interpolate short gaps up to 6h, fill missing BLH with diurnal median if absent
+    # Weather: interpolate gaps up to 6h, fill missing BLH with diurnal median if absent
     for col in WEATHER_COLS:
         if col not in hourly.columns:
             hourly[col] = np.nan
@@ -178,7 +178,9 @@ def clean_station_df(df: pd.DataFrame) -> pd.DataFrame:
 
     for col in WEATHER_COLS:
         if hourly[col].isna().any():
-            hourly[col] = hourly[col].fillna(hourly[col].median() if hourly[col].notna().any() else 0.0)
+            hourly[col] = hourly[col].fillna(
+                hourly[col].median() if hourly[col].notna().any() else 0.0
+            )
 
     hourly = hourly.reset_index()
     for col, val in meta_vals.items():
@@ -207,16 +209,13 @@ def add_origin_features(hourly_df: pd.DataFrame, location_idx: int = 0) -> pd.Da
     df["pm25_diff_24h"] = pm - df["pm25_lag_24"]
 
     ts = pd.to_datetime(df["timestamp"])
-    if ts.dt.tz is None:
-        ts = ts.dt.tz_localize(IST_TZ)
-    else:
-        ts = ts.dt.tz_convert(IST_TZ)
+    ts = ts.dt.tz_localize(IST_TZ) if ts.dt.tz is None else ts.dt.tz_convert(IST_TZ)
     df["timestamp"] = ts
 
     df["origin_hour"] = ts.dt.hour
     df["origin_hour_sin"] = np.sin(2 * np.pi * df["origin_hour"] / 24.0)
     df["origin_hour_cos"] = np.cos(2 * np.pi * df["origin_hour"] / 24.0)
-    df["origin_weekday"] = ts.dt.weekday
+    df["origin_weekday"] = ts.dt.day_of_week
     df["origin_month"] = ts.dt.month
     df["origin_is_weekend"] = (df["origin_weekday"] >= 5).astype(int)
     df["origin_is_diwali"] = ts.dt.date.isin(_DIWALI_WINDOW).astype(int)
@@ -342,7 +341,7 @@ def build_inference_features(
     location_idx: int,
     horizons: Iterable[int] = HORIZONS,
 ) -> pd.DataFrame:
-    """Builds the 48-row feature DataFrame for live inference from recent history + 48h weather forecast."""
+    """Builds the 48-row live inference feature DataFrame from history + 48h weather forecast."""
     hist = add_origin_features(history_hourly, location_idx=location_idx)
     valid_hist = hist.dropna(subset=["pm25_now", "pm25_lag_24"])
     if valid_hist.empty:
@@ -355,10 +354,7 @@ def build_inference_features(
 
     wx = future_weather.copy()
     wx_ts = pd.to_datetime(wx["timestamp"])
-    if wx_ts.dt.tz is None:
-        wx_ts = wx_ts.dt.tz_localize(IST_TZ)
-    else:
-        wx_ts = wx_ts.dt.tz_convert(IST_TZ)
+    wx_ts = wx_ts.dt.tz_localize(IST_TZ) if wx_ts.dt.tz is None else wx_ts.dt.tz_convert(IST_TZ)
     wx["timestamp"] = wx_ts
     wx = wx.set_index("timestamp").sort_index()
 
@@ -509,4 +505,3 @@ def time_split(
     val = df[(df["origin_time"] >= t_val_start) & (df["origin_time"] <= t_val_end)].copy()
     test = df[df["origin_time"] >= t_test_start].copy()
     return train, val, test
-

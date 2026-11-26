@@ -11,11 +11,7 @@
 
 import { isSupabaseConfigured, supabase } from './supabase.js';
 import mlMetrics from '../data/mlMetrics.json';
-import {
-  formatHourShort,
-  formatHourFull,
-  computeBestWindow,
-} from '../shared/forecastWindow.js';
+import { formatHourShort, formatHourFull, computeBestWindow } from '../shared/forecastWindow.js';
 import type { ForecastDataPoint, BestAirWindow } from '../shared/forecastWindow.js';
 
 export { formatHourShort, formatHourFull, computeBestWindow };
@@ -57,7 +53,7 @@ export interface ForecastResult {
  */
 export function formatForecastUpdatedAgo(
   generatedAtIso?: string | null,
-  now: Date = new Date()
+  now: Date = new Date(),
 ): string {
   if (!generatedAtIso) return '';
   const ts = new Date(generatedAtIso).getTime();
@@ -76,7 +72,7 @@ export function formatForecastUpdatedAgo(
  */
 export async function fetchOpenMeteoForecast(
   latitude = 28.6139,
-  longitude = 77.2090
+  longitude = 77.209,
 ): Promise<ForecastResult> {
   const url = `https://air-quality-api.open-meteo.com/v1/air-quality?latitude=${latitude}&longitude=${longitude}&hourly=pm2_5,us_aqi&timezone=auto&forecast_days=3`;
 
@@ -187,7 +183,7 @@ export function resolveMlForecastFromRows(
   latitude: number,
   longitude: number,
   now: Date = new Date(),
-  defaultMae: number = mlMetrics.mae
+  defaultMae: number = mlMetrics.mae,
 ): ForecastResult | null {
   if (!Array.isArray(rows) || rows.length === 0) return null;
 
@@ -218,7 +214,7 @@ export function resolveMlForecastFromRows(
 
   // Check freshness (< 3 hours old)
   const latestGenMs = Math.max(
-    ...nearestRows.map((r) => new Date(r.generated_at).getTime()).filter((t) => !isNaN(t))
+    ...nearestRows.map((r) => new Date(r.generated_at).getTime()).filter((t) => !isNaN(t)),
   );
   if (!isFinite(latestGenMs)) return null;
 
@@ -292,12 +288,12 @@ export function resolveMlForecastFromRows(
  */
 export async function fetchSmartForecast(
   latitude = 28.6139,
-  longitude = 77.2090,
+  longitude = 77.209,
   deps?: {
     loadSupabaseRows?: () => Promise<SupabaseForecastRow[] | null>;
     fallbackFetch?: (lat: number, lon: number) => Promise<ForecastResult>;
     now?: Date;
-  }
+  },
 ): Promise<ForecastResult> {
   const now = deps?.now ?? new Date();
   const fallbackFn = deps?.fallbackFetch ?? fetchOpenMeteoForecast;
@@ -310,7 +306,7 @@ export async function fetchSmartForecast(
       const { data, error } = await supabase
         .from('forecasts')
         .select(
-          'location_id,location_name,lat,lon,generated_at,target_time,horizon_hour,predicted_pm25,predicted_us_aqi,model_version,model_mae'
+          'location_id,location_name,lat,lon,generated_at,target_time,horizon_hour,predicted_pm25,predicted_us_aqi,model_version,model_mae',
         )
         .order('horizon_hour', { ascending: true });
 
@@ -343,18 +339,36 @@ export function getOfflineFallbackForecast(): ForecastResult {
 
   // Typical diurnal PM2.5 and EPA US AQI points
   const diurnalPm25 = [
-    260, 275, 290, 310, 330, 345, // 00:00 - 05:00
-    355, 360, 340, 290, 230, 180, // 06:00 - 11:00
-    150, 130, 120, 125, 140, 180, // 12:00 - 17:00
-    220, 260, 290, 305, 295, 275, // 18:00 - 23:00
+    260,
+    275,
+    290,
+    310,
+    330,
+    345, // 00:00 - 05:00
+    355,
+    360,
+    340,
+    290,
+    230,
+    180, // 06:00 - 11:00
+    150,
+    130,
+    120,
+    125,
+    140,
+    180, // 12:00 - 17:00
+    220,
+    260,
+    290,
+    305,
+    295,
+    275, // 18:00 - 23:00
   ];
 
   // EPA breakpoint standard US AQI values for corresponding PM2.5 levels
   const diurnalUsAqi = [
-    310, 325, 340, 360, 380, 395,
-    405, 410, 390, 340, 280, 230,
-    200, 180, 170, 175, 190, 230,
-    270, 310, 340, 355, 345, 325,
+    310, 325, 340, 360, 380, 395, 405, 410, 390, 340, 280, 230, 200, 180, 170, 175, 190, 230, 270,
+    310, 340, 355, 345, 325,
   ];
 
   for (let i = 0; i < 48; i++) {

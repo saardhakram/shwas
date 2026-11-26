@@ -30,7 +30,7 @@ describe('Open-Meteo & Best Air Window Engine', () => {
       // Make 2 PM today very low (e.g. 50 µg/m³) to test that it is NOT chosen if evaluated at 10 PM
       let pm25 = 200;
       if (!isTomorrow && (hour === 14 || hour === 15)) pm25 = 40; // Past 2 PM today
-      if (isTomorrow && (hour === 14 || hour === 15)) pm25 = 60;  // Upcoming 2 PM tomorrow
+      if (isTomorrow && (hour === 14 || hour === 15)) pm25 = 60; // Upcoming 2 PM tomorrow
 
       points.push({
         isoTime: ptDate.toISOString(),
@@ -102,7 +102,7 @@ describe('Open-Meteo & Best Air Window Engine', () => {
       lon: number,
       generatedAt: Date,
       basePm25 = 160,
-      modelMae = 21.4
+      modelMae = 21.4,
     ): SupabaseForecastRow[] => {
       return Array.from({ length: 48 }, (_, i) => {
         const target = new Date(generatedAt.getTime() + (i + 1) * 3600 * 1000);
@@ -126,7 +126,7 @@ describe('Open-Meteo & Best Air Window Engine', () => {
       const now = new Date('2026-11-26T10:00:00Z');
       const freshGen = new Date(now.getTime() - 4 * 3600 * 1000); // 4 hours old (< 6h)
       const rows = [
-        ...makeRows('delhi_anand_vihar', 28.6469, 77.3160, freshGen, 220, 19.6),
+        ...makeRows('delhi_anand_vihar', 28.6469, 77.316, freshGen, 220, 19.6),
         ...makeRows('delhi_ito', 28.6289, 77.2405, freshGen, 155, 19.6),
       ];
 
@@ -153,7 +153,12 @@ describe('Open-Meteo & Best Air Window Engine', () => {
       const staleGen = new Date(now.getTime() - 7 * 3600 * 1000); // 7 hours old (>= 6h)
       const rows = makeRows('delhi_ito', 28.6289, 77.2405, staleGen);
 
-      const openMeteoResult = { ...getOfflineFallbackForecast(), isSampleData: false, sourceLabel: 'Open-Meteo Live API', isMlForecast: false };
+      const openMeteoResult = {
+        ...getOfflineFallbackForecast(),
+        isSampleData: false,
+        sourceLabel: 'Open-Meteo Live API',
+        isMlForecast: false,
+      };
       const fallbackSpy = vi.fn().mockResolvedValue(openMeteoResult);
 
       const res = await fetchSmartForecast(28.6289, 77.2405, {

@@ -17,11 +17,7 @@ const RootRedirect: React.FC = () => {
   const profileRaw = localStorage.getItem('shwas_profile');
   const hasProfile = Boolean(profileRaw);
 
-  return hasProfile ? (
-    <Navigate to="/today" replace />
-  ) : (
-    <Navigate to="/onboarding" replace />
-  );
+  return hasProfile ? <Navigate to="/today" replace /> : <Navigate to="/onboarding" replace />;
 };
 
 export const App: React.FC = () => {

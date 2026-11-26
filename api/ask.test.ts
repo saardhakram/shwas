@@ -131,7 +131,7 @@ describe('Serverless Ask Shwas API (/api/ask)', () => {
           },
         ],
       },
-      'mock-gemini-key'
+      'mock-gemini-key',
     );
 
     expect(capturedHeaders['x-goog-api-key']).toBe('mock-gemini-key');
@@ -174,7 +174,7 @@ describe('Serverless Ask Shwas API (/api/ask)', () => {
     for (let i = 0; i < DAILY_QUESTION_LIMIT; i++) {
       const r = await processAskRequest(
         { question: `Question ${i + 1}`, userId: 'limit-user', profile: sampleProfile },
-        'mock-key'
+        'mock-key',
       );
       expect(r.source).toBe('gemini');
       expect(r.remainingToday).toBe(DAILY_QUESTION_LIMIT - (i + 1));
@@ -185,7 +185,7 @@ describe('Serverless Ask Shwas API (/api/ask)', () => {
     // 21st question must be blocked immediately
     const blocked = await processAskRequest(
       { question: 'Question 21', userId: 'limit-user', profile: sampleProfile },
-      'mock-key'
+      'mock-key',
     );
     expect(blocked.source).toBe('rate_limited');
     expect(blocked.error).toBe('daily_limit_reached');
@@ -202,7 +202,7 @@ describe('Serverless Ask Shwas API (/api/ask)', () => {
 
     const res = await processAskRequest(
       { question: 'Best mask for kids?', userId: 'user-err', profile: sampleProfile },
-      'bad-key'
+      'bad-key',
     );
 
     expect(res.source).toBe('offline');

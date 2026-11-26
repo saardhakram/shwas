@@ -59,7 +59,7 @@ export const AppLayout: React.FC = () => {
   const [pm25, setPm25] = useState<number>(180);
   const [userProfile, setUserProfile] = useState<UserProfile | null>(() => readStoredProfile());
   const [cityName, setCityName] = useState<string>(
-    () => readStoredProfile()?.location?.name || 'Delhi NCR'
+    () => readStoredProfile()?.location?.name || 'Delhi NCR',
   );
   const [selectedFamilyId, setSelectedFamilyId] = useState<string>('all');
   const [isProfileReady, setIsProfileReady] = useState<boolean>(true);
@@ -163,8 +163,18 @@ export const AppLayout: React.FC = () => {
     } else {
       list.push(
         { id: 'me', name: t('family.me', 'Me (32)') },
-        { id: 'grandpa', name: t('family.grandpa', 'Grandpa (72)'), tag: t('family.seniorTag', 'Senior'), tagType: 'senior' },
-        { id: 'child', name: t('family.child', 'Aarav (8)'), tag: t('family.asthmaTag', 'Asthma'), tagType: 'asthma' }
+        {
+          id: 'grandpa',
+          name: t('family.grandpa', 'Grandpa (72)'),
+          tag: t('family.seniorTag', 'Senior'),
+          tagType: 'senior',
+        },
+        {
+          id: 'child',
+          name: t('family.child', 'Aarav (8)'),
+          tag: t('family.asthmaTag', 'Asthma'),
+          tagType: 'asthma',
+        },
       );
     }
     return list;

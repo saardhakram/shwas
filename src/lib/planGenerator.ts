@@ -22,8 +22,7 @@ function rawPlanItemSavings(item: RawPlanItem, defaultHours = 2): number {
   const hours = Math.max(0.5, Number.isFinite(rawHours) && rawHours > 0 ? rawHours : defaultHours);
   const before = Number(item.before_pm25);
   const after = Number(item.after_pm25);
-  const diff =
-    Number.isFinite(before) && Number.isFinite(after) ? Math.max(0, before - after) : 0;
+  const diff = Number.isFinite(before) && Number.isFinite(after) ? Math.max(0, before - after) : 0;
   return (diff * hours) / 528;
 }
 
@@ -36,10 +35,7 @@ function rawPlanItemSavings(item: RawPlanItem, defaultHours = 2): number {
  * Avoided particulate dose = (before_pm25 - after_pm25) * hours.
  * Avoided cigarettes = (before_pm25 - after_pm25) * hours / 528.
  */
-export function calculatePlanItemSavings(
-  item: RawPlanItem,
-  defaultHours = 2
-): number {
+export function calculatePlanItemSavings(item: RawPlanItem, defaultHours = 2): number {
   return Number(rawPlanItemSavings(item, defaultHours).toFixed(1));
 }
 
@@ -53,7 +49,7 @@ export function calculatePlanItemSavings(
 export function buildEnrichedPlan(
   rawItems: RawPlanItem[],
   existingCompletedMap: Record<string, boolean> = {},
-  heroCigarettes?: number
+  heroCigarettes?: number,
 ): AirPlanItem[] {
   const rawSavings = rawItems.map((item) => rawPlanItemSavings(item));
   const rawTotal = rawSavings.reduce((sum, val) => sum + val, 0);
@@ -62,8 +58,7 @@ export function buildEnrichedPlan(
 
   if (typeof heroCigarettes === 'number') {
     // Hard cap: sum of item savings <= 70% of heroCigarettes (floored to 0.1 so it never exceeds 70%)
-    const capTenths =
-      heroCigarettes > 0 ? Math.floor(heroCigarettes * 0.7 * 10 + 1e-9) : 0;
+    const capTenths = heroCigarettes > 0 ? Math.floor(heroCigarettes * 0.7 * 10 + 1e-9) : 0;
 
     if (capTenths <= 0 || rawItems.length === 0) {
       finalTenths = rawItems.map(() => 0);
@@ -126,10 +121,10 @@ export function buildEnrichedPlan(
 }
 
 export interface TodayExposureSummary {
-  heroCigarettes: number;         // Single 1-decimal base number used by Hero, Pill start, and Savings cap
-  currentCigarettes: number;      // Hero display after subtracting checked items (= heroCigarettes when none checked)
-  totalPotentialSavings: number;  // Badge "-X" and "Save up to X" (<= 70% of heroCigarettes)
-  targetCigarettes: number;       // Pill end "hero -> target" (exact: heroCigarettes - totalPotentialSavings)
+  heroCigarettes: number; // Single 1-decimal base number used by Hero, Pill start, and Savings cap
+  currentCigarettes: number; // Hero display after subtracting checked items (= heroCigarettes when none checked)
+  totalPotentialSavings: number; // Badge "-X" and "Save up to X" (<= 70% of heroCigarettes)
+  targetCigarettes: number; // Pill end "hero -> target" (exact: heroCigarettes - totalPotentialSavings)
   checkedSavings: number;
   planItems: AirPlanItem[];
 }
@@ -145,36 +140,29 @@ export function computeTodayExposureSummary(
   home: ProfileHome,
   selectedFamilyId: string,
   rawPlanItems: RawPlanItem[],
-  completedMap: Record<string, boolean> = {}
+  completedMap: Record<string, boolean> = {},
 ): TodayExposureSummary {
-  const { cigarettes } = calculateFamilyExposure(
-    family,
-    outdoorPm25,
-    home,
-    selectedFamilyId
-  );
+  const { cigarettes } = calculateFamilyExposure(family, outdoorPm25, home, selectedFamilyId);
   // Single 1-decimal base value shared across hero, pill start, and 70% savings cap
   const heroCigarettes = Number(Math.max(0, cigarettes).toFixed(1));
 
   const planItems = buildEnrichedPlan(rawPlanItems, completedMap, heroCigarettes);
 
   const totalPotentialSavings = Number(
-    planItems.reduce((acc, item) => acc + item.cigarettesSaved, 0).toFixed(1)
+    planItems.reduce((acc, item) => acc + item.cigarettesSaved, 0).toFixed(1),
   );
 
-  const targetCigarettes = Number(
-    Math.max(0, heroCigarettes - totalPotentialSavings).toFixed(1)
-  );
+  const targetCigarettes = Number(Math.max(0, heroCigarettes - totalPotentialSavings).toFixed(1));
 
   const checkedSavings = Number(
     planItems
       .filter((item) => item.completed)
       .reduce((acc, item) => acc + item.cigarettesSaved, 0)
-      .toFixed(1)
+      .toFixed(1),
   );
 
   const currentCigarettes = Number(
-    Math.max(targetCigarettes, heroCigarettes - checkedSavings).toFixed(1)
+    Math.max(targetCigarettes, heroCigarettes - checkedSavings).toFixed(1),
   );
 
   return {
@@ -214,9 +202,7 @@ export function parsePlanCache(raw: string | null): CachedDailyPlan | null {
         source: typeof parsed.source === 'string' ? parsed.source : 'offline',
         items: parsed.items,
         createdAt:
-          typeof parsed.createdAt === 'string'
-            ? parsed.createdAt
-            : new Date().toISOString(),
+          typeof parsed.createdAt === 'string' ? parsed.createdAt : new Date().toISOString(),
       };
     }
     return null;

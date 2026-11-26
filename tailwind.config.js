@@ -1,9 +1,6 @@
 /** @type {import('tailwindcss').Config} */
 export default {
-  content: [
-    "./index.html",
-    "./src/**/*.{js,ts,jsx,tsx}",
-  ],
+  content: ['./index.html', './src/**/*.{js,ts,jsx,tsx}'],
   darkMode: 'class',
   theme: {
     extend: {
@@ -33,9 +30,12 @@ export default {
         numbers: ['"Space Grotesk"', 'sans-serif'],
       },
       backgroundImage: {
-        'haze-radial': 'radial-gradient(circle at 50% 20%, rgba(45, 212, 191, 0.08) 0%, rgba(15, 23, 42, 0) 70%)',
-        'severe-haze': 'radial-gradient(circle at 50% 10%, rgba(120, 53, 15, 0.22) 0%, rgba(15, 23, 42, 0.95) 75%)',
-        'clean-dawn': 'radial-gradient(circle at 50% 10%, rgba(45, 212, 191, 0.20) 0%, rgba(11, 28, 36, 0.95) 75%)',
+        'haze-radial':
+          'radial-gradient(circle at 50% 20%, rgba(45, 212, 191, 0.08) 0%, rgba(15, 23, 42, 0) 70%)',
+        'severe-haze':
+          'radial-gradient(circle at 50% 10%, rgba(120, 53, 15, 0.22) 0%, rgba(15, 23, 42, 0.95) 75%)',
+        'clean-dawn':
+          'radial-gradient(circle at 50% 10%, rgba(45, 212, 191, 0.20) 0%, rgba(11, 28, 36, 0.95) 75%)',
       },
       backdropBlur: {
         xs: '2px',

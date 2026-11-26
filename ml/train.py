@@ -10,7 +10,7 @@
 from __future__ import annotations
 
 import json
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 import joblib
 import lightgbm as lgb
@@ -29,7 +29,7 @@ from features import (
 
 
 def load_all_station_datasets(stride_hours: int = 2) -> pd.DataFrame:
-    """Loads, cleans, and combines all collected Delhi station CSVs into one multi-horizon dataset."""
+    """Loads, cleans, and combines collected Delhi station CSVs into one multi-horizon dataset."""
     frames: list[pd.DataFrame] = []
     for idx, station in enumerate(DELHI_STATIONS):
         csv_path = DATA_DIR / f"{station.id}.csv"
@@ -60,10 +60,36 @@ def tune_and_train(
     y_val = val_df["y"].to_numpy(dtype=float)
 
     candidates = [
-        {"learning_rate": 0.05, "num_leaves": 31, "min_child_samples": 40, "subsample": 0.8, "colsample_bytree": 0.8},
-        {"learning_rate": 0.05, "num_leaves": 63, "min_child_samples": 50, "subsample": 0.8, "colsample_bytree": 0.8},
-        {"learning_rate": 0.03, "num_leaves": 47, "min_child_samples": 60, "subsample": 0.8, "colsample_bytree": 0.75},
-        {"learning_rate": 0.05, "num_leaves": 31, "min_child_samples": 80, "subsample": 0.8, "colsample_bytree": 0.75, "reg_alpha": 1.0, "reg_lambda": 2.0},
+        {
+            "learning_rate": 0.05,
+            "num_leaves": 31,
+            "min_child_samples": 40,
+            "subsample": 0.8,
+            "colsample_bytree": 0.8,
+        },
+        {
+            "learning_rate": 0.05,
+            "num_leaves": 63,
+            "min_child_samples": 50,
+            "subsample": 0.8,
+            "colsample_bytree": 0.8,
+        },
+        {
+            "learning_rate": 0.03,
+            "num_leaves": 47,
+            "min_child_samples": 60,
+            "subsample": 0.8,
+            "colsample_bytree": 0.75,
+        },
+        {
+            "learning_rate": 0.05,
+            "num_leaves": 31,
+            "min_child_samples": 80,
+            "subsample": 0.8,
+            "colsample_bytree": 0.75,
+            "reg_alpha": 1.0,
+            "reg_lambda": 2.0,
+        },
     ]
 
     best_model: lgb.LGBMRegressor | None = None
@@ -103,18 +129,23 @@ def tune_and_train(
 def main() -> None:
     MODEL_DIR.mkdir(parents=True, exist_ok=True)
 
-    # Use 2h origin stride so 3 stations x 2.5y x 48h stays crisp (~1.5M -> ~750k rows) and trains in <60s
+    # Use 2h origin stride so 3 stations x 2.5y x 48h stays compact (~750k rows) and trains <60s
     dataset = load_all_station_datasets(stride_hours=2)
     train_df, val_df, test_df = time_split(dataset)
 
+    tr_min, tr_max = train_df["origin_time"].min(), train_df["origin_time"].max()
+    va_min, va_max = val_df["origin_time"].min(), val_df["origin_time"].max()
+    te_min, te_max = test_df["origin_time"].min(), test_df["origin_time"].max()
     print(
         f"[train] Temporal split:\n"
-        f"  Train: {len(train_df):,} rows ({train_df['origin_time'].min()} -> {train_df['origin_time'].max()})\n"
-        f"  Val:   {len(val_df):,} rows ({val_df['origin_time'].min()} -> {val_df['origin_time'].max()})\n"
-        f"  Test:  {len(test_df):,} rows ({test_df['origin_time'].min()} -> {test_df['origin_time'].max()})"
+        f"  Train: {len(train_df):,} rows ({tr_min} -> {tr_max})\n"
+        f"  Val:   {len(val_df):,} rows ({va_min} -> {va_max})\n"
+        f"  Test:  {len(test_df):,} rows ({te_min} -> {te_max})"
     )
 
-    assert train_df["origin_time"].max() < val_df["origin_time"].min(), "Temporal leakage train->val!"
+    assert train_df["origin_time"].max() < val_df["origin_time"].min(), (
+        "Temporal leakage train->val!"
+    )
     assert val_df["origin_time"].max() < test_df["origin_time"].min(), "Temporal leakage val->test!"
 
     best_model, best_params, best_val_mae = tune_and_train(train_df, val_df)
@@ -124,7 +155,7 @@ def main() -> None:
 
     metadata = {
         "model_version": MODEL_VERSION,
-        "trained_at": datetime.now(timezone.utc).isoformat(),
+        "trained_at": datetime.now(UTC).isoformat(),
         "feature_columns": FEATURE_COLUMNS,
         "best_params": best_params,
         "val_mae": round(best_val_mae, 2),
@@ -148,4 +179,3 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
-

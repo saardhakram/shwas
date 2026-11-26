@@ -12,9 +12,7 @@ import { ProfileFamilyMember, ProfileHome } from '../types';
 
 describe('Shwas Cigarette Engine', () => {
   it('correctly calculates 24h outdoor at 22 µg/m³ as exactly 1 cigarette', () => {
-    const segments: ExposureSegment[] = [
-      { place: 'Outdoor', hours: 24, pm25: 22 },
-    ];
+    const segments: ExposureSegment[] = [{ place: 'Outdoor', hours: 24, pm25: 22 }];
     const cigs = cigarettesForDay(segments);
     expect(cigs).toBe(1.0);
   });
@@ -182,7 +180,7 @@ describe('Shwas Cigarette Engine', () => {
             result.memberBreakdown[1].cigarettes +
             result.memberBreakdown[2].cigarettes) /
           3
-        ).toFixed(1)
+        ).toFixed(1),
       );
       expect(result.perPersonAverage).toBe(expectedAvg);
       expect(result.cigarettes).toBe(expectedAvg);

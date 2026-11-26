@@ -13,20 +13,21 @@ import type { ForecastDataPoint } from './forecastWindow.js';
  */
 export function generateRuleBasedPlan(
   profile: UserProfile,
-  forecastPoints: ForecastDataPoint[] = []
+  forecastPoints: ForecastDataPoint[] = [],
 ): RawPlanItem[] {
   const isHindi = profile.language === 'hi';
-  const bestWindow = forecastPoints.length > 0
-    ? computeBestWindow(forecastPoints, new Date())
-    : {
-        label: '2:00 PM – 4:00 PM',
-        startTime: '2:00 PM',
-        avgPm25: 110,
-        avgAqi: 175,
-      };
+  const bestWindow =
+    forecastPoints.length > 0
+      ? computeBestWindow(forecastPoints, new Date())
+      : {
+          label: '2:00 PM – 4:00 PM',
+          startTime: '2:00 PM',
+          avgPm25: 110,
+          avgAqi: 175,
+        };
 
   const hasVulnerable = profile.family.some(
-    (f) => f.flags?.asthma || f.flags?.heart || f.flags?.pregnancy || f.age >= 65 || f.age <= 10
+    (f) => f.flags?.asthma || f.flags?.heart || f.flags?.pregnancy || f.age >= 65 || f.age <= 10,
   );
 
   const isRoadFacing = Boolean(profile.home.windowsFacingRoad);
@@ -42,12 +43,12 @@ export function generateRuleBasedPlan(
     category: 'seal',
     hours: 3,
     action: isHindi
-      ? (isRoadFacing
-          ? 'सड़क की तरफ की सभी बालकनी और खिड़कियां पूरी तरह बंद रखें'
-          : 'सुबह के पीक समय बाहरी खिड़कियां बंद रखें')
-      : (isRoadFacing
-          ? 'Keep road-facing windows and balcony doors firmly shut'
-          : 'Seal all exterior windows during morning rush hour'),
+      ? isRoadFacing
+        ? 'सड़क की तरफ की सभी बालकनी और खिड़कियां पूरी तरह बंद रखें'
+        : 'सुबह के पीक समय बाहरी खिड़कियां बंद रखें'
+      : isRoadFacing
+        ? 'Keep road-facing windows and balcony doors firmly shut'
+        : 'Seal all exterior windows during morning rush hour',
     reason: isHindi
       ? 'सुबह 7:30 - 10:00 बजे भारी ट्रक और डीजल वाहनों का धुआं अधिकतम रहता है।'
       : 'Morning vehicular and diesel freight exhaust creates severe particulate spikes.',
@@ -61,12 +62,12 @@ export function generateRuleBasedPlan(
     category: 'commute',
     hours: 1,
     action: isHindi
-      ? (commute === 'metro'
-          ? 'अंडरग्राउंड येलो लाइन मेट्रो चुनें — फ़िल्टर्ड केबिन हवा प्रदूषण कम करती है'
-          : 'सड़क पर ऑटो/बाइक की जगह मेट्रो लें या N95 मास्क अवश्य पहनें')
-      : (commute === 'metro'
-          ? 'Travel via underground Metro — filtered air cabin bypasses arterial exhaust'
-          : 'Switch open auto/bike commute to Metro or wear a tight-fitting N95 mask'),
+      ? commute === 'metro'
+        ? 'अंडरग्राउंड येलो लाइन मेट्रो चुनें — फ़िल्टर्ड केबिन हवा प्रदूषण कम करती है'
+        : 'सड़क पर ऑटो/बाइक की जगह मेट्रो लें या N95 मास्क अवश्य पहनें'
+      : commute === 'metro'
+        ? 'Travel via underground Metro — filtered air cabin bypasses arterial exhaust'
+        : 'Switch open auto/bike commute to Metro or wear a tight-fitting N95 mask',
     reason: isHindi
       ? 'सड़क स्तर पर प्रदूषण केबिन यात्रा की तुलना में 3 से 5 गुना अधिक होता है।'
       : 'Direct tailpipe exposure on ring roads exposes commuters to 3-5x higher particulate matter.',
@@ -97,12 +98,12 @@ export function generateRuleBasedPlan(
     category: 'routine',
     hours: 1.5,
     action: isHindi
-      ? (hasChimney
-          ? 'तड़का या तलने से 5 मिनट पहले किचन चिमनी तेज़ गति पर चलाएं'
-          : 'खाना बनाते समय किचन का दरवाजा बंद रखें और एग्जॉस्ट फैन चालू रखें')
-      : (hasChimney
-          ? 'Run kitchen chimney on high speed 5 minutes before and after cooking'
-          : 'Keep kitchen doors shut and exhaust fan running during frying/cooking'),
+      ? hasChimney
+        ? 'तड़का या तलने से 5 मिनट पहले किचन चिमनी तेज़ गति पर चलाएं'
+        : 'खाना बनाते समय किचन का दरवाजा बंद रखें और एग्जॉस्ट फैन चालू रखें'
+      : hasChimney
+        ? 'Run kitchen chimney on high speed 5 minutes before and after cooking'
+        : 'Keep kitchen doors shut and exhaust fan running during frying/cooking',
     reason: isHindi
       ? 'रसोई का तेल और धुआं अंदरूनी हवा में PM2.5 तेजी से बढ़ाता है।'
       : 'Unvented cooking oils and combustion particles create sharp indoor pollution spikes.',
@@ -116,12 +117,12 @@ export function generateRuleBasedPlan(
     category: 'routine',
     hours: 2,
     action: isHindi
-      ? (hasVulnerable
-          ? 'शाम 5 बजे के बाद बुजुर्गों की सैर और बच्चों का आउटडोर खेल टालें'
-          : 'शाम के ट्रैफिक से पहले बाहर के काम निपटा लें')
-      : (hasVulnerable
-          ? 'Schedule children outdoor play and elderly walks before 5:00 PM'
-          : 'Complete outdoor errands before the 5:30 PM evening traffic peak'),
+      ? hasVulnerable
+        ? 'शाम 5 बजे के बाद बुजुर्गों की सैर और बच्चों का आउटडोर खेल टालें'
+        : 'शाम के ट्रैफिक से पहले बाहर के काम निपटा लें'
+      : hasVulnerable
+        ? 'Schedule children outdoor play and elderly walks before 5:00 PM'
+        : 'Complete outdoor errands before the 5:30 PM evening traffic peak',
     reason: isHindi
       ? 'शाम ढलते ही तापमान गिरने से धुआं और पराली की धुंध सतह के पास जम जाती है।'
       : 'Evening temperature inversion traps vehicular and biomass smoke at ground breathing levels.',
@@ -150,12 +151,12 @@ export function generateRuleBasedPlan(
     category: 'purify',
     hours: 8,
     action: isHindi
-      ? (hasPurifier
-          ? 'सोते समय बेडरूम में HEPA एयर प्यूरीफायर स्लीप मोड पर चलाएं'
-          : 'बेडरूम के दरवाजों के नीचे ड्राफ्ट स्टॉपर या तौलिया लगाकर सील करें')
-      : (hasPurifier
-          ? 'Run HEPA air purifier on sleep mode in bedrooms overnight'
-          : 'Seal bedroom under-door draft gaps with draft stoppers or rolled towels'),
+      ? hasPurifier
+        ? 'सोते समय बेडरूम में HEPA एयर प्यूरीफायर स्लीप मोड पर चलाएं'
+        : 'बेडरूम के दरवाजों के नीचे ड्राफ्ट स्टॉपर या तौलिया लगाकर सील करें'
+      : hasPurifier
+        ? 'Run HEPA air purifier on sleep mode in bedrooms overnight'
+        : 'Seal bedroom under-door draft gaps with draft stoppers or rolled towels',
     reason: isHindi
       ? 'रात भर स्वच्छ हवा (PM2.5 < 60 µg/m³) फेफड़ों की सूजन कम करती है।'
       : 'Maintains restorative sleep air quality below 60 µg/m³ for 8 continuous hours.',

@@ -2,11 +2,7 @@
  * Shwas Community — Pure Join-Code, Weekly Savings Aggregation, Streak & Share Logic
  */
 
-export type AlertType =
-  | 'garbage_burning'
-  | 'construction_dust'
-  | 'vehicle_smoke'
-  | 'other';
+export type AlertType = 'garbage_burning' | 'construction_dust' | 'vehicle_smoke' | 'other';
 
 export interface CommunityGroup {
   id: string;
@@ -91,7 +87,7 @@ export const JOIN_CODE_LENGTH = 6;
  */
 export function generateJoinCode(
   length = JOIN_CODE_LENGTH,
-  randomFn: () => number = Math.random
+  randomFn: () => number = Math.random,
 ): string {
   let code = '';
   for (let i = 0; i < length; i++) {
@@ -105,7 +101,10 @@ export function generateJoinCode(
  * Normalizes a user-typed join code (trims, uppercases, removes spaces and dashes).
  */
 export function normalizeJoinCode(raw: string): string {
-  return (raw || '').toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, JOIN_CODE_LENGTH);
+  return (raw || '')
+    .toUpperCase()
+    .replace(/[^A-Z0-9]/g, '')
+    .slice(0, JOIN_CODE_LENGTH);
 }
 
 /**
@@ -113,7 +112,9 @@ export function normalizeJoinCode(raw: string): string {
  */
 export function isValidJoinCode(raw: string): boolean {
   const normalized = normalizeJoinCode(raw);
-  return /^[A-Z0-9]{6}$/.test(normalized) && raw.trim().replace(/[\s-]/g, '').length === JOIN_CODE_LENGTH;
+  return (
+    /^[A-Z0-9]{6}$/.test(normalized) && raw.trim().replace(/[\s-]/g, '').length === JOIN_CODE_LENGTH
+  );
 }
 
 function toDayString(d: Date): string {
@@ -163,7 +164,7 @@ export function cleanDisplayName(raw?: string | null): string {
 export function aggregateWeeklyCommunityStats(
   members: CommunityMember[],
   dailySavings: DailySavingRow[],
-  today: Date = new Date()
+  today: Date = new Date(),
 ): WeeklyCommunityStats {
   const todayStr = toDayString(today);
   const weekStartStr = addDays(todayStr, -6); // inclusive 7-day window
@@ -212,7 +213,7 @@ export function aggregateWeeklyCommunityStats(
         todaySaved,
         streakDays,
       };
-    }
+    },
   );
 
   entries.sort((a, b) => {
@@ -222,9 +223,7 @@ export function aggregateWeeklyCommunityStats(
   });
 
   const ranked = entries.map((entry, idx) => ({ ...entry, rank: idx + 1 }));
-  const totalWeeklySaved = Number(
-    ranked.reduce((sum, e) => sum + e.weeklySaved, 0).toFixed(1)
-  );
+  const totalWeeklySaved = Number(ranked.reduce((sum, e) => sum + e.weeklySaved, 0).toFixed(1));
 
   return {
     totalWeeklySaved,

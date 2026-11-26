@@ -8,8 +8,8 @@ export interface HealthFlags {
 
 export interface MemberRoutine {
   hoursOutside: number; // Commute, market, outdoors
-  hoursAway: number;    // School or office
-  awayPlace?: string;   // 'office' | 'school' | 'other'
+  hoursAway: number; // School or office
+  awayPlace?: string; // 'office' | 'school' | 'other'
 }
 
 export interface ProfileFamilyMember {

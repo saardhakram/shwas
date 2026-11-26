@@ -86,7 +86,7 @@ export const RoutesPage: React.FC = () => {
         lon: 77.209,
         name: 'Delhi NCR',
       },
-    [userProfile]
+    [userProfile],
   );
 
   const quickPresets = useMemo(() => getQuickDestinations(savedHome), [savedHome]);
@@ -138,17 +138,22 @@ export const RoutesPage: React.FC = () => {
 
   const departureDate = useMemo(
     () => buildDepartureDate(departurePreset, customTime),
-    [departurePreset, customTime]
+    [departurePreset, customTime],
   );
 
   const departureTip = useMemo(
     () => computeDepartureTip(forecastPoints, departureDate, departurePreset === 'now'),
-    [forecastPoints, departureDate, departurePreset]
+    [forecastPoints, departureDate, departurePreset],
   );
 
   // Main route + single-batch Open-Meteo exposure computation
   const computeRoutes = useCallback(
-    async (orig: PlaceSuggestion, dest: PlaceSuggestion, depDate: Date, providerMode: 'google' | 'leaflet') => {
+    async (
+      orig: PlaceSuggestion,
+      dest: PlaceSuggestion,
+      depDate: Date,
+      providerMode: 'google' | 'leaflet',
+    ) => {
       setIsLoadingRoutes(true);
       setRouteError(null);
       try {
@@ -156,7 +161,7 @@ export const RoutesPage: React.FC = () => {
           { lat: orig.lat, lon: orig.lon },
           { lat: dest.lat, lon: dest.lon },
           depDate,
-          providerMode === 'google'
+          providerMode === 'google',
         );
         setRoutingProvider(provider);
 
@@ -165,11 +170,7 @@ export const RoutesPage: React.FC = () => {
         const flattenedPoints = sampledPerRoute.flat();
         const fallbackPm = livePm25Ref.current;
 
-        const pm25Values = await fetchRoutePointsPm25(
-          flattenedPoints,
-          depDate,
-          fallbackPm
-        );
+        const pm25Values = await fetchRoutePointsPm25(flattenedPoints, depDate, fallbackPm);
 
         let offset = 0;
         const routeAvgPm25s = sampledPerRoute.map((pts) => {
@@ -187,12 +188,14 @@ export const RoutesPage: React.FC = () => {
         setSelectedRouteId(rec ? rec.id : null);
       } catch (err) {
         console.warn('[RoutesPage] Failed to compute routes:', err);
-        setRouteError('Could not load route comparison right now. Please try another destination or retry.');
+        setRouteError(
+          'Could not load route comparison right now. Please try another destination or retry.',
+        );
       } finally {
         setIsLoadingRoutes(false);
       }
     },
-    []
+    [],
   );
 
   // Recompute once mapProvider resolves, and whenever origin, destination, or departure time changes
@@ -202,15 +205,7 @@ export const RoutesPage: React.FC = () => {
     if (lastFetchKeyRef.current === fetchKey) return;
     lastFetchKeyRef.current = fetchKey;
     computeRoutes(origin, destination, departureDate, mapProvider);
-  }, [
-    origin,
-    destination,
-    departurePreset,
-    customTime,
-    departureDate,
-    mapProvider,
-    computeRoutes,
-  ]);
+  }, [origin, destination, departurePreset, customTime, departureDate, mapProvider, computeRoutes]);
 
   // Debounced search for Destination
   const handleDestSearch = async (query: string) => {
@@ -220,7 +215,11 @@ export const RoutesPage: React.FC = () => {
       return;
     }
     setIsSearchingTo(true);
-    const hits = await searchPlaces(query, { lat: origin.lat, lon: origin.lon }, mapProvider === 'google');
+    const hits = await searchPlaces(
+      query,
+      { lat: origin.lat, lon: origin.lon },
+      mapProvider === 'google',
+    );
     setDestSuggestions(hits);
     setIsSearchingTo(false);
   };
@@ -232,7 +231,11 @@ export const RoutesPage: React.FC = () => {
       setOriginSuggestions([]);
       return;
     }
-    const hits = await searchPlaces(query, { lat: savedHome.lat, lon: savedHome.lon }, mapProvider === 'google');
+    const hits = await searchPlaces(
+      query,
+      { lat: savedHome.lat, lon: savedHome.lon },
+      mapProvider === 'google',
+    );
     setOriginSuggestions(hits);
   };
 
@@ -339,7 +342,9 @@ export const RoutesPage: React.FC = () => {
                     <MapPin className="w-3.5 h-3.5 text-teal-400 shrink-0" aria-hidden="true" />
                     <div className="min-w-0">
                       <div className="text-white font-medium truncate">{s.name}</div>
-                      {s.subtitle && <div className="text-[10px] text-slate-400 truncate">{s.subtitle}</div>}
+                      {s.subtitle && (
+                        <div className="text-[10px] text-slate-400 truncate">{s.subtitle}</div>
+                      )}
                     </div>
                   </button>
                 ))}
@@ -370,12 +375,18 @@ export const RoutesPage: React.FC = () => {
                     setDestSuggestions([]);
                   }
                 }}
-                placeholder={t('routes.searchPlaceholder', 'Search destination (office, school, market...)')}
+                placeholder={t(
+                  'routes.searchPlaceholder',
+                  'Search destination (office, school, market...)',
+                )}
                 aria-label="Destination address"
                 className="flex-1 bg-transparent text-xs text-white placeholder-slate-500 focus:outline-none min-w-0"
               />
               {isSearchingTo ? (
-                <Loader2 className="w-3.5 h-3.5 text-teal-400 animate-spin shrink-0" aria-hidden="true" />
+                <Loader2
+                  className="w-3.5 h-3.5 text-teal-400 animate-spin shrink-0"
+                  aria-hidden="true"
+                />
               ) : destInput ? (
                 <button
                   type="button"
@@ -409,7 +420,9 @@ export const RoutesPage: React.FC = () => {
                     <MapPin className="w-3.5 h-3.5 text-amber-400 shrink-0" aria-hidden="true" />
                     <div className="min-w-0">
                       <div className="text-white font-medium truncate">{s.name}</div>
-                      {s.subtitle && <div className="text-[10px] text-slate-400 truncate">{s.subtitle}</div>}
+                      {s.subtitle && (
+                        <div className="text-[10px] text-slate-400 truncate">{s.subtitle}</div>
+                      )}
                     </div>
                   </button>
                 ))}
@@ -491,7 +504,10 @@ export const RoutesPage: React.FC = () => {
         {/* Custom time picker row */}
         {departurePreset === 'custom' && (
           <div className="flex items-center justify-between gap-2 px-3 py-1.5 rounded-xl bg-white/[0.03] border border-white/[0.08] text-xs">
-            <label htmlFor="routes-custom-time" className="text-slate-300 flex items-center gap-1.5">
+            <label
+              htmlFor="routes-custom-time"
+              className="text-slate-300 flex items-center gap-1.5"
+            >
               <Clock className="w-3.5 h-3.5 text-teal-400" aria-hidden="true" />
               <span>Departure time</span>
             </label>
@@ -653,10 +669,7 @@ export const RoutesPage: React.FC = () => {
                       <Cigarette className="w-3 h-3 mr-1 inline" aria-hidden="true" />
                       {route.cigarettes.toFixed(2)} cigs
                     </Badge>
-                    <span
-                      className="text-[11px] font-medium"
-                      style={{ color: route.strokeColor }}
-                    >
+                    <span className="text-[11px] font-medium" style={{ color: route.strokeColor }}>
                       {route.relativeSmogLabel}
                     </span>
                   </div>

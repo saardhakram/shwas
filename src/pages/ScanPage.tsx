@@ -79,7 +79,8 @@ export const ScanPage: React.FC = () => {
       // If offline or empty sources returned from an error, provide a helpful demo fallback if needed
       if (rawSources.length === 0 && scanData.source === 'offline') {
         setErrorMessage(
-          scanData.message || 'Offline mode: could not reach Gemini Vision. Showing sample room audit.'
+          scanData.message ||
+            'Offline mode: could not reach Gemini Vision. Showing sample room audit.',
         );
         rawSources = [
           {
@@ -101,7 +102,7 @@ export const ScanPage: React.FC = () => {
       const { fixes, totalCigarettesSaved } = computeScanResults(
         rawSources,
         outdoorPm25 || 180,
-        userProfile
+        userProfile,
       );
 
       setComputedFixes(fixes);
@@ -198,7 +199,10 @@ export const ScanPage: React.FC = () => {
       {/* Empty State / Photo Capture Hero */}
       {!imagePreview && (
         <GlassCard className="p-7 text-center flex flex-col items-center justify-center gap-4 border-dashed border-white/20">
-          <div className="w-16 h-16 rounded-full bg-teal-500/10 border border-teal-500/30 flex items-center justify-center text-teal-300 shadow-lg shadow-teal-500/10" aria-hidden="true">
+          <div
+            className="w-16 h-16 rounded-full bg-teal-500/10 border border-teal-500/30 flex items-center justify-center text-teal-300 shadow-lg shadow-teal-500/10"
+            aria-hidden="true"
+          >
             <Camera className="w-8 h-8" />
           </div>
           <div className="space-y-1.5 max-w-sm">
@@ -206,7 +210,10 @@ export const ScanPage: React.FC = () => {
               {t('scan.scanHeading', 'Scan Room, Kitchen, or Window')}
             </h3>
             <p className="text-xs text-slate-400 leading-relaxed">
-              {t('scan.scanSubtitle', 'Snap a photo of your living room, unvented stove, incense corner, or street windows. Gemini Vision pinpoints sources and calculates your cigarette savings.')}
+              {t(
+                'scan.scanSubtitle',
+                'Snap a photo of your living room, unvented stove, incense corner, or street windows. Gemini Vision pinpoints sources and calculates your cigarette savings.',
+              )}
             </p>
           </div>
 
@@ -322,7 +329,8 @@ export const ScanPage: React.FC = () => {
                   {computedFixes.length} {computedFixes.length === 1 ? 'fix' : 'fixes'} found
                 </div>
                 <div className="text-[11px] text-teal-300">
-                  Save up to <strong className="font-bold text-teal-200">{totalSaved} cigarettes/day</strong>
+                  Save up to{' '}
+                  <strong className="font-bold text-teal-200">{totalSaved} cigarettes/day</strong>
                 </div>
               </div>
               <button
@@ -394,12 +402,17 @@ export const ScanPage: React.FC = () => {
                   {/* Add to my plan button */}
                   <div className="pt-1 flex items-center justify-between border-t border-white/5">
                     <div className="text-[11px] text-slate-400">
-                      Indoor PM2.5: {item.beforePm25} → <span className="text-teal-300 font-semibold">{item.afterPm25} µg/m³</span>
+                      Indoor PM2.5: {item.beforePm25} →{' '}
+                      <span className="text-teal-300 font-semibold">{item.afterPm25} µg/m³</span>
                     </div>
                     <button
                       type="button"
                       disabled={isAdded}
-                      aria-label={isAdded ? `${item.label} added to plan` : `Add ${item.label} fix to today's plan`}
+                      aria-label={
+                        isAdded
+                          ? `${item.label} added to plan`
+                          : `Add ${item.label} fix to today's plan`
+                      }
                       onClick={(e) => {
                         e.stopPropagation();
                         handleAddToPlan(item);
@@ -442,7 +455,8 @@ export const ScanPage: React.FC = () => {
         <div className="flex items-center gap-2 text-xs text-slate-300">
           <ShieldCheck className="w-4 h-4 text-teal-400 shrink-0" />
           <span>
-            Reductions and cigarette math are calculated in code based on outdoor PM2.5 and your home profile.
+            Reductions and cigarette math are calculated in code based on outdoor PM2.5 and your
+            home profile.
           </span>
         </div>
       </GlassCard>

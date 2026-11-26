@@ -71,10 +71,7 @@ export function cigarettesForDay(segments: ExposureSegment[]): number {
  * @param home Home characteristics
  * @returns Estimated indoor PM2.5 in µg/m³
  */
-export function estimateIndoorPm25(
-  outdoorPm25: number,
-  home: HomeCharacteristics
-): number {
+export function estimateIndoorPm25(outdoorPm25: number, home: HomeCharacteristics): number {
   const safeOutdoor = Math.max(0, outdoorPm25);
 
   // 1. Ambient infiltration base factor
@@ -82,7 +79,7 @@ export function estimateIndoorPm25(
 
   // 2. Road penalty multiplier
   if (home.windowsFacingRoad) {
-    infiltrationRate *= 1.20; // 20% higher particulate penetration from vehicular plume
+    infiltrationRate *= 1.2; // 20% higher particulate penetration from vehicular plume
   }
 
   // Baseline indoor PM2.5 infiltrated from outside
@@ -101,7 +98,7 @@ export function estimateIndoorPm25(
 
   // 4. Chimney extraction
   if (home.chimney) {
-    cookingEmission *= 0.30; // 70% exhaust efficiency
+    cookingEmission *= 0.3; // 70% exhaust efficiency
   }
 
   // Combined preliminary indoor PM2.5
@@ -109,7 +106,7 @@ export function estimateIndoorPm25(
 
   // 5. Air purifier filtration
   if (home.purifier) {
-    totalIndoor *= 0.40; // 60% particulate clearance by HEPA filter
+    totalIndoor *= 0.4; // 60% particulate clearance by HEPA filter
   }
 
   return Number(Math.max(0, totalIndoor).toFixed(1));
@@ -135,7 +132,7 @@ export function calculateMemberDailyCigarettes(
   member: ProfileFamilyMember,
   outdoorPm25: number,
   home: ProfileHome,
-  awayPm25?: number
+  awayPm25?: number,
 ): number {
   const safeOutdoor = Math.max(0, outdoorPm25);
   const hoursOutside = Math.max(0, member.routine?.hoursOutside || 0);
@@ -174,7 +171,7 @@ export function calculateFamilyExposure(
   family: ProfileFamilyMember[],
   outdoorPm25: number,
   home: ProfileHome,
-  selectedMemberId: string = 'all'
+  selectedMemberId: string = 'all',
 ): {
   cigarettes: number;
   perPersonAverage: number;

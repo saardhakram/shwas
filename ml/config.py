@@ -58,4 +58,3 @@ DIWALI_DATES: set[date] = {
     date(2026, 11, 8),
     date(2027, 10, 29),
 }
-

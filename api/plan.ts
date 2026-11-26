@@ -44,11 +44,11 @@ export function clearPlanCacheForTesting(): void {
 
 export async function processPlanRequest(
   body: { profile?: UserProfile; forecast?: ForecastDataPoint[] },
-  apiKey?: string
+  apiKey?: string,
 ): Promise<{ plan: RawPlanItem[]; source: string; error?: string }> {
   const profile: UserProfile = body.profile || {
     language: 'en',
-    location: { lat: 28.6139, lon: 77.2090, name: 'Delhi NCR' },
+    location: { lat: 28.6139, lon: 77.209, name: 'Delhi NCR' },
     family: [
       {
         id: 'me',
@@ -92,9 +92,7 @@ export async function processPlanRequest(
     // Compact forecast: sample at most 8 points (every 3h) for fast Gemini response
     const next24h = forecast.slice(0, 24);
     const sampledForecast =
-      next24h.length > 8
-        ? next24h.filter((_, idx) => idx % 3 === 0).slice(0, 8)
-        : next24h;
+      next24h.length > 8 ? next24h.filter((_, idx) => idx % 3 === 0).slice(0, 8) : next24h;
     const forecastSummary =
       sampledForecast.length > 0
         ? sampledForecast
@@ -105,7 +103,7 @@ export async function processPlanRequest(
     const familySummary = profile.family
       .map(
         (f) =>
-          `${f.name}(${f.age}${f.flags.asthma ? ',asthma' : ''}${f.flags.heart ? ',heart' : ''}${f.flags.pregnancy ? ',pregnant' : ''},${f.routine.hoursOutside}h out,${f.routine.hoursAway}h away)`
+          `${f.name}(${f.age}${f.flags.asthma ? ',asthma' : ''}${f.flags.heart ? ',heart' : ''}${f.flags.pregnancy ? ',pregnant' : ''},${f.routine.hoursOutside}h out,${f.routine.hoursAway}h away)`,
       )
       .join('; ');
 
@@ -134,9 +132,7 @@ Rules: hours > 0; before_pm25 > after_pm25; keep action <= 12 words and reason <
       .replace(/```/g, '')
       .trim();
     const parsed = JSON.parse(rawContent);
-    const candidateList = Array.isArray(parsed)
-      ? parsed
-      : (parsed?.plan || parsed?.items || []);
+    const candidateList = Array.isArray(parsed) ? parsed : parsed?.plan || parsed?.items || [];
 
     // Validate that candidateList has at least 5 valid items
     if (!Array.isArray(candidateList) || candidateList.length < 5) {
@@ -176,7 +172,7 @@ Rules: hours > 0; before_pm25 > after_pm25; keep action <= 12 words and reason <
           .join(' | ')
       : 'no_attempt_details';
     console.warn(
-      `[api/plan] Gemini failure (${attemptsDetail}) — falling back to rule-based plan. Error: ${err?.message || err}`
+      `[api/plan] Gemini failure (${attemptsDetail}) — falling back to rule-based plan. Error: ${err?.message || err}`,
     );
     const fallbackPlan = generateRuleBasedPlan(profile, forecast);
     return {

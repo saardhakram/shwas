@@ -133,22 +133,66 @@ export async function joinDemoGreenParkSociety(displayName: string): Promise<Com
     { group_id: groupId, user_id: 'demo_verma', display_name: 'Verma Family' },
   ];
   if (!existingMembers.some((m) => m.user_id === userId)) {
-    existingMembers.push({ group_id: groupId, user_id: userId, display_name: displayName || 'Your Family' });
+    existingMembers.push({
+      group_id: groupId,
+      user_id: userId,
+      display_name: displayName || 'Your Family',
+    });
   }
   store.members[groupId] = existingMembers;
 
   if (!store.savings[groupId] || store.savings[groupId].length === 0) {
     store.savings[groupId] = [
       // Sharma Family: 5-day streak
-      { group_id: groupId, user_id: 'demo_sharma', day: getPastDayString(0), cigarettes_saved: 3.4 },
-      { group_id: groupId, user_id: 'demo_sharma', day: getPastDayString(1), cigarettes_saved: 4.1 },
-      { group_id: groupId, user_id: 'demo_sharma', day: getPastDayString(2), cigarettes_saved: 3.8 },
-      { group_id: groupId, user_id: 'demo_sharma', day: getPastDayString(3), cigarettes_saved: 4.2 },
-      { group_id: groupId, user_id: 'demo_sharma', day: getPastDayString(4), cigarettes_saved: 3.5 },
+      {
+        group_id: groupId,
+        user_id: 'demo_sharma',
+        day: getPastDayString(0),
+        cigarettes_saved: 3.4,
+      },
+      {
+        group_id: groupId,
+        user_id: 'demo_sharma',
+        day: getPastDayString(1),
+        cigarettes_saved: 4.1,
+      },
+      {
+        group_id: groupId,
+        user_id: 'demo_sharma',
+        day: getPastDayString(2),
+        cigarettes_saved: 3.8,
+      },
+      {
+        group_id: groupId,
+        user_id: 'demo_sharma',
+        day: getPastDayString(3),
+        cigarettes_saved: 4.2,
+      },
+      {
+        group_id: groupId,
+        user_id: 'demo_sharma',
+        day: getPastDayString(4),
+        cigarettes_saved: 3.5,
+      },
       // Kapoor Household: 3-day streak
-      { group_id: groupId, user_id: 'demo_kapoor', day: getPastDayString(0), cigarettes_saved: 2.8 },
-      { group_id: groupId, user_id: 'demo_kapoor', day: getPastDayString(1), cigarettes_saved: 3.1 },
-      { group_id: groupId, user_id: 'demo_kapoor', day: getPastDayString(2), cigarettes_saved: 2.9 },
+      {
+        group_id: groupId,
+        user_id: 'demo_kapoor',
+        day: getPastDayString(0),
+        cigarettes_saved: 2.8,
+      },
+      {
+        group_id: groupId,
+        user_id: 'demo_kapoor',
+        day: getPastDayString(1),
+        cigarettes_saved: 3.1,
+      },
+      {
+        group_id: groupId,
+        user_id: 'demo_kapoor',
+        day: getPastDayString(2),
+        cigarettes_saved: 2.9,
+      },
       // Verma Family: 2-day streak
       { group_id: groupId, user_id: 'demo_verma', day: getPastDayString(0), cigarettes_saved: 2.1 },
       { group_id: groupId, user_id: 'demo_verma', day: getPastDayString(1), cigarettes_saved: 2.4 },
@@ -191,7 +235,7 @@ export async function joinDemoGreenParkSociety(displayName: string): Promise<Com
  */
 export async function createCommunityGroup(
   name: string,
-  displayName: string
+  displayName: string,
 ): Promise<CommunityGroup> {
   const trimmedName = name.trim();
   const safeDisplay = displayName.trim() || 'My Family';
@@ -210,10 +254,12 @@ export async function createCommunityGroup(
 
       if (!error && data) {
         createdGroup = data as CommunityGroup;
-        await supabase.from('group_members').upsert(
-          { group_id: createdGroup.id, user_id: userId, display_name: safeDisplay },
-          { onConflict: 'group_id,user_id' }
-        );
+        await supabase
+          .from('group_members')
+          .upsert(
+            { group_id: createdGroup.id, user_id: userId, display_name: safeDisplay },
+            { onConflict: 'group_id,user_id' },
+          );
       }
     } catch (err) {
       console.warn('[Community] Supabase createGroup fell back to local:', err);
@@ -250,7 +296,7 @@ export async function createCommunityGroup(
  */
 export async function joinCommunityGroupByCode(
   rawCode: string,
-  displayName: string
+  displayName: string,
 ): Promise<{ group: CommunityGroup | null; error?: string }> {
   const code = normalizeJoinCode(rawCode);
   if (code.length !== 6) {
@@ -318,7 +364,10 @@ export async function joinCommunityGroupByCode(
     return { group: localMatch };
   }
 
-  return { group: null, error: `No group found for code "${code}". Check the code or create a new group.` };
+  return {
+    group: null,
+    error: `No group found for code "${code}". Check the code or create a new group.`,
+  };
 }
 
 /**
@@ -372,7 +421,7 @@ export async function loadCommunitySnapshot(group: CommunityGroup): Promise<{
     members: store.members[group.id] || [],
     savings: store.savings[group.id] || [],
     alerts: [...(store.alerts[group.id] || [])].sort(
-      (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+      (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime(),
     ),
   };
 }
@@ -383,7 +432,7 @@ export async function loadCommunitySnapshot(group: CommunityGroup): Promise<{
  */
 export async function upsertTodayDailySavings(
   cigarettesSaved: number,
-  displayName?: string
+  displayName?: string,
 ): Promise<void> {
   const group = getActiveCommunityGroup();
   if (!group) return;
@@ -431,7 +480,7 @@ export async function upsertTodayDailySavings(
           cigarettes_saved: safeVal,
           updated_at: new Date().toISOString(),
         },
-        { onConflict: 'user_id,group_id,day' }
+        { onConflict: 'user_id,group_id,day' },
       );
     } catch (err) {
       console.warn('[Community] daily_savings Supabase upsert notice:', err);
@@ -447,7 +496,7 @@ export async function reportLocalAlert(
   type: AlertType,
   message: string,
   lat?: number,
-  lon?: number
+  lon?: number,
 ): Promise<CommunityAlert> {
   const userId = await getCurrentUserId();
   const trimmedMsg = message.trim();

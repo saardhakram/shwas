@@ -29,21 +29,18 @@ import {
   ProfileHome,
   HealthFlags,
 } from '../types';
-import {
-  calculateMemberDailyCigarettes,
-  calculateFamilyExposure,
-} from '../lib/cigarettes';
+import { calculateMemberDailyCigarettes, calculateFamilyExposure } from '../lib/cigarettes';
 import { fetchOpenMeteoForecast } from '../lib/forecast';
 import { generateRuleBasedPlan, buildEnrichedPlan } from '../lib/planGenerator';
 import { upsertProfile } from '../lib/supabase';
 
 const POPULAR_CITIES: ProfileLocation[] = [
-  { name: 'Delhi NCR', lat: 28.6139, lon: 77.2090 },
-  { name: 'Mumbai', lat: 19.0760, lon: 72.8777 },
+  { name: 'Delhi NCR', lat: 28.6139, lon: 77.209 },
+  { name: 'Mumbai', lat: 19.076, lon: 72.8777 },
   { name: 'Bengaluru', lat: 12.9716, lon: 77.5946 },
   { name: 'Kolkata', lat: 22.5726, lon: 88.3639 },
   { name: 'Chennai', lat: 13.0827, lon: 80.2707 },
-  { name: 'Hyderabad', lat: 17.3850, lon: 78.4867 },
+  { name: 'Hyderabad', lat: 17.385, lon: 78.4867 },
   { name: 'Lucknow', lat: 26.8467, lon: 80.9462 },
   { name: 'Patna', lat: 25.5941, lon: 85.1376 },
 ];
@@ -136,7 +133,7 @@ export const OnboardingPage: React.FC = () => {
         const { latitude, longitude } = pos.coords;
         try {
           const res = await fetch(
-            `https://nominatim.openstreetmap.org/reverse?format=json&lat=${latitude}&lon=${longitude}`
+            `https://nominatim.openstreetmap.org/reverse?format=json&lat=${latitude}&lon=${longitude}`,
           );
           if (res.ok) {
             const data = await res.json();
@@ -160,7 +157,7 @@ export const OnboardingPage: React.FC = () => {
         setIsLocating(false);
         alert('Could not retrieve your location. Please choose a city below.');
       },
-      { timeout: 10000 }
+      { timeout: 10000 },
     );
   };
 
@@ -173,8 +170,8 @@ export const OnboardingPage: React.FC = () => {
     try {
       const res = await fetch(
         `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(
-          searchQuery.trim()
-        )}&countrycodes=in&limit=5`
+          searchQuery.trim(),
+        )}&countrycodes=in&limit=5`,
       );
       if (res.ok) {
         const list = await res.json();
@@ -239,13 +236,13 @@ export const OnboardingPage: React.FC = () => {
           const previewPlan = buildEnrichedPlan(
             generateRuleBasedPlan(previewProfile, res.points),
             {},
-            currentHero
+            currentHero,
           );
           const cappedSavings = Number(
-            previewPlan.reduce((sum, item) => sum + item.cigarettesSaved, 0).toFixed(1)
+            previewPlan.reduce((sum, item) => sum + item.cigarettesSaved, 0).toFixed(1),
           );
           const targetHero = Number(
-            Math.max(0, Math.min(currentHero, currentHero - cappedSavings)).toFixed(1)
+            Math.max(0, Math.min(currentHero, currentHero - cappedSavings)).toFixed(1),
           );
 
           setRevealedCigarettes(currentHero);
@@ -310,8 +307,8 @@ export const OnboardingPage: React.FC = () => {
                   s === step
                     ? 'bg-teal-400 shadow-[0_0_10px_#2DD4BF]'
                     : s < step
-                    ? 'bg-teal-500/60'
-                    : 'bg-white/10'
+                      ? 'bg-teal-500/60'
+                      : 'bg-white/10'
                 }`}
               />
             </div>
@@ -328,9 +325,7 @@ export const OnboardingPage: React.FC = () => {
               <Badge variant="mint" size="sm" className="mb-1">
                 Step 1 of 5
               </Badge>
-              <h2 className="text-xl font-bold font-display text-white">
-                Choose your language
-              </h2>
+              <h2 className="text-xl font-bold font-display text-white">Choose your language</h2>
               <p className="text-xs text-slate-400">
                 Shwas will guide your daily routine in your preferred language.
               </p>
@@ -350,12 +345,8 @@ export const OnboardingPage: React.FC = () => {
                         : 'bg-white/[0.04] border-white/[0.08] hover:bg-white/[0.08]'
                     }`}
                   >
-                    <div className="text-lg font-bold text-white mb-0.5">
-                      {lang.native}
-                    </div>
-                    <div className="text-xs text-slate-400 font-medium">
-                      {lang.subtitle}
-                    </div>
+                    <div className="text-lg font-bold text-white mb-0.5">{lang.native}</div>
+                    <div className="text-xs text-slate-400 font-medium">{lang.subtitle}</div>
                     {isSelected && (
                       <div className="absolute top-3 right-3 w-5 h-5 rounded-full bg-teal-400 text-slate-950 flex items-center justify-center">
                         <Check className="w-3.5 h-3.5" />
@@ -463,9 +454,7 @@ export const OnboardingPage: React.FC = () => {
             <GlassCard variant="mint" className="p-3 flex items-center justify-between">
               <div className="flex items-center gap-2">
                 <MapPin className="w-4 h-4 text-teal-400" />
-                <span className="text-xs font-semibold text-white">
-                  Selected: {location.name}
-                </span>
+                <span className="text-xs font-semibold text-white">Selected: {location.name}</span>
               </div>
               <Badge variant="mint" size="sm">
                 Ready
@@ -631,9 +620,7 @@ export const OnboardingPage: React.FC = () => {
               <Badge variant="mint" size="sm" className="mb-1">
                 Step 4 of 5
               </Badge>
-              <h2 className="text-xl font-bold font-display text-white">
-                Home & Daily Routine
-              </h2>
+              <h2 className="text-xl font-bold font-display text-white">Home & Daily Routine</h2>
               <p className="text-xs text-slate-400">
                 Building factors determine whether outdoor smog stays outside or seeps indoors.
               </p>
@@ -664,7 +651,9 @@ export const OnboardingPage: React.FC = () => {
                 <div className="flex items-center justify-between pt-1 border-t border-white/[0.05]">
                   <div>
                     <div className="font-semibold text-white">HEPA Air Purifier at Home</div>
-                    <div className="text-[11px] text-slate-400">Clears 60% of indoor particulate matter</div>
+                    <div className="text-[11px] text-slate-400">
+                      Clears 60% of indoor particulate matter
+                    </div>
                   </div>
                   <input
                     type="checkbox"
@@ -678,7 +667,9 @@ export const OnboardingPage: React.FC = () => {
                 <div className="flex items-center justify-between pt-1 border-t border-white/[0.05]">
                   <div>
                     <div className="font-semibold text-white">Kitchen Chimney / Exhaust</div>
-                    <div className="text-[11px] text-slate-400">Extracts 70% of cooking grease/smoke</div>
+                    <div className="text-[11px] text-slate-400">
+                      Extracts 70% of cooking grease/smoke
+                    </div>
                   </div>
                   <input
                     type="checkbox"
@@ -811,7 +802,7 @@ export const OnboardingPage: React.FC = () => {
                         0,
                         24 -
                           family[selectedMemberIdx].routine.hoursOutside -
-                          family[selectedMemberIdx].routine.hoursAway
+                          family[selectedMemberIdx].routine.hoursAway,
                       )}{' '}
                       hrs
                     </strong>
@@ -838,7 +829,8 @@ export const OnboardingPage: React.FC = () => {
                     Calculating your air...
                   </h3>
                   <p className="text-xs text-slate-400 mt-1">
-                    Fetching live Open-Meteo data for {location.name} and computing building infiltration.
+                    Fetching live Open-Meteo data for {location.name} and computing building
+                    infiltration.
                   </p>
                 </div>
               </div>
@@ -878,12 +870,14 @@ export const OnboardingPage: React.FC = () => {
                   <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-teal-500/20 border border-teal-400/40 text-teal-300 text-xs font-semibold">
                     <Sparkles className="w-4 h-4 text-teal-400" />
                     <span>
-                      {revealedCigarettes.toFixed(1)} → {targetCigarettes.toFixed(1)} with your daily air plan
+                      {revealedCigarettes.toFixed(1)} → {targetCigarettes.toFixed(1)} with your
+                      daily air plan
                     </span>
                   </div>
 
                   <div className="pt-2 text-[11px] text-slate-400 border-t border-white/[0.08]">
-                    Outdoor PM2.5: <strong className="text-white">{outdoorPm25} µg/m³</strong> in {location.name}
+                    Outdoor PM2.5: <strong className="text-white">{outdoorPm25} µg/m³</strong> in{' '}
+                    {location.name}
                   </div>
                 </GlassCard>
 

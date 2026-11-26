@@ -1,16 +1,6 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
-import {
-  Mic,
-  MicOff,
-  Send,
-  Wind,
-  Cigarette,
-  Clock,
-  Activity,
-  Sparkles,
-  User,
-} from 'lucide-react';
+import { Mic, MicOff, Send, Wind, Cigarette, Clock, Activity, Sparkles, User } from 'lucide-react';
 import GlassCard from '../components/ui/GlassCard';
 import Badge from '../components/ui/Badge';
 import { useAirQuality } from '../components/layout/AppLayout';
@@ -65,8 +55,7 @@ function buildSuggestionChips(family?: ProfileFamilyMember[]): string[] {
 
   // 2. Child (age <= 16) or member with asthma
   const child =
-    family.find((m) => m.age <= 16) ||
-    family.find((m) => m.flags?.asthma && m.id !== senior?.id);
+    family.find((m) => m.age <= 16) || family.find((m) => m.flags?.asthma && m.id !== senior?.id);
 
   if (child) {
     chips.push(`Is it safe for ${child.name} to play outside?`);
@@ -126,7 +115,7 @@ export const AskPage: React.FC = () => {
 
   const suggestionChips = useMemo(
     () => buildSuggestionChips(userProfile?.family),
-    [userProfile?.family]
+    [userProfile?.family],
   );
 
   // Voice (Web Speech API) state — button hidden completely if unsupported
@@ -165,7 +154,13 @@ export const AskPage: React.FC = () => {
     return () => {
       active = false;
     };
-  }, [userProfile?.location?.lat, userProfile?.location?.lon, userProfile?.location?.name, userProfile?.language, i18n.language]);
+  }, [
+    userProfile?.location?.lat,
+    userProfile?.location?.lon,
+    userProfile?.location?.name,
+    userProfile?.language,
+    i18n.language,
+  ]);
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -421,7 +416,9 @@ export const AskPage: React.FC = () => {
                       <div className="flex items-center justify-between gap-2 text-[11px] pt-1 border-t border-white/[0.06]">
                         <span className="flex items-center gap-1 text-slate-300">
                           <Activity className="w-3 h-3 text-teal-300" />
-                          PM2.5 <strong className="text-white font-mono">{msg.miniCard.pm25}</strong> µg/m³
+                          PM2.5{' '}
+                          <strong className="text-white font-mono">{msg.miniCard.pm25}</strong>{' '}
+                          µg/m³
                         </span>
                         <span className="flex items-center gap-1 text-amber-300 font-mono font-semibold">
                           <Cigarette className="w-3.5 h-3.5 text-amber-400" />
@@ -486,7 +483,11 @@ export const AskPage: React.FC = () => {
               title={isListening ? 'Stop listening' : 'Speak your question'}
               aria-label={isListening ? 'Stop voice input' : 'Start voice input'}
             >
-              {isListening ? <MicOff className="w-4 h-4" aria-hidden="true" /> : <Mic className="w-4 h-4" aria-hidden="true" />}
+              {isListening ? (
+                <MicOff className="w-4 h-4" aria-hidden="true" />
+              ) : (
+                <Mic className="w-4 h-4" aria-hidden="true" />
+              )}
             </button>
           )}
 
@@ -503,7 +504,10 @@ export const AskPage: React.FC = () => {
       </GlassCard>
 
       <p className="text-[10px] text-center text-slate-500">
-        {t('ask.disclaimer', 'Session-only chat · Not medical advice — please consult a doctor for symptoms.')}
+        {t(
+          'ask.disclaimer',
+          'Session-only chat · Not medical advice — please consult a doctor for symptoms.',
+        )}
       </p>
     </div>
   );

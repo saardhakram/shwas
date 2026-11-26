@@ -164,3 +164,12 @@ ml/.pytest_cache/
 .pytest_cache/
 **/__pycache__/
 *.pyc
+
+# Demo video generator & media binaries (keep repo under 10 MB)
+demo/
+demo/out/
+demo/node_modules/
+demo/.venv/
+*.mp4
+*.webm
+*.mp3

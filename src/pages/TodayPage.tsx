@@ -36,10 +36,7 @@ import {
   computeTodayExposureSummary,
   parsePlanCache,
 } from '../lib/planGenerator';
-import {
-  buildPlanDedupeKey,
-  requestDailyPlanOnce,
-} from '../lib/planFetcher';
+import { buildPlanDedupeKey, requestDailyPlanOnce } from '../lib/planFetcher';
 import { upsertTodayDailySavings } from '../lib/communityService';
 import { RawPlanItem, UserProfile } from '../types';
 
@@ -119,12 +116,8 @@ const ForecastTooltip = ({
         <div className="font-semibold text-slate-200">
           {data.day} · {data.time}
         </div>
-        <div className="text-teal-300 font-mono font-medium">
-          PM2.5: {data.pm25} µg/m³
-        </div>
-        <div className="text-slate-400 text-[10px]">
-          Open-Meteo US AQI: {data.usAqi}
-        </div>
+        <div className="text-teal-300 font-mono font-medium">PM2.5: {data.pm25} µg/m³</div>
+        <div className="text-slate-400 text-[10px]">Open-Meteo US AQI: {data.usAqi}</div>
       </div>
     );
   }
@@ -145,7 +138,7 @@ export const TodayPage: React.FC = () => {
 
   // 1. Live forecast state (Supabase Shwas ML if fresh < 6h, else Open-Meteo fallback)
   const [forecastPoints, setForecastPoints] = useState<ForecastDataPoint[]>(
-    () => getOfflineFallbackForecast().points
+    () => getOfflineFallbackForecast().points,
   );
   const [isForecastReady, setIsForecastReady] = useState<boolean>(false);
   const [isSampleData, setIsSampleData] = useState<boolean>(true);
@@ -168,7 +161,7 @@ export const TodayPage: React.FC = () => {
   useEffect(() => {
     let active = true;
     const lat = userProfile?.location?.lat || 28.6139;
-    const lon = userProfile?.location?.lon || 77.2090;
+    const lon = userProfile?.location?.lon || 77.209;
     const locName = userProfile?.location?.name || 'Delhi NCR';
 
     if (setCityName) setCityName(locName);
@@ -210,7 +203,7 @@ export const TodayPage: React.FC = () => {
     }
     return {
       language: 'en',
-      location: { lat: 28.6139, lon: 77.2090, name: 'Delhi NCR' },
+      location: { lat: 28.6139, lon: 77.209, name: 'Delhi NCR' },
       family: [
         {
           id: 'me',
@@ -289,14 +282,14 @@ export const TodayPage: React.FC = () => {
         }
       } else if (rawPlanItems.length === 0) {
         setRawPlanItems(
-          generateRuleBasedPlan(effectiveProfileRef.current, latestForecastRef.current)
+          generateRuleBasedPlan(effectiveProfileRef.current, latestForecastRef.current),
         );
         setPlanSource('loading');
       }
     } catch {
       if (rawPlanItems.length === 0) {
         setRawPlanItems(
-          generateRuleBasedPlan(effectiveProfileRef.current, latestForecastRef.current)
+          generateRuleBasedPlan(effectiveProfileRef.current, latestForecastRef.current),
         );
         setPlanSource('loading');
       }
@@ -376,7 +369,7 @@ export const TodayPage: React.FC = () => {
       effectiveProfile.home,
       selectedFamilyId,
       rawPlanItems,
-      completedMap
+      completedMap,
     );
   }, [effectiveProfile, outdoorPm25, selectedFamilyId, rawPlanItems, completedMap]);
 
@@ -393,8 +386,7 @@ export const TodayPage: React.FC = () => {
   useEffect(() => {
     if (planItems.length === 0) return;
     const selfName = effectiveProfile.family?.[0]?.name || 'My Family';
-    const familyLabel =
-      selfName.toLowerCase() === 'me' ? 'My Family' : `${selfName}'s Family`;
+    const familyLabel = selfName.toLowerCase() === 'me' ? 'My Family' : `${selfName}'s Family`;
     upsertTodayDailySavings(checkedSavings, familyLabel);
   }, [checkedSavings, planItems.length, effectiveProfile.family]);
 
@@ -460,7 +452,8 @@ export const TodayPage: React.FC = () => {
           <div className="flex items-center gap-1.5">
             <span className="w-2 h-2 rounded-full bg-red-400 animate-pulse shrink-0" />
             <span className="whitespace-nowrap">
-              {effectiveProfile.location.name} AQI: <strong className="text-slate-200 font-numbers">{aqi}</strong>
+              {effectiveProfile.location.name} AQI:{' '}
+              <strong className="text-slate-200 font-numbers">{aqi}</strong>
             </span>
           </div>
           <div className="flex items-center gap-1 min-w-0">
@@ -498,10 +491,11 @@ export const TodayPage: React.FC = () => {
             </div>
           </div>
           <span
-            className={`text-[10px] font-mono px-2 py-0.5 rounded-full border whitespace-nowrap shrink-0 ${isSampleData
+            className={`text-[10px] font-mono px-2 py-0.5 rounded-full border whitespace-nowrap shrink-0 ${
+              isSampleData
                 ? 'bg-amber-500/10 text-amber-300 border-amber-500/30'
                 : 'bg-teal-500/10 text-teal-300 border-teal-500/30'
-              }`}
+            }`}
           >
             {isMlForecast && modelMae !== null
               ? `Model MAE ±${Math.round(modelMae)} µg/m³`
@@ -513,17 +507,15 @@ export const TodayPage: React.FC = () => {
         <div className="p-2.5 rounded-xl bg-teal-500/10 border border-teal-500/25 flex items-center gap-2.5 my-2">
           <Clock className="w-4 h-4 text-teal-300 shrink-0" />
           <span className="text-xs text-teal-200 font-medium">
-            Best upcoming window: <strong>{bestWindow.label}</strong> ({bestWindow.avgPm25} µg/m³, AQI {bestWindow.avgAqi})
+            Best upcoming window: <strong>{bestWindow.label}</strong> ({bestWindow.avgPm25} µg/m³,
+            AQI {bestWindow.avgAqi})
           </span>
         </div>
 
         {/* Real Recharts Area Chart container with fixed height */}
         <div className="w-full h-44 mt-3 -ml-2">
           <ResponsiveContainer width="100%" height="100%">
-            <AreaChart
-              data={forecastPoints}
-              margin={{ top: 8, right: 10, left: -22, bottom: 0 }}
-            >
+            <AreaChart data={forecastPoints} margin={{ top: 8, right: 10, left: -22, bottom: 0 }}>
               <defs>
                 <linearGradient id="forecastAreaGradient" x1="0" y1="0" x2="0" y2="1">
                   <stop offset="5%" stopColor="#2DD4BF" stopOpacity={0.45} />
@@ -598,7 +590,11 @@ export const TodayPage: React.FC = () => {
                   : t('today.generating', 'Generating...')}
               </span>
             ) : planSource === 'gemini' ? (
-              <Badge variant="mint" size="sm" icon={<Sparkle className="w-2.5 h-2.5" aria-hidden="true" />}>
+              <Badge
+                variant="mint"
+                size="sm"
+                icon={<Sparkle className="w-2.5 h-2.5" aria-hidden="true" />}
+              >
                 Gemini
               </Badge>
             ) : null}
@@ -618,10 +614,11 @@ export const TodayPage: React.FC = () => {
                 key={item.id}
                 variant={item.completed ? 'mint' : 'subtle'}
                 onClick={() => togglePlanItem(item.id)}
-                className={`flex items-start gap-3 p-3 cursor-pointer transition-all duration-200 select-none ${item.completed
+                className={`flex items-start gap-3 p-3 cursor-pointer transition-all duration-200 select-none ${
+                  item.completed
                     ? 'border-teal-500/40 shadow-sm shadow-teal-500/10'
                     : 'hover:border-white/15'
-                  }`}
+                }`}
               >
                 {/* Checkbox Icon */}
                 <button
@@ -636,9 +633,15 @@ export const TodayPage: React.FC = () => {
                   aria-label={`${item.completed ? 'Mark incomplete' : 'Mark complete'}: ${item.action}`}
                 >
                   {item.completed ? (
-                    <CheckCircle2 className="w-5 h-5 text-teal-400 transition-transform active:scale-90" aria-hidden="true" />
+                    <CheckCircle2
+                      className="w-5 h-5 text-teal-400 transition-transform active:scale-90"
+                      aria-hidden="true"
+                    />
                   ) : (
-                    <Circle className="w-5 h-5 text-slate-500 hover:text-slate-300 transition-transform active:scale-90" aria-hidden="true" />
+                    <Circle
+                      className="w-5 h-5 text-slate-500 hover:text-slate-300 transition-transform active:scale-90"
+                      aria-hidden="true"
+                    />
                   )}
                 </button>
 
@@ -650,8 +653,11 @@ export const TodayPage: React.FC = () => {
                         {item.time}
                       </span>
                       <h4
-                        className={`text-xs font-semibold leading-tight min-w-0 ${item.completed ? 'text-teal-200 line-through opacity-85' : 'text-slate-100'
-                          }`}
+                        className={`text-xs font-semibold leading-tight min-w-0 ${
+                          item.completed
+                            ? 'text-teal-200 line-through opacity-85'
+                            : 'text-slate-100'
+                        }`}
                       >
                         {item.action}
                       </h4>
@@ -669,9 +675,7 @@ export const TodayPage: React.FC = () => {
                     )}
                   </div>
 
-                  <p className="text-[11px] text-slate-400 mt-1 leading-snug">
-                    {item.reason}
-                  </p>
+                  <p className="text-[11px] text-slate-400 mt-1 leading-snug">{item.reason}</p>
                 </div>
               </GlassCard>
             );

@@ -77,7 +77,7 @@ describe('/api/scan serverless handler', () => {
         image: 'data:image/jpeg;base64,sampleimagebytes',
         language: 'hi',
       },
-      'test-gemini-key'
+      'test-gemini-key',
     );
 
     expect(requestedUrl).toContain('gemini-3.5-flash:generateContent');
@@ -101,10 +101,7 @@ describe('/api/scan serverless handler', () => {
       };
     });
 
-    const result = await processScanRequest(
-      { image: 'base64data' },
-      'invalid-key'
-    );
+    const result = await processScanRequest({ image: 'base64data' }, 'invalid-key');
 
     expect(result.source).toBe('offline');
     expect(result.sources).toEqual([]);
@@ -141,10 +138,7 @@ describe('/api/scan serverless handler', () => {
       json: async () => mockGeminiResponse,
     });
 
-    const result = await processScanRequest(
-      { image: 'base64sample' },
-      'test-key'
-    );
+    const result = await processScanRequest({ image: 'base64sample' }, 'test-key');
 
     expect(result.source).toBe('gemini');
     expect(result.room).toBe('other');

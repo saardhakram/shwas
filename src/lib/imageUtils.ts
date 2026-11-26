@@ -8,7 +8,7 @@
 export async function resizeImageForUpload(
   file: File,
   maxDimension = 1024,
-  quality = 0.7
+  quality = 0.7,
 ): Promise<{ dataUrl: string; width: number; height: number }> {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();

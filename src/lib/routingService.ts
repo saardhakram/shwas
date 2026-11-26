@@ -8,12 +8,7 @@
  *    falling back directly to public OSRM (`router.project-osrm.org`), then offline estimate.
  */
 
-import {
-  LatLon,
-  RawRouteGeometry,
-  estimateMetroRoute,
-  haversineDistanceKm,
-} from './routeExposure';
+import { LatLon, RawRouteGeometry, estimateMetroRoute, haversineDistanceKm } from './routeExposure';
 
 export type RoutingProvider = 'google_routes' | 'osrm' | 'estimate';
 
@@ -85,7 +80,7 @@ export function getQuickDestinations(home: { lat: number; lon: number; name: str
 export async function searchPlaces(
   query: string,
   near?: LatLon,
-  googleMapsReady = false
+  googleMapsReady = false,
 ): Promise<PlaceSuggestion[]> {
   const trimmed = query.trim();
   if (!trimmed || trimmed.length < 2) return [];
@@ -103,7 +98,7 @@ export async function searchPlaces(
               ? {
                   bounds: new window.google.maps.LatLngBounds(
                     { lat: near.lat - 0.3, lng: near.lon - 0.3 },
-                    { lat: near.lat + 0.3, lng: near.lon + 0.3 }
+                    { lat: near.lat + 0.3, lng: near.lon + 0.3 },
                   ),
                 }
               : {}),
@@ -115,7 +110,7 @@ export async function searchPlaces(
             } else {
               reject(new Error(`Google geocode status: ${status}`));
             }
-          }
+          },
         );
       });
 
@@ -138,7 +133,7 @@ export async function searchPlaces(
       ? `&viewbox=${(near.lon - 0.5).toFixed(3)},${(near.lat + 0.5).toFixed(3)},${(near.lon + 0.5).toFixed(3)},${(near.lat - 0.5).toFixed(3)}`
       : '';
     const url = `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(
-      trimmed
+      trimmed,
     )}&countrycodes=in&limit=5${viewbox}`;
     const res = await fetch(url);
     if (!res.ok) return [];
@@ -203,7 +198,7 @@ function extractGoogleRoutePath(route: any, origin: LatLon, destination: LatLon)
 async function fetchGoogleRoutes(
   origin: LatLon,
   destination: LatLon,
-  departureTime: Date
+  departureTime: Date,
 ): Promise<RawRouteGeometry[] | null> {
   if (typeof window === 'undefined' || !window.google?.maps) return null;
 
@@ -214,7 +209,9 @@ async function fetchGoogleRoutes(
 
     const RouteClass = routesLib?.Route;
     if (!RouteClass?.computeRoutes) {
-      console.warn('[routingService] google.maps.routes.Route.computeRoutes unavailable; using OSRM.');
+      console.warn(
+        '[routingService] google.maps.routes.Route.computeRoutes unavailable; using OSRM.',
+      );
       return null;
     }
 
@@ -223,7 +220,7 @@ async function fetchGoogleRoutes(
     let firstError: unknown = null;
 
     const computeForTravelMode = async (
-      travelMode: 'DRIVING' | 'TWO_WHEELER' | 'WALKING'
+      travelMode: 'DRIVING' | 'TWO_WHEELER' | 'WALKING',
     ): Promise<any[]> => {
       try {
         const resp = await RouteClass.computeRoutes({
@@ -309,7 +306,7 @@ async function fetchGoogleRoutes(
 
     console.warn(
       '[routingService] Google Routes failed, falling back to OSRM:',
-      firstError || 'No routes returned'
+      firstError || 'No routes returned',
     );
     return null;
   } catch (err) {
@@ -323,7 +320,7 @@ async function fetchGoogleRoutes(
  */
 async function fetchOsrmRoutes(
   origin: LatLon,
-  destination: LatLon
+  destination: LatLon,
 ): Promise<RawRouteGeometry[] | null> {
   const coordStr = `${origin.lon.toFixed(5)},${origin.lat.toFixed(5)};${destination.lon.toFixed(5)},${destination.lat.toFixed(5)}`;
 
@@ -342,16 +339,12 @@ async function fetchOsrmRoutes(
     }
   };
 
-  const [driveRoutes, footRoutes] = await Promise.all([
-    queryOsrm('driving'),
-    queryOsrm('foot'),
-  ]);
+  const [driveRoutes, footRoutes] = await Promise.all([queryOsrm('driving'), queryOsrm('foot')]);
 
   if (driveRoutes.length === 0 && footRoutes.length === 0) return null;
 
   const results: RawRouteGeometry[] = [];
-  const toLatLon = (coords: number[][]): LatLon[] =>
-    coords.map(([lon, lat]) => ({ lat, lon }));
+  const toLatLon = (coords: number[][]): LatLon[] => coords.map(([lon, lat]) => ({ lat, lon }));
 
   driveRoutes.slice(0, 2).forEach((r, idx) => {
     const distKm = Number(((r.distance || 0) / 1000).toFixed(1));
@@ -363,7 +356,11 @@ async function fetchOsrmRoutes(
       id: idx === 0 ? 'car_main' : `car_alt_${idx}`,
       mode: 'car',
       label: idx === 0 ? 'Car (AC / windows shut)' : `Car Alt ${idx}`,
-      summary: legSummary ? `via ${legSummary}` : idx === 0 ? 'Fastest driving route' : 'Alternate route',
+      summary: legSummary
+        ? `via ${legSummary}`
+        : idx === 0
+          ? 'Fastest driving route'
+          : 'Alternate route',
       distanceKm: distKm,
       durationMin: durMin,
       path,
@@ -421,10 +418,7 @@ async function fetchOsrmRoutes(
 /**
  * Offline geometric estimate when both Google Routes and OSRM are unreachable.
  */
-function buildOfflineFallbackRoutes(
-  origin: LatLon,
-  destination: LatLon
-): RawRouteGeometry[] {
+function buildOfflineFallbackRoutes(origin: LatLon, destination: LatLon): RawRouteGeometry[] {
   const straightKm = Math.max(0.6, haversineDistanceKm(origin, destination));
   const roadKm = Number((straightKm * 1.28).toFixed(1));
   const path: LatLon[] = [
@@ -489,7 +483,7 @@ export async function fetchRoutesForTrip(
   origin: LatLon,
   destination: LatLon,
   departureTime: Date,
-  googleMapsReady = false
+  googleMapsReady = false,
 ): Promise<{ routes: RawRouteGeometry[]; provider: RoutingProvider }> {
   let baseRoutes: RawRouteGeometry[] | null = null;
   let provider: RoutingProvider = 'estimate';

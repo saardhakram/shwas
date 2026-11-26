@@ -31,7 +31,8 @@ def _make_synthetic_hourly(start: str, periods: int, base_pm25: float = 150.0) -
             "temperature_2m": 18.0 + 6.0 * np.sin(2 * np.pi * (hours - 6) / 24.0),
             "relative_humidity_2m": 65.0 - 15.0 * np.sin(2 * np.pi * (hours - 6) / 24.0),
             "precipitation": np.zeros(periods),
-            "boundary_layer_height": 300.0 + 500.0 * np.clip(np.sin(2 * np.pi * (hours - 6) / 24.0), 0, 1),
+            "boundary_layer_height": 300.0
+            + 500.0 * np.clip(np.sin(2 * np.pi * (hours - 6) / 24.0), 0, 1),
             "location_id": "delhi_ito",
             "location_name": "ITO, Central Delhi",
             "lat": 28.6289,
@@ -63,7 +64,26 @@ def test_clean_drops_sensor_errors_and_flatlines_over_6h():
 
 
 def test_mask_flatlines_boundary_6h_vs_7h():
-    s = pd.Series([10.0, 20.0, 20.0, 20.0, 20.0, 20.0, 20.0, 30.0, 40.0, 40.0, 40.0, 40.0, 40.0, 40.0, 40.0, 50.0])
+    s = pd.Series(
+        [
+            10.0,
+            20.0,
+            20.0,
+            20.0,
+            20.0,
+            20.0,
+            20.0,
+            30.0,
+            40.0,
+            40.0,
+            40.0,
+            40.0,
+            40.0,
+            40.0,
+            40.0,
+            50.0,
+        ]
+    )
     masked = mask_flatlines(s, max_consecutive_same=6)
     # 6 occurrences of 20.0 should stay
     assert masked.iloc[1:7].notna().all()
@@ -127,4 +147,3 @@ def test_pm25_to_aqi_category():
     assert pm25_to_aqi_category(40.0) == "Poor"
     assert pm25_to_aqi_category(200.0) == "Severe"
     assert pm25_to_aqi_category(310.0) == "Hazardous"
-

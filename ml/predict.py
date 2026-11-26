@@ -13,7 +13,7 @@ from __future__ import annotations
 import argparse
 import json
 import os
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 import joblib
 import numpy as np
@@ -124,7 +124,7 @@ def run_predictions(dry_run: bool = False) -> list[dict]:
     model = joblib.load(model_path)
     meta = json.loads(meta_path.read_text(encoding="utf-8")) if meta_path.exists() else {}
     model_mae = meta.get("test_mae") or meta.get("val_mae")
-    generated_at = datetime.now(timezone.utc).isoformat()
+    generated_at = datetime.now(UTC).isoformat()
 
     all_rows: list[dict] = []
     for idx, station in enumerate(DELHI_STATIONS):
@@ -157,15 +157,15 @@ def run_predictions(dry_run: bool = False) -> list[dict]:
         )
 
     if dry_run:
-        print(f"[predict] Dry-run complete ({len(all_rows)} rows prepared, not written to Supabase).")
+        print(
+            f"[predict] Dry-run complete ({len(all_rows)} rows prepared, not written to Supabase)."
+        )
         return all_rows
 
     supabase_url = os.getenv("SUPABASE_URL", "").strip()
     service_key = os.getenv("SUPABASE_SERVICE_ROLE_KEY", "").strip()
     if not supabase_url or not service_key:
-        raise EnvironmentError(
-            "SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY must be set in the environment."
-        )
+        raise OSError("SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY must be set in the environment.")
 
     upsert_forecasts_to_supabase(all_rows, supabase_url, service_key)
     print(f"[predict] Successfully upserted {len(all_rows)} forecast rows into Supabase.")
@@ -173,12 +173,15 @@ def run_predictions(dry_run: bool = False) -> list[dict]:
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(description="Generate 48h ML PM2.5 forecasts and push to Supabase.")
-    parser.add_argument("--dry-run", action="store_true", help="Run inference without writing to Supabase")
+    parser = argparse.ArgumentParser(
+        description="Generate 48h ML PM2.5 forecasts and push to Supabase."
+    )
+    parser.add_argument(
+        "--dry-run", action="store_true", help="Run inference without writing to Supabase"
+    )
     args = parser.parse_args()
     run_predictions(dry_run=args.dry_run)
 
 
 if __name__ == "__main__":
     main()
-

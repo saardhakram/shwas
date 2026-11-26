@@ -47,20 +47,20 @@ describe('routeExposure.ts (Clean Routes Exposure & CO2 Engine)', () => {
 
   it('samples exactly 5 evenly spaced points along a route polyline', () => {
     const path: LatLon[] = [
-      { lat: 28.60, lon: 77.20 },
-      { lat: 28.62, lon: 77.20 },
-      { lat: 28.64, lon: 77.20 },
+      { lat: 28.6, lon: 77.2 },
+      { lat: 28.62, lon: 77.2 },
+      { lat: 28.64, lon: 77.2 },
     ];
     const sampled = sampleRoutePoints(path, 5);
     expect(sampled).toHaveLength(5);
-    expect(sampled[0].lat).toBeCloseTo(28.60, 4);
+    expect(sampled[0].lat).toBeCloseTo(28.6, 4);
     expect(sampled[2].lat).toBeCloseTo(28.62, 4);
     expect(sampled[4].lat).toBeCloseTo(28.64, 4);
   });
 
   it('fetches PM2.5 for multiple sampled points in ONE Open-Meteo comma-separated request', async () => {
     const points: LatLon[] = [
-      { lat: 28.60, lon: 77.20 },
+      { lat: 28.6, lon: 77.2 },
       { lat: 28.61, lon: 77.21 },
       { lat: 28.62, lon: 77.22 },
     ];
@@ -106,7 +106,7 @@ describe('routeExposure.ts (Clean Routes Exposure & CO2 Engine)', () => {
   });
 
   it('estimates Metro route with walk + 35 km/h rail speed and Google Maps transit URL', () => {
-    const origin = { lat: 28.6139, lon: 77.2090 };
+    const origin = { lat: 28.6139, lon: 77.209 };
     const dest = { lat: 28.5628, lon: 77.1745 };
     const metro = estimateMetroRoute(origin, dest, 10);
 
@@ -120,7 +120,13 @@ describe('routeExposure.ts (Clean Routes Exposure & CO2 Engine)', () => {
 
   it('recommends the lowest-cigarette option within 15 minutes of the fastest option', () => {
     const options = [
-      { id: 'two_wheeler', mode: 'two_wheeler' as const, durationMin: 20, cigarettes: 0.9, co2Kg: 0.4 }, // fastest (20 min)
+      {
+        id: 'two_wheeler',
+        mode: 'two_wheeler' as const,
+        durationMin: 20,
+        cigarettes: 0.9,
+        co2Kg: 0.4,
+      }, // fastest (20 min)
       { id: 'metro', mode: 'metro' as const, durationMin: 32, cigarettes: 0.22, co2Kg: 0.24 }, // +12 min (within 15 min), cleanest!
       { id: 'car', mode: 'car' as const, durationMin: 24, cigarettes: 0.35, co2Kg: 1.36 },
       { id: 'walk', mode: 'walk' as const, durationMin: 95, cigarettes: 0.15, co2Kg: 0 }, // cleaner, but +75 min (> 15 min)
@@ -134,8 +140,8 @@ describe('routeExposure.ts (Clean Routes Exposure & CO2 Engine)', () => {
   it('prefers lower CO2 when two options differ by less than 0.02 cigarettes', () => {
     const options = [
       { id: 'metro', mode: 'metro' as const, durationMin: 18, cigarettes: 0.09, co2Kg: 0.12 },
-      { id: 'walk', mode: 'walk' as const, durationMin: 24, cigarettes: 0.10, co2Kg: 0 }, // diff 0.01 < 0.02, lower CO2, within 15m
-      { id: 'car', mode: 'car' as const, durationMin: 14, cigarettes: 0.10, co2Kg: 0.68 },
+      { id: 'walk', mode: 'walk' as const, durationMin: 24, cigarettes: 0.1, co2Kg: 0 }, // diff 0.01 < 0.02, lower CO2, within 15m
+      { id: 'car', mode: 'car' as const, durationMin: 14, cigarettes: 0.1, co2Kg: 0.68 },
     ];
 
     const rec = selectRecommendedOption(options);
@@ -147,7 +153,7 @@ describe('routeExposure.ts (Clean Routes Exposure & CO2 Engine)', () => {
     // Car has slightly fewer cigarettes (0.10 vs Metro 0.115 -> diff 0.015 <= 0.02),
     // and Metro is within 15 min of fastest (26 <= 16 + 15) -> must recommend Metro, NOT Car!
     const options = [
-      { id: 'car', mode: 'car' as const, durationMin: 16, cigarettes: 0.10, co2Kg: 1.36 },
+      { id: 'car', mode: 'car' as const, durationMin: 16, cigarettes: 0.1, co2Kg: 1.36 },
       { id: 'metro', mode: 'metro' as const, durationMin: 26, cigarettes: 0.115, co2Kg: 0.24 },
       { id: 'auto', mode: 'auto' as const, durationMin: 20, cigarettes: 0.25, co2Kg: 0.64 },
     ];
@@ -159,18 +165,32 @@ describe('routeExposure.ts (Clean Routes Exposure & CO2 Engine)', () => {
     // Also test Two-wheeler within 0.02 cigs & 15 min beating Car
     const options2 = [
       { id: 'car', mode: 'car' as const, durationMin: 15, cigarettes: 0.12, co2Kg: 1.02 },
-      { id: 'two_wheeler', mode: 'two_wheeler' as const, durationMin: 14, cigarettes: 0.135, co2Kg: 0.3 },
+      {
+        id: 'two_wheeler',
+        mode: 'two_wheeler' as const,
+        durationMin: 14,
+        cigarettes: 0.135,
+        co2Kg: 0.3,
+      },
     ];
     expect(selectRecommendedOption(options2)?.id).toBe('two_wheeler');
   });
 
   it('colours routes mint (cleanest) -> amber -> red (dirtiest), marks recommended, and adds relative smog labels & bars', () => {
     const basePath: LatLon[] = [
-      { lat: 28.61, lon: 77.20 },
+      { lat: 28.61, lon: 77.2 },
       { lat: 28.64, lon: 77.22 },
     ];
     const routes: RawRouteGeometry[] = [
-      { id: 'metro', mode: 'metro', label: 'Metro', distanceKm: 8, durationMin: 26, path: basePath, isEstimate: true },
+      {
+        id: 'metro',
+        mode: 'metro',
+        label: 'Metro',
+        distanceKm: 8,
+        durationMin: 26,
+        path: basePath,
+        isEstimate: true,
+      },
       { id: 'car', mode: 'car', label: 'Car', distanceKm: 8, durationMin: 24, path: basePath },
       { id: 'auto', mode: 'auto', label: 'Auto', distanceKm: 8, durationMin: 26, path: basePath },
     ];
@@ -193,7 +213,14 @@ describe('routeExposure.ts (Clean Routes Exposure & CO2 Engine)', () => {
 
   it('computes a departure timing tip from the 48-hour forecast', () => {
     const now = new Date('2026-11-26T09:00:00');
-    const mkPoint = (isoTime: string, time: string, fullTime: string, hour: number, pm25: number, usAqi: number): ForecastDataPoint => ({
+    const mkPoint = (
+      isoTime: string,
+      time: string,
+      fullTime: string,
+      hour: number,
+      pm25: number,
+      usAqi: number,
+    ): ForecastDataPoint => ({
       isoTime,
       timestamp: new Date(isoTime).getTime(),
       time,

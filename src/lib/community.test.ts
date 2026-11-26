@@ -36,8 +36,8 @@ describe('community.ts (Join Codes, Weekly Savings Aggregation & Share Copy)', (
       expect(
         computeStreakDays(
           ['2026-11-26', '2026-11-25', '2026-11-24', '2026-11-23', '2026-11-20'],
-          '2026-11-26'
-        )
+          '2026-11-26',
+        ),
       ).toBe(4);
 
       // Not checked yet today, but active yesterday + day before => 2-day streak
@@ -102,7 +102,7 @@ describe('community.ts (Join Codes, Weekly Savings Aggregation & Share Copy)', (
       const stats = aggregateWeeklyCommunityStats(
         [{ group_id: 'g1', user_id: 'u1', display_name: 'My FamilyRam Family' }],
         [],
-        new Date('2026-11-26T10:00:00Z')
+        new Date('2026-11-26T10:00:00Z'),
       );
       expect(stats.leaderboard[0].displayName).toBe('Ram Family');
     });

@@ -1,9 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import {
-  requestDailyPlanOnce,
-  resetDailyPlanFetcherForTesting,
-  StorageLike,
-} from './planFetcher';
+import { requestDailyPlanOnce, resetDailyPlanFetcherForTesting, StorageLike } from './planFetcher';
 import { serializePlanCache, generateRuleBasedPlan } from './planGenerator';
 import type { UserProfile } from '../types';
 import type { ForecastDataPoint } from '../shared/forecastWindow';
@@ -72,7 +68,7 @@ describe('planFetcher.ts (single POST /api/plan per page load)', () => {
         forecastReady: true,
         fetchImpl: fetchSpy as any,
         storage,
-      })
+      }),
     ).toBeNull();
 
     expect(
@@ -83,7 +79,7 @@ describe('planFetcher.ts (single POST /api/plan per page load)', () => {
         forecastReady: false,
         fetchImpl: fetchSpy as any,
         storage,
-      })
+      }),
     ).toBeNull();
 
     expect(fetchSpy).not.toHaveBeenCalled();
@@ -153,7 +149,7 @@ describe('planFetcher.ts (single POST /api/plan per page load)', () => {
     const offlineItems = generateRuleBasedPlan(profile);
     storage.setItem(
       'shwas_plan_2026-11-26_en_Delhi NCR',
-      serializePlanCache('offline', offlineItems)
+      serializePlanCache('offline', offlineItems),
     );
 
     const fetchSpy = vi.fn().mockResolvedValue({

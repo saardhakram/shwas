@@ -28,8 +28,18 @@ export const FamilyChips: React.FC<FamilyChipsProps> = ({
   const defaultMembers: FamilyMemberOption[] = [
     { id: 'all', name: t('family.all', 'All Family') },
     { id: 'me', name: t('family.me', 'Me (32)') },
-    { id: 'grandpa', name: t('family.grandpa', 'Grandpa (72)'), tag: t('family.seniorTag', 'Senior'), tagType: 'senior' },
-    { id: 'child', name: t('family.child', 'Aarav (8)'), tag: t('family.asthmaTag', 'Asthma'), tagType: 'asthma' },
+    {
+      id: 'grandpa',
+      name: t('family.grandpa', 'Grandpa (72)'),
+      tag: t('family.seniorTag', 'Senior'),
+      tagType: 'senior',
+    },
+    {
+      id: 'child',
+      name: t('family.child', 'Aarav (8)'),
+      tag: t('family.asthmaTag', 'Asthma'),
+      tagType: 'asthma',
+    },
   ];
 
   const list = members && members.length > 0 ? members : defaultMembers;
@@ -66,13 +76,19 @@ export const FamilyChips: React.FC<FamilyChipsProps> = ({
                   member.tagType === 'asthma'
                     ? 'bg-red-500/20 text-red-300 border-red-500/40'
                     : member.tagType === 'senior'
-                    ? 'bg-amber-500/20 text-amber-300 border-amber-500/40'
-                    : 'bg-white/10 text-slate-300 border-white/20'
+                      ? 'bg-amber-500/20 text-amber-300 border-amber-500/40'
+                      : 'bg-white/10 text-slate-300 border-white/20'
                 }`}
               >
-                {member.tagType === 'asthma' && <HeartPulse className="w-2.5 h-2.5 inline" aria-hidden="true" />}
-                {member.tagType === 'senior' && <ShieldAlert className="w-2.5 h-2.5 inline" aria-hidden="true" />}
-                {member.tagType === 'child' && <Baby className="w-2.5 h-2.5 inline" aria-hidden="true" />}
+                {member.tagType === 'asthma' && (
+                  <HeartPulse className="w-2.5 h-2.5 inline" aria-hidden="true" />
+                )}
+                {member.tagType === 'senior' && (
+                  <ShieldAlert className="w-2.5 h-2.5 inline" aria-hidden="true" />
+                )}
+                {member.tagType === 'child' && (
+                  <Baby className="w-2.5 h-2.5 inline" aria-hidden="true" />
+                )}
                 {member.tag}
               </span>
             )}

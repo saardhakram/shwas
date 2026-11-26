@@ -102,9 +102,7 @@ export function haversineDistanceKm(a: LatLon, b: LatLon): number {
   const dLon = toRad(b.lon - a.lon);
   const sinLat = Math.sin(dLat / 2);
   const sinLon = Math.sin(dLon / 2);
-  const h =
-    sinLat * sinLat +
-    Math.cos(toRad(a.lat)) * Math.cos(toRad(b.lat)) * sinLon * sinLon;
+  const h = sinLat * sinLat + Math.cos(toRad(a.lat)) * Math.cos(toRad(b.lat)) * sinLon * sinLon;
   return 2 * R * Math.atan2(Math.sqrt(h), Math.sqrt(1 - h));
 }
 
@@ -174,7 +172,7 @@ export function buildOpenMeteoBatchUrl(points: LatLon[]): string {
 export function extractPm25ForTime(
   locationData: { hourly?: { time?: string[]; pm2_5?: Array<number | null> } },
   departureTime: Date,
-  fallbackPm25: number
+  fallbackPm25: number,
 ): number {
   const times = locationData?.hourly?.time;
   const values = locationData?.hourly?.pm2_5;
@@ -211,7 +209,7 @@ export function extractPm25ForTime(
 export async function fetchRoutePointsPm25(
   points: LatLon[],
   departureTime: Date = new Date(),
-  fallbackPm25 = 120
+  fallbackPm25 = 120,
 ): Promise<number[]> {
   if (!points || points.length === 0) return [];
 
@@ -242,7 +240,7 @@ export async function fetchRoutePointsPm25(
 export function calculateRouteCigarettes(
   avgPm25: number,
   durationMin: number,
-  mode: RouteMode
+  mode: RouteMode,
 ): number {
   const safePm25 = Math.max(0, avgPm25 || 0);
   const travelHours = Math.max(0, durationMin || 0) / 60;
@@ -276,11 +274,11 @@ export function buildGoogleTransitUrl(origin: LatLon, destination: LatLon): stri
 export function estimateMetroRoute(
   origin: LatLon,
   destination: LatLon,
-  referenceRoadKm?: number
+  referenceRoadKm?: number,
 ): RawRouteGeometry {
   const straightKm = haversineDistanceKm(origin, destination);
   const railDistanceKm = Number(
-    Math.max(0.5, referenceRoadKm ? referenceRoadKm * 0.95 : straightKm * 1.2).toFixed(1)
+    Math.max(0.5, referenceRoadKm ? referenceRoadKm * 0.95 : straightKm * 1.2).toFixed(1),
   );
 
   // Walk to & from stations: ~12 min typical, reduced proportionally for very short trips
@@ -355,13 +353,13 @@ export function selectRecommendedOption(
     durationMin: number;
     cigarettes: number;
     co2Kg?: number;
-  }>
+  }>,
 ): RecommendationResult | null {
   if (!options || options.length === 0) return null;
 
   const fastestMin = Math.min(...options.map((o) => o.durationMin));
   const eligible = options.filter(
-    (o) => o.durationMin <= fastestMin + RECOMMENDED_MAX_EXTRA_MINUTES
+    (o) => o.durationMin <= fastestMin + RECOMMENDED_MAX_EXTRA_MINUTES,
   );
 
   if (eligible.length === 0) {
@@ -371,14 +369,10 @@ export function selectRecommendedOption(
   const minCigs = Math.min(...eligible.map((o) => o.cigarettes));
 
   // All eligible options within 0.02 cigarettes of the cleanest eligible option
-  let candidates = eligible.filter(
-    (o) => o.cigarettes - minCigs <= SMOG_TIE_THRESHOLD_CIGS + 1e-9
-  );
+  let candidates = eligible.filter((o) => o.cigarettes - minCigs <= SMOG_TIE_THRESHOLD_CIGS + 1e-9);
 
   // Never recommend Car if Metro, Walk, or Two-wheeler is in the 0.02-cig band (and already within 15 min)
-  const hasSustainableAlternative = candidates.some(
-    (c) => c.mode && SUSTAINABLE_MODES.has(c.mode)
-  );
+  const hasSustainableAlternative = candidates.some((c) => c.mode && SUSTAINABLE_MODES.has(c.mode));
   if (hasSustainableAlternative) {
     candidates = candidates.filter((c) => c.mode !== 'car');
   }
@@ -414,7 +408,7 @@ export function selectRecommendedOption(
 export function classifyExposureColor(
   cigarettes: number,
   minCigs: number,
-  maxCigs: number
+  maxCigs: number,
 ): { exposureLevel: ExposureLevel; strokeColor: string } {
   const span = maxCigs - minCigs;
   if (span <= 0.01) {
@@ -448,7 +442,7 @@ function formatMultiplier(ratio: number): string {
  */
 export function evaluateRouteOptions(
   routes: RawRouteGeometry[],
-  routeAvgPm25s: number[]
+  routeAvgPm25s: number[],
 ): EvaluatedRouteOption[] {
   if (!routes || routes.length === 0) return [];
 
@@ -477,15 +471,11 @@ export function evaluateRouteOptions(
       durationMin: p.route.durationMin,
       cigarettes: p.cigarettes,
       co2Kg: p.co2Kg,
-    }))
+    })),
   );
 
   return preliminary.map(({ route, avgPm25, cigarettes, co2Kg }) => {
-    const { exposureLevel, strokeColor } = classifyExposureColor(
-      cigarettes,
-      minCigs,
-      maxCigs
-    );
+    const { exposureLevel, strokeColor } = classifyExposureColor(cigarettes, minCigs, maxCigs);
 
     let relativeSmogLabel: string;
     if (route.id === cleanestBaseline.route.id || cigarettes <= minCigs + 0.005) {
@@ -536,7 +526,7 @@ function formatShortTime(d: Date): string {
 export function computeDepartureTip(
   forecastPoints: ForecastDataPoint[],
   departureTime: Date,
-  isNow = true
+  isNow = true,
 ): DepartureTip | null {
   if (!forecastPoints || forecastPoints.length < 3) return null;
 
@@ -572,9 +562,7 @@ export function computeDepartureTip(
 
   if (!bestPoint) return null;
 
-  const reductionPct = Math.round(
-    ((currentPoint.pm25 - bestPoint.pm25) / currentPoint.pm25) * 100
-  );
+  const reductionPct = Math.round(((currentPoint.pm25 - bestPoint.pm25) / currentPoint.pm25) * 100);
 
   if (reductionPct < 10) return null;
 

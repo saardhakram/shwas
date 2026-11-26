@@ -101,7 +101,7 @@ export function buildTimeMiniCard(
   durationHours: number | null,
   forecast: ForecastDataPoint[],
   currentPm25?: number,
-  currentAqi?: number
+  currentAqi?: number,
 ): AskMiniCard | null {
   if (targetHour === null || targetHour < 0 || targetHour > 23) return null;
 
@@ -117,8 +117,7 @@ export function buildTimeMiniCard(
 
   // Berkeley Earth cigarette equivalence: 22 µg/m³ for 24h = 1 cigarette (divisor 528)
   const cigarettes = Number(((Math.max(0, pm25) * hours) / 528).toFixed(2));
-  const level: AskMiniCard['level'] =
-    aqi <= 100 ? 'good' : aqi <= 200 ? 'moderate' : 'high';
+  const level: AskMiniCard['level'] = aqi <= 100 ? 'good' : aqi <= 200 ? 'moderate' : 'high';
 
   return {
     timeLabel: timeMentioned?.trim() || formatHour12(targetHour),
@@ -147,7 +146,7 @@ function getRateLimitMessage(language: string): string {
 export async function processAskRequest(
   body: AskRequestBody,
   apiKey?: string,
-  clientId?: string
+  clientId?: string,
 ): Promise<AskResponseBody> {
   const question = (body.question || '').trim();
   const profile = body.profile;
@@ -183,8 +182,10 @@ export async function processAskRequest(
 
   const forecast = Array.isArray(body.forecast) ? body.forecast.slice(0, 24) : [];
   const plan = Array.isArray(body.plan) ? body.plan.slice(0, 8) : [];
-  const currentPm25 = typeof body.currentPm25 === 'number' ? body.currentPm25 : forecast[0]?.pm25 ?? 150;
-  const currentAqi = typeof body.currentAqi === 'number' ? body.currentAqi : forecast[0]?.usAqi ?? 180;
+  const currentPm25 =
+    typeof body.currentPm25 === 'number' ? body.currentPm25 : (forecast[0]?.pm25 ?? 150);
+  const currentAqi =
+    typeof body.currentAqi === 'number' ? body.currentAqi : (forecast[0]?.usAqi ?? 180);
 
   // Increment count for valid attempt
   const nextCount = usedCount + 1;
@@ -222,9 +223,7 @@ export async function processAskRequest(
 
     // Compact forecast: sample at most 8 points (every 3h) to keep prompt fast & concise
     const sampledForecast =
-      forecast.length > 8
-        ? forecast.filter((_, idx) => idx % 3 === 0).slice(0, 8)
-        : forecast;
+      forecast.length > 8 ? forecast.filter((_, idx) => idx % 3 === 0).slice(0, 8) : forecast;
     const forecastSummary =
       sampledForecast.length > 0
         ? sampledForecast
@@ -294,7 +293,11 @@ Return STRICT JSON only:
       if (typeof parsed?.answer === 'string' && parsed.answer.trim()) {
         answerText = parsed.answer.trim();
       }
-      if (typeof parsed?.targetHour === 'number' && parsed.targetHour >= 0 && parsed.targetHour <= 23) {
+      if (
+        typeof parsed?.targetHour === 'number' &&
+        parsed.targetHour >= 0 &&
+        parsed.targetHour <= 23
+      ) {
         targetHour = Math.round(parsed.targetHour);
       }
       if (typeof parsed?.timeMentioned === 'string' && parsed.timeMentioned.trim()) {
@@ -318,7 +321,7 @@ Return STRICT JSON only:
       durationHours,
       forecast,
       currentPm25,
-      currentAqi
+      currentAqi,
     );
 
     return {

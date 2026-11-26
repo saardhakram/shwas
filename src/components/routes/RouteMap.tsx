@@ -79,7 +79,10 @@ function loadGoogleMapsScript(apiKey: string): Promise<boolean> {
 
     const existing = document.querySelector<HTMLScriptElement>('script[data-shwas-gmaps="true"]');
     if (existing) {
-      const checkTimer = setTimeout(() => resolve(Boolean(window.google?.maps?.Map && !googleMapsAuthFailed)), 4000);
+      const checkTimer = setTimeout(
+        () => resolve(Boolean(window.google?.maps?.Map && !googleMapsAuthFailed)),
+        4000,
+      );
       existing.addEventListener('load', () => {
         clearTimeout(checkTimer);
         resolve(Boolean(window.google?.maps?.Map && !googleMapsAuthFailed));
@@ -93,7 +96,7 @@ function loadGoogleMapsScript(apiKey: string): Promise<boolean> {
 
     const script = document.createElement('script');
     script.src = `https://maps.googleapis.com/maps/api/js?key=${encodeURIComponent(
-      apiKey
+      apiKey,
     )}&libraries=places,routes&v=weekly`;
     script.async = true;
     script.defer = true;
@@ -187,7 +190,12 @@ export const RouteMap: React.FC<RouteMapProps> = ({
 
   // 2. Render & update Google Map when active
   useEffect(() => {
-    if (provider !== 'google' || !googleReady || !googleContainerRef.current || !window.google?.maps) {
+    if (
+      provider !== 'google' ||
+      !googleReady ||
+      !googleContainerRef.current ||
+      !window.google?.maps
+    ) {
       return;
     }
 
@@ -267,7 +275,7 @@ export const RouteMap: React.FC<RouteMapProps> = ({
 
       // Draw routes sorted so selected route renders on top
       const sortedRoutes = [...routes].sort((a, b) =>
-        a.id === selectedRouteId ? 1 : b.id === selectedRouteId ? -1 : 0
+        a.id === selectedRouteId ? 1 : b.id === selectedRouteId ? -1 : 0,
       );
 
       sortedRoutes.forEach((route) => {
@@ -367,7 +375,7 @@ export const RouteMap: React.FC<RouteMapProps> = ({
 
     // Draw routes (unselected first, selected on top)
     const sortedRoutes = [...routes].sort((a, b) =>
-      a.id === selectedRouteId ? 1 : b.id === selectedRouteId ? -1 : 0
+      a.id === selectedRouteId ? 1 : b.id === selectedRouteId ? -1 : 0,
     );
 
     sortedRoutes.forEach((route) => {
