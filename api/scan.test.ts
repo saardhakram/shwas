@@ -80,7 +80,7 @@ describe('/api/scan serverless handler', () => {
       'test-gemini-key'
     );
 
-    expect(requestedUrl).toContain('gemini-3.8-flash:generateContent');
+    expect(requestedUrl).toContain('gemini-3.5-flash:generateContent');
     expect(requestedHeaders['x-goog-api-key']).toBe('test-gemini-key');
     expect(requestedBody.generationConfig.responseMimeType).toBe('application/json');
     expect(requestedBody.contents[0].parts[1].inlineData.data).toBe('sampleimagebytes');

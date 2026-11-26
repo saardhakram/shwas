@@ -93,11 +93,56 @@ describe('Daily Air Plan Generator Engine', () => {
     ];
 
     const heroCigarettes = 1.2;
-    const maxAllowedSavings = Number((heroCigarettes * 0.7).toFixed(1)); // 0.8
+    const maxAllowedSavings = Math.floor(heroCigarettes * 0.7 * 10 + 1e-9) / 10; // 0.8
     const enriched = buildEnrichedPlan(items, {}, heroCigarettes);
 
-    const totalSaved = enriched.reduce((sum, it) => sum + it.cigarettesSaved, 0);
-    expect(totalSaved).toBeLessThanOrEqual(maxAllowedSavings + 0.1);
+    const totalSaved = Number(
+      enriched.reduce((sum, it) => sum + it.cigarettesSaved, 0).toFixed(1)
+    );
+    expect(totalSaved).toBeLessThanOrEqual(maxAllowedSavings);
+    expect(totalSaved).toBeLessThanOrEqual(heroCigarettes * 0.7);
+  });
+
+  it('proportionally scales 7 plan items when hero is 0.9 so sum never exceeds 70% (0.6) and target > 0', () => {
+    const rawPlan = generateRuleBasedPlan(sampleProfile);
+    expect(rawPlan.length).toBe(7);
+
+    const hero = 0.9;
+    const enriched = buildEnrichedPlan(rawPlan, {}, hero);
+    const totalSaved = Number(
+      enriched.reduce((sum, it) => sum + it.cigarettesSaved, 0).toFixed(1)
+    );
+    const target = Number((hero - totalSaved).toFixed(1));
+
+    // 70% of 0.9 is 0.63 -> floored to 1 decimal place is 0.6
+    expect(totalSaved).toBeLessThanOrEqual(hero * 0.7);
+    expect(totalSaved).toBe(0.6);
+    expect(target).toBe(0.3);
+    expect(target).toBeGreaterThan(0);
+
+    // Highest raw-impact item (8h overnight purifier) should get >= lowest-impact item (0.5h ventilate)
+    const overnightPurifier = enriched[6];
+    const shortVentilate = enriched[2];
+    expect(overnightPurifier.cigarettesSaved).toBeGreaterThanOrEqual(
+      shortVentilate.cigarettesSaved
+    );
+  });
+
+  it('re-scales savings dynamically for different member hero exposures and zero hero', () => {
+    const rawPlan = generateRuleBasedPlan(sampleProfile);
+
+    // Very clean day / low-exposure member (hero = 0.4 -> 70% = 0.28 -> max 0.2)
+    const lowEnriched = buildEnrichedPlan(rawPlan, {}, 0.4);
+    const lowTotal = Number(
+      lowEnriched.reduce((sum, it) => sum + it.cigarettesSaved, 0).toFixed(1)
+    );
+    expect(lowTotal).toBeLessThanOrEqual(0.4 * 0.7);
+    expect(lowTotal).toBe(0.2);
+
+    // Zero hero exposure -> zero savings
+    const zeroEnriched = buildEnrichedPlan(rawPlan, {}, 0);
+    const zeroTotal = zeroEnriched.reduce((sum, it) => sum + it.cigarettesSaved, 0);
+    expect(zeroTotal).toBe(0);
   });
 
   it('builds enriched interactive plan with unique IDs and computed savings', () => {

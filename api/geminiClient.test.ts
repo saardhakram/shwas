@@ -24,12 +24,10 @@ describe('api/geminiClient.ts (Gemini resilient retry & fallback)', () => {
     const result = await callGeminiWithRetry({
       apiKey: 'test-key',
       prompt: 'test prompt',
-      primaryModel: 'gemini-3.8-flash',
-      fallbackModel: 'gemini-3.1-flash-lite',
     });
 
     expect(result.text).toBe('{"status":"ok"}');
-    expect(result.modelUsed).toBe('gemini-3.8-flash');
+    expect(result.modelUsed).toBe('gemini-3.5-flash');
     expect(result.attempts).toBe(1);
   });
 
@@ -63,12 +61,12 @@ describe('api/geminiClient.ts (Gemini resilient retry & fallback)', () => {
     const result = await callGeminiWithRetry({
       apiKey: 'test-key',
       prompt: 'test prompt',
-      primaryModel: 'gemini-3.8-flash',
+      primaryModel: 'gemini-3.5-flash',
       fallbackModel: 'gemini-3.1-flash-lite',
     });
 
     expect(callCount).toBe(2); // Exactly 1 on primary, then 1 on fallback
-    expect(requestedUrls[0]).toContain('gemini-3.8-flash');
+    expect(requestedUrls[0]).toContain('gemini-3.5-flash');
     expect(requestedUrls[1]).toContain('gemini-3.1-flash-lite');
     expect(result.modelUsed).toBe('gemini-3.1-flash-lite');
     expect(result.text).toBe('{"fallback":"429_success"}');
@@ -104,13 +102,13 @@ describe('api/geminiClient.ts (Gemini resilient retry & fallback)', () => {
     const result = await callGeminiWithRetry({
       apiKey: 'test-key',
       prompt: 'test prompt',
-      primaryModel: 'gemini-3.8-flash',
+      primaryModel: 'gemini-3.5-flash',
       fallbackModel: 'gemini-3.1-flash-lite',
     });
 
     expect(callCount).toBe(3); // 2 on primary + 1 on fallback
-    expect(requestedUrls[0]).toContain('gemini-3.8-flash');
-    expect(requestedUrls[1]).toContain('gemini-3.8-flash');
+    expect(requestedUrls[0]).toContain('gemini-3.5-flash');
+    expect(requestedUrls[1]).toContain('gemini-3.5-flash');
     expect(requestedUrls[2]).toContain('gemini-3.1-flash-lite');
     expect(result.modelUsed).toBe('gemini-3.1-flash-lite');
     expect(result.text).toBe('{"fallback":"503_success"}');
@@ -131,7 +129,7 @@ describe('api/geminiClient.ts (Gemini resilient retry & fallback)', () => {
       callGeminiWithRetry({
         apiKey: 'test-key',
         prompt: 'test',
-        primaryModel: 'gemini-3.8-flash',
+        primaryModel: 'gemini-3.5-flash',
         fallbackModel: 'gemini-3.1-flash-lite',
       })
     ).rejects.toThrow('All Gemini attempts failed');

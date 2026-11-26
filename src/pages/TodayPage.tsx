@@ -35,7 +35,7 @@ import {
   generateRuleBasedPlan,
   buildEnrichedPlan,
 } from '../lib/planGenerator';
-import { AirPlanItem, UserProfile } from '../types';
+import { RawPlanItem, UserProfile } from '../types';
 
 /**
  * Hook to animate numerical transitions with an ease-out cubic curve.
@@ -122,7 +122,8 @@ export const TodayPage: React.FC = () => {
   const [sourceLabel, setSourceLabel] = useState<string>('Sample data (offline fallback)');
 
   // 2. Daily Air Plan state & Plan Source (Gemini vs Rule-based fallback)
-  const [planItems, setPlanItems] = useState<AirPlanItem[]>([]);
+  const [rawPlanItems, setRawPlanItems] = useState<RawPlanItem[]>([]);
+  const [completedMap, setCompletedMap] = useState<Record<string, boolean>>({});
   const [planSource, setPlanSource] = useState<string>('loading');
   const [isPlanLoading, setIsPlanLoading] = useState<boolean>(false);
   const [isStillThinking, setIsStillThinking] = useState<boolean>(false);
@@ -220,6 +221,7 @@ export const TodayPage: React.FC = () => {
     } catch {
       // ignore
     }
+    setCompletedMap(savedCompletedMap);
 
     // Check plan cache first
     try {
@@ -227,8 +229,7 @@ export const TodayPage: React.FC = () => {
       if (cached) {
         const parsedItems = JSON.parse(cached);
         if (Array.isArray(parsedItems) && parsedItems.length >= 5) {
-          const enriched = buildEnrichedPlan(parsedItems, savedCompletedMap, baseCigarettes);
-          setPlanItems(enriched);
+          setRawPlanItems(parsedItems);
           setPlanSource('cached');
           setIsPlanLoading(false);
           return;
@@ -280,8 +281,7 @@ export const TodayPage: React.FC = () => {
         const rawPlan = (Array.isArray(data?.plan) && data.plan.length >= 5)
           ? data.plan
           : generateRuleBasedPlan(effectiveProfile, forecastPoints);
-        const enriched = buildEnrichedPlan(rawPlan, savedCompletedMap, baseCigarettes);
-        setPlanItems(enriched);
+        setRawPlanItems(rawPlan);
         setPlanSource(data?.source || 'rule_based');
         localStorage.setItem(cacheKey, JSON.stringify(rawPlan));
       })
@@ -291,8 +291,7 @@ export const TodayPage: React.FC = () => {
         if (!active) return;
         console.warn('[TodayPage] Plan fetch dropped to rule generator fallback:', err);
         const fallback = generateRuleBasedPlan(effectiveProfile, forecastPoints);
-        const enriched = buildEnrichedPlan(fallback, savedCompletedMap, baseCigarettes);
-        setPlanItems(enriched);
+        setRawPlanItems(fallback);
         setPlanSource('offline');
       })
       .finally(() => {
@@ -317,18 +316,15 @@ export const TodayPage: React.FC = () => {
 
   // Toggle plan item completion and persist to daily completed cache
   const togglePlanItem = (id: string) => {
-    setPlanItems((prev) => {
-      const updated = prev.map((item) =>
-        item.id === id ? { ...item, completed: !item.completed } : item
-      );
+    setCompletedMap((prev) => {
+      const updated = { ...prev, [id]: !prev[id] };
+      if (!updated[id]) {
+        delete updated[id];
+      }
 
       const dateStr = new Date().toISOString().slice(0, 10);
       const completedCacheKey = `shwas_plan_completed_${dateStr}`;
-      const completedMap: Record<string, boolean> = {};
-      updated.forEach((it) => {
-        if (it.completed) completedMap[it.id] = true;
-      });
-      localStorage.setItem(completedCacheKey, JSON.stringify(completedMap));
+      localStorage.setItem(completedCacheKey, JSON.stringify(updated));
 
       return updated;
     });
@@ -346,6 +342,12 @@ export const TodayPage: React.FC = () => {
     );
     return cigarettes;
   }, [selectedFamilyId, outdoorPm25, effectiveProfile]);
+
+  // Derive enriched plan items reactively on the SAME basis as baseCigarettes (selected member or family average)
+  // Item savings are scaled proportionally so their sum NEVER exceeds 70% of baseCigarettes.
+  const planItems = useMemo(() => {
+    return buildEnrichedPlan(rawPlanItems, completedMap, baseCigarettes);
+  }, [rawPlanItems, completedMap, baseCigarettes]);
 
   // Compute total savings from plan items (never trusting model math)
   const totalPotentialSavings = useMemo(() => {
@@ -608,13 +610,15 @@ export const TodayPage: React.FC = () => {
                     </div>
 
                     {/* Non-wrapping, compact badge computed with savingFromAction */}
-                    <Badge
-                      variant={item.completed ? 'mint' : 'neutral'}
-                      size="sm"
-                      className="shrink-0 whitespace-nowrap font-mono"
-                    >
-                      -{item.cigarettesSaved.toFixed(1)} cigs
-                    </Badge>
+                    {item.cigarettesSaved > 0 && (
+                      <Badge
+                        variant={item.completed ? 'mint' : 'neutral'}
+                        size="sm"
+                        className="shrink-0 whitespace-nowrap font-mono"
+                      >
+                        -{item.cigarettesSaved.toFixed(1)} cigs
+                      </Badge>
+                    )}
                   </div>
 
                   <p className="text-[11px] text-slate-400 mt-1 leading-snug">

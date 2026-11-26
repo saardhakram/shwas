@@ -47,7 +47,7 @@ describe('Serverless Plan API (/api/plan)', () => {
     expect(res.plan[0]).toHaveProperty('before_pm25');
   });
 
-  it('sends x-goog-api-key header and uses gemini-3.8-flash by default without key in URL', async () => {
+  it('sends x-goog-api-key header and uses gemini-3.5-flash by default without key in URL', async () => {
     let capturedUrl = '';
     let capturedHeaders: any = {};
     let capturedBody: any = {};
@@ -127,9 +127,9 @@ describe('Serverless Plan API (/api/plan)', () => {
 
     const res = await processPlanRequest({ profile }, 'test_api_key');
 
-    // 1. Model in URL should be gemini-3.8-flash
+    // 1. Model in URL should be gemini-3.5-flash
     expect(capturedUrl).toBe(
-      'https://generativelanguage.googleapis.com/v1beta/models/gemini-3.8-flash:generateContent'
+      'https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash:generateContent'
     );
     // 2. Key must not be in URL
     expect(capturedUrl).not.toContain('key=');

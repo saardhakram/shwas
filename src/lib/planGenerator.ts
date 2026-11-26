@@ -13,6 +13,16 @@ import { UserProfile, RawPlanItem, AirPlanItem } from '../types';
 import { ForecastDataPoint, computeBestWindow } from './forecast';
 
 /**
+ * Raw (unrounded) cigarettes saved by a single action based on its duration in hours:
+ * saving = (before_pm25 - after_pm25) * hours / 528
+ */
+function rawPlanItemSavings(item: RawPlanItem, defaultHours = 2): number {
+  const hours = Math.max(0.5, item.hours ?? defaultHours);
+  const diff = Math.max(0, item.before_pm25 - item.after_pm25);
+  return (diff * hours) / 528;
+}
+
+/**
  * Calculates cigarettes saved by a single action based on its duration in hours:
  * saving = (before_pm25 - after_pm25) * hours / 528
  *
@@ -25,10 +35,7 @@ export function calculatePlanItemSavings(
   item: RawPlanItem,
   defaultHours = 2
 ): number {
-  const hours = Math.max(0.5, item.hours ?? defaultHours);
-  const diff = Math.max(0, item.before_pm25 - item.after_pm25);
-  const cigs = (diff * hours) / 528;
-  return Number(cigs.toFixed(1));
+  return Number(rawPlanItemSavings(item, defaultHours).toFixed(1));
 }
 
 /**
@@ -189,15 +196,65 @@ export function generateRuleBasedPlan(
 
 /**
  * Converts RawPlanItems to interactive AirPlanItems with computed cigarette savings.
+ *
+ * When heroCigarettes is provided, item savings are scaled proportionally (using
+ * largest-remainder rounding to 0.1 cigarettes) so their sum NEVER exceeds 70%
+ * of heroCigarettes.
  */
 export function buildEnrichedPlan(
   rawItems: RawPlanItem[],
   existingCompletedMap: Record<string, boolean> = {},
   heroCigarettes?: number
 ): AirPlanItem[] {
-  let enriched = rawItems.map((item, index) => {
+  const rawSavings = rawItems.map((item) => rawPlanItemSavings(item));
+  const rawTotal = rawSavings.reduce((sum, val) => sum + val, 0);
+
+  let finalTenths: number[];
+
+  if (typeof heroCigarettes === 'number') {
+    // Hard cap: sum of item savings <= 70% of heroCigarettes (floored to 0.1 so it never exceeds 70%)
+    const capTenths =
+      heroCigarettes > 0 ? Math.floor(heroCigarettes * 0.7 * 10 + 1e-9) : 0;
+
+    if (capTenths <= 0 || rawTotal <= 0) {
+      finalTenths = rawItems.map(() => 0);
+    } else if (rawTotal * 10 > capTenths) {
+      // Scale proportionally and distribute tenths using largest-remainder method
+      const exactTenths = rawSavings.map((v) => (v / rawTotal) * capTenths);
+      const floored = exactTenths.map((v) => Math.floor(v));
+      let remaining = capTenths - floored.reduce((s, v) => s + v, 0);
+
+      const indicesByRemainder = exactTenths
+        .map((v, idx) => ({ idx, rem: v - floored[idx] }))
+        .sort((a, b) => b.rem - a.rem);
+
+      for (let i = 0; i < remaining && i < indicesByRemainder.length; i++) {
+        floored[indicesByRemainder[i].idx] += 1;
+      }
+      finalTenths = floored;
+    } else {
+      // Unscaled tenths; if independent rounding pushes total above capTenths, trim smallest remainders
+      const exactTenths = rawSavings.map((v) => v * 10);
+      const rounded = exactTenths.map((v) => Math.round(v));
+      let excess = rounded.reduce((s, v) => s + v, 0) - capTenths;
+      if (excess > 0) {
+        const candidates = exactTenths
+          .map((v, idx) => ({ idx, overshoot: rounded[idx] - v }))
+          .filter((c) => rounded[c.idx] > 0)
+          .sort((a, b) => b.overshoot - a.overshoot);
+        for (let i = 0; i < excess && i < candidates.length; i++) {
+          rounded[candidates[i].idx] -= 1;
+        }
+      }
+      finalTenths = rounded;
+    }
+  } else {
+    finalTenths = rawSavings.map((v) => Math.round(v * 10));
+  }
+
+  return rawItems.map((item, index) => {
     const id = `plan_${index + 1}`;
-    const cigarettesSaved = calculatePlanItemSavings(item);
+    const cigarettesSaved = Number((finalTenths[index] / 10).toFixed(1));
 
     return {
       ...item,
@@ -206,20 +263,4 @@ export function buildEnrichedPlan(
       completed: Boolean(existingCompletedMap[id]),
     };
   });
-
-  // If heroCigarettes is provided, cap total potential plan savings at 70% of hero number
-  if (typeof heroCigarettes === 'number' && heroCigarettes > 0) {
-    const maxTotalSavings = Number((heroCigarettes * 0.7).toFixed(1));
-    const currentTotal = enriched.reduce((sum, it) => sum + it.cigarettesSaved, 0);
-
-    if (currentTotal > maxTotalSavings && currentTotal > 0) {
-      const scale = maxTotalSavings / currentTotal;
-      enriched = enriched.map((it) => ({
-        ...it,
-        cigarettesSaved: Number(Math.max(0.1, it.cigarettesSaved * scale).toFixed(1)),
-      }));
-    }
-  }
-
-  return enriched;
 }

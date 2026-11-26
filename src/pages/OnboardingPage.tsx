@@ -34,6 +34,7 @@ import {
   calculateFamilyExposure,
 } from '../lib/cigarettes';
 import { fetchOpenMeteoForecast } from '../lib/forecast';
+import { generateRuleBasedPlan, buildEnrichedPlan } from '../lib/planGenerator';
 import { upsertProfile } from '../lib/supabase';
 
 const POPULAR_CITIES: ProfileLocation[] = [
@@ -227,8 +228,25 @@ export const OnboardingPage: React.FC = () => {
           // Calculate real cigarettes using single standardized family exposure function
           const { perPersonAverage } = calculateFamilyExposure(family, livePm25, home, 'all');
           const currentHero = perPersonAverage;
-          // Target Y is strictly less than current X (e.g. 40% reduction, minimum 1 decimal place, never higher than X)
-          const targetHero = Number(Math.max(0.5, Math.min(currentHero - 0.5, currentHero * 0.6)).toFixed(1));
+
+          // Compute capped plan savings using the exact same 70% cap logic as TodayPage
+          const previewProfile: UserProfile = {
+            language,
+            location,
+            family,
+            home,
+          };
+          const previewPlan = buildEnrichedPlan(
+            generateRuleBasedPlan(previewProfile, res.points),
+            {},
+            currentHero
+          );
+          const cappedSavings = Number(
+            previewPlan.reduce((sum, item) => sum + item.cigarettesSaved, 0).toFixed(1)
+          );
+          const targetHero = Number(
+            Math.max(0, Math.min(currentHero, currentHero - cappedSavings)).toFixed(1)
+          );
 
           setRevealedCigarettes(currentHero);
           setTargetCigarettes(targetHero);
