@@ -25,6 +25,12 @@ function apiDevPlugin() {
                 if (env.GEMINI_MODEL) {
                   process.env.GEMINI_MODEL = env.GEMINI_MODEL;
                 }
+                if (env.GEMINI_FALLBACK_MODEL) {
+                  process.env.GEMINI_FALLBACK_MODEL = env.GEMINI_FALLBACK_MODEL;
+                }
+                if (env.GEMINI_FALLBACK_MODEL) {
+                  process.env.GEMINI_FALLBACK_MODEL = env.GEMINI_FALLBACK_MODEL;
+                }
 
                 const result = await processPlanRequest(parsedBody, apiKey);
                 res.setHeader('Content-Type', 'application/json');
@@ -55,6 +61,12 @@ function apiDevPlugin() {
                 const apiKey = env.GEMINI_API_KEY || process.env.GEMINI_API_KEY;
                 if (env.GEMINI_MODEL) {
                   process.env.GEMINI_MODEL = env.GEMINI_MODEL;
+                }
+                if (env.GEMINI_FALLBACK_MODEL) {
+                  process.env.GEMINI_FALLBACK_MODEL = env.GEMINI_FALLBACK_MODEL;
+                }
+                if (env.GEMINI_FALLBACK_MODEL) {
+                  process.env.GEMINI_FALLBACK_MODEL = env.GEMINI_FALLBACK_MODEL;
                 }
 
                 const result = await processScanRequest(parsedBody, apiKey);

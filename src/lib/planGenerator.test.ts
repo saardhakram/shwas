@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { generateRuleBasedPlan, calculatePlanItemSavings, buildEnrichedPlan } from './planGenerator';
-import { UserProfile } from '../types';
+import { UserProfile, RawPlanItem } from '../types';
 
 describe('Daily Air Plan Generator Engine', () => {
   const sampleProfile: UserProfile = {
@@ -32,10 +32,15 @@ describe('Daily Air Plan Generator Engine', () => {
     },
   };
 
-  it('generates between 6 and 8 actionable plan items', () => {
+  it('generates between 6 and 8 actionable plan items with realistic hours', () => {
     const plan = generateRuleBasedPlan(sampleProfile);
     expect(plan.length).toBeGreaterThanOrEqual(6);
     expect(plan.length).toBeLessThanOrEqual(8);
+
+    for (const item of plan) {
+      expect(item.hours).toBeDefined();
+      expect(item.hours).toBeGreaterThan(0);
+    }
   });
 
   it('contains valid categories, times, and positive PM2.5 delta', () => {
@@ -49,20 +54,50 @@ describe('Daily Air Plan Generator Engine', () => {
     }
   });
 
-  it('calculates non-negative cigarette savings from action using savingFromAction', () => {
-    const item = {
+  it('calculates savings via (before - after) * hours / 528 with 1 decimal place', () => {
+    const item: RawPlanItem = {
       time: '8:00 AM',
-      action: 'Shut windows',
+      action: 'Shut road-facing windows',
       reason: 'Rush hour peak',
       category: 'seal',
+      hours: 3,
       before_pm25: 300,
-      after_pm25: 120,
+      after_pm25: 140,
     };
 
-    const saved = calculatePlanItemSavings(item, 2);
-    expect(saved).toBeGreaterThan(0);
-    // (300 * 2 / 528) - (120 * 2 / 528) = (600 - 240) / 528 = 360 / 528 ≈ 0.68
-    expect(saved).toBeCloseTo(0.68, 1);
+    // (300 - 140) * 3 / 528 = 160 * 3 / 528 = 480 / 528 = 0.9090... => 0.9
+    const saved = calculatePlanItemSavings(item);
+    expect(saved).toBe(0.9);
+  });
+
+  it('caps total plan savings at 70% of the hero number', () => {
+    const items: RawPlanItem[] = [
+      {
+        time: '7:30 AM',
+        action: 'Seal 1',
+        reason: 'r1',
+        category: 'seal',
+        hours: 8,
+        before_pm25: 400,
+        after_pm25: 100, // (300 * 8) / 528 = 4.5
+      },
+      {
+        time: '10:00 PM',
+        action: 'Purifier 2',
+        reason: 'r2',
+        category: 'purify',
+        hours: 8,
+        before_pm25: 400,
+        after_pm25: 100, // (300 * 8) / 528 = 4.5
+      },
+    ];
+
+    const heroCigarettes = 1.2;
+    const maxAllowedSavings = Number((heroCigarettes * 0.7).toFixed(1)); // 0.8
+    const enriched = buildEnrichedPlan(items, {}, heroCigarettes);
+
+    const totalSaved = enriched.reduce((sum, it) => sum + it.cigarettesSaved, 0);
+    expect(totalSaved).toBeLessThanOrEqual(maxAllowedSavings + 0.1);
   });
 
   it('builds enriched interactive plan with unique IDs and computed savings', () => {

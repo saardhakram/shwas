@@ -11,20 +11,24 @@
 
 import { UserProfile, RawPlanItem, AirPlanItem } from '../types';
 import { ForecastDataPoint, computeBestWindow } from './forecast';
-import { cigarettesForDay, savingFromAction } from './cigarettes';
 
+/**
+ * Calculates cigarettes saved by a single action based on its duration in hours:
+ * saving = (before_pm25 - after_pm25) * hours / 528
+ *
+ * Formula derivation:
+ * 22 µg/m³ for 24h = 1 cigarette => 22 * 24 = 528 (µg·h/m³ per cigarette).
+ * Avoided particulate dose = (before_pm25 - after_pm25) * hours.
+ * Avoided cigarettes = (before_pm25 - after_pm25) * hours / 528.
+ */
 export function calculatePlanItemSavings(
   item: RawPlanItem,
-  durationHours = 2
+  defaultHours = 2
 ): number {
-  const beforeCigs = cigarettesForDay([
-    { place: item.category, hours: durationHours, pm25: item.before_pm25 },
-  ]);
-  const afterCigs = cigarettesForDay([
-    { place: item.category, hours: durationHours, pm25: item.after_pm25 },
-  ]);
-
-  return savingFromAction(beforeCigs, afterCigs);
+  const hours = Math.max(0.5, item.hours ?? defaultHours);
+  const diff = Math.max(0, item.before_pm25 - item.after_pm25);
+  const cigs = (diff * hours) / 528;
+  return Number(cigs.toFixed(1));
 }
 
 /**
@@ -55,10 +59,11 @@ export function generateRuleBasedPlan(
 
   const plan: RawPlanItem[] = [];
 
-  // 1. Morning commute peak seal (7:30 AM)
+  // 1. Morning commute peak seal (7:30 AM, 3h window)
   plan.push({
     time: '7:30 AM',
     category: 'seal',
+    hours: 3,
     action: isHindi
       ? (isRoadFacing
           ? 'सड़क की तरफ की सभी बालकनी और खिड़कियां पूरी तरह बंद रखें'
@@ -73,10 +78,11 @@ export function generateRuleBasedPlan(
     after_pm25: 145,
   });
 
-  // 2. Commute travel advice (8:45 AM)
+  // 2. Commute travel advice (8:45 AM, 1h trip)
   plan.push({
     time: '8:45 AM',
     category: 'commute',
+    hours: 1,
     action: isHindi
       ? (commute === 'metro'
           ? 'अंडरग्राउंड येलो लाइन मेट्रो चुनें — फ़िल्टर्ड केबिन हवा प्रदूषण कम करती है'
@@ -91,10 +97,11 @@ export function generateRuleBasedPlan(
     after_pm25: commute === 'metro' ? 70 : 95,
   });
 
-  // 3. Best Window Airing & Cross-Ventilation (e.g. 2:00 PM)
+  // 3. Best Window Airing & Cross-Ventilation (e.g. 2:00 PM, 0.5h window)
   plan.push({
     time: bestWindow.startTime || '2:00 PM',
     category: 'ventilate',
+    hours: 0.5,
     action: isHindi
       ? `दिन के सबसे स्वच्छ समय (${bestWindow.label}) में कमरों की खिड़कियां 30 मिनट खोलें`
       : `Cross-ventilate living rooms during the day's best air window (${bestWindow.label})`,
@@ -105,10 +112,11 @@ export function generateRuleBasedPlan(
     after_pm25: Math.max(40, bestWindow.avgPm25),
   });
 
-  // 4. Kitchen / Cooking Exhaust (1:00 PM or 7:00 PM)
+  // 4. Kitchen / Cooking Exhaust (1:00 PM, 1.5h cooking)
   plan.push({
     time: '1:00 PM',
     category: 'routine',
+    hours: 1.5,
     action: isHindi
       ? (hasChimney
           ? 'तड़का या तलने से 5 मिनट पहले किचन चिमनी तेज़ गति पर चलाएं'
@@ -123,10 +131,11 @@ export function generateRuleBasedPlan(
     after_pm25: hasChimney ? 65 : 85,
   });
 
-  // 5. Vulnerable family care & kids play timing (4:30 PM)
+  // 5. Vulnerable family care & kids play timing (4:30 PM, 2h window)
   plan.push({
     time: '4:30 PM',
     category: 'routine',
+    hours: 2,
     action: isHindi
       ? (hasVulnerable
           ? 'शाम 5 बजे के बाद बुजुर्गों की सैर और बच्चों का आउटडोर खेल टालें'
@@ -141,10 +150,11 @@ export function generateRuleBasedPlan(
     after_pm25: 135,
   });
 
-  // 6. Evening re-sealing before night rush (6:30 PM)
+  // 6. Evening re-sealing before night rush (6:30 PM, 3.5h window)
   plan.push({
     time: '6:30 PM',
     category: 'seal',
+    hours: 3.5,
     action: isHindi
       ? 'शाम 6:30 बजे से पहले सभी बालकनी के दरवाजे और खिड़कियां सील कर लें'
       : 'Firmly close all balcony doors and windows before 6:30 PM',
@@ -155,10 +165,11 @@ export function generateRuleBasedPlan(
     after_pm25: 155,
   });
 
-  // 7. Overnight bedroom air protection (10:00 PM)
+  // 7. Overnight bedroom air protection (10:00 PM, 8h sleep)
   plan.push({
     time: '10:00 PM',
     category: 'purify',
+    hours: 8,
     action: isHindi
       ? (hasPurifier
           ? 'सोते समय बेडरूम में HEPA एयर प्यूरीफायर स्लीप मोड पर चलाएं'
@@ -181,11 +192,12 @@ export function generateRuleBasedPlan(
  */
 export function buildEnrichedPlan(
   rawItems: RawPlanItem[],
-  existingCompletedMap: Record<string, boolean> = {}
+  existingCompletedMap: Record<string, boolean> = {},
+  heroCigarettes?: number
 ): AirPlanItem[] {
-  return rawItems.map((item, index) => {
+  let enriched = rawItems.map((item, index) => {
     const id = `plan_${index + 1}`;
-    const cigarettesSaved = calculatePlanItemSavings(item, 2.5);
+    const cigarettesSaved = calculatePlanItemSavings(item);
 
     return {
       ...item,
@@ -194,4 +206,20 @@ export function buildEnrichedPlan(
       completed: Boolean(existingCompletedMap[id]),
     };
   });
+
+  // If heroCigarettes is provided, cap total potential plan savings at 70% of hero number
+  if (typeof heroCigarettes === 'number' && heroCigarettes > 0) {
+    const maxTotalSavings = Number((heroCigarettes * 0.7).toFixed(1));
+    const currentTotal = enriched.reduce((sum, it) => sum + it.cigarettesSaved, 0);
+
+    if (currentTotal > maxTotalSavings && currentTotal > 0) {
+      const scale = maxTotalSavings / currentTotal;
+      enriched = enriched.map((it) => ({
+        ...it,
+        cigarettesSaved: Number(Math.max(0.1, it.cigarettesSaved * scale).toFixed(1)),
+      }));
+    }
+  }
+
+  return enriched;
 }

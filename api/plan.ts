@@ -5,12 +5,42 @@
  * Never exposes the Gemini key to the browser.
  * Generates 6-8 structured plan items via Gemini with strict JSON response;
  * validates output and returns a rule-based fallback on any failure.
+ *
+ * Includes:
+ * - In-memory server cache keyed by date + language + location + family/home hash (TTL 6 hours)
+ * - Duration in hours per plan item so cigarette savings can be accurately calculated
  */
 
 import { generateRuleBasedPlan } from '../src/lib/planGenerator';
 import { UserProfile, RawPlanItem } from '../src/types';
 import { ForecastDataPoint } from '../src/lib/forecast';
 import { callGeminiWithRetry } from './geminiClient';
+
+interface CacheEntry {
+  plan: RawPlanItem[];
+  source: string;
+  timestamp: number;
+}
+
+// In-memory cache with 6-hour TTL (21,600,000 ms)
+const PLAN_CACHE = new Map<string, CacheEntry>();
+const CACHE_TTL_MS = 6 * 60 * 60 * 1000;
+
+function computeCacheKey(profile: UserProfile, dateStr: string): string {
+  const familyKey = (profile.family || [])
+    .map((m) => `${m.id}_${m.age}_${m.routine?.hoursOutside || 0}_${m.routine?.hoursAway || 0}`)
+    .sort()
+    .join('|');
+  const homeKey = `${profile.home?.windowsFacingRoad}_${profile.home?.purifier}_${profile.home?.chimney}_${profile.home?.cookingFuel}_${profile.home?.commuteMode}`;
+  const locKey = profile.location?.name || `${profile.location?.lat}_${profile.location?.lon}`;
+  const langKey = profile.language || 'en';
+
+  return `plan_${dateStr}_${langKey}_${locKey}_${familyKey}_${homeKey}`;
+}
+
+export function clearPlanCacheForTesting(): void {
+  PLAN_CACHE.clear();
+}
 
 export async function processPlanRequest(
   body: { profile?: UserProfile; forecast?: ForecastDataPoint[] },
@@ -38,10 +68,22 @@ export async function processPlanRequest(
   };
 
   const forecast: ForecastDataPoint[] = body.forecast || [];
+  const dateStr = new Date().toISOString().slice(0, 10);
+  const cacheKey = computeCacheKey(profile, dateStr);
+
+  // Check 6-hour in-memory server cache
+  const cached = PLAN_CACHE.get(cacheKey);
+  if (cached && Date.now() - cached.timestamp < CACHE_TTL_MS) {
+    return {
+      plan: cached.plan,
+      source: cached.source,
+    };
+  }
 
   if (!apiKey) {
+    const fallbackPlan = generateRuleBasedPlan(profile, forecast);
     return {
-      plan: generateRuleBasedPlan(profile, forecast),
+      plan: fallbackPlan,
       source: 'rule_based_no_key',
     };
   }
@@ -75,20 +117,22 @@ CRITICAL REQUIREMENTS:
     "action": "clear instruction in ${profile.language}",
     "reason": "why this helps in ${profile.language}",
     "category": "seal" | "ventilate" | "commute" | "purify" | "routine",
+    "hours": 3.0,
     "before_pm25": 280,
     "after_pm25": 140
   }
 ]
-2. "before_pm25" is the expected PM2.5 in µg/m³ without this action. "after_pm25" is the reduced PM2.5 with this action. Ensure before_pm25 > after_pm25.
-3. Language: write the "action" and "reason" strings strictly in "${profile.language}". If language is "hi", use natural Hindi (हिंदी).
-4. No markdown formatting, no backticks, no text outside the JSON array.`;
+2. "hours" is the realistic duration in hours this action protects the family (e.g. windows sealed 3h, commute 1h, airing 0.5h, cooking exhaust 1.5h, purifier overnight 8h).
+3. "before_pm25" is the expected PM2.5 in µg/m³ without this action. "after_pm25" is the reduced PM2.5 with this action. Ensure before_pm25 > after_pm25.
+4. Language: write the "action" and "reason" strings strictly in "${profile.language}". If language is "hi", use natural Hindi (हिंदी).
+5. No markdown formatting, no backticks, no text outside the JSON array.`;
 
     const geminiResult = await callGeminiWithRetry({
       apiKey,
       prompt,
       temperature: 0.3,
       responseMimeType: 'application/json',
-      timeoutMs: 25000,
+      maxServerBudgetMs: 20000,
     });
 
     const rawContent = geminiResult.text;
@@ -105,14 +149,23 @@ CRITICAL REQUIREMENTS:
     const validated: RawPlanItem[] = candidateList.map((item, idx) => {
       const before = Number(item.before_pm25) || 200;
       const after = Number(item.after_pm25) || 100;
+      const hours = typeof item.hours === 'number' && item.hours > 0 ? Number(item.hours) : 2;
       return {
         time: String(item.time || `${7 + idx * 2}:00 AM`),
         action: String(item.action || 'Clean air action'),
         reason: String(item.reason || 'Reduces particulate matter exposure.'),
         category: String(item.category || 'routine'),
+        hours,
         before_pm25: Math.max(before, after + 20),
         after_pm25: Math.min(before - 20, after),
       };
+    });
+
+    // Save in server cache
+    PLAN_CACHE.set(cacheKey, {
+      plan: validated,
+      source: 'gemini',
+      timestamp: Date.now(),
     });
 
     return {
@@ -121,8 +174,9 @@ CRITICAL REQUIREMENTS:
     };
   } catch (err: any) {
     console.warn('[Plan Generator] Falling back to rule-based plan:', err.message);
+    const fallbackPlan = generateRuleBasedPlan(profile, forecast);
     return {
-      plan: generateRuleBasedPlan(profile, forecast),
+      plan: fallbackPlan,
       source: 'rule_based_fallback',
       error: err.message,
     };

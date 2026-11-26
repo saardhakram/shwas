@@ -54,6 +54,7 @@ export interface RawPlanItem {
   category: 'seal' | 'ventilate' | 'commute' | 'purify' | 'routine' | string;
   before_pm25: number;
   after_pm25: number;
+  hours?: number; // duration in hours (e.g. 1, 3, 8)
 }
 
 export interface AirPlanItem extends RawPlanItem {

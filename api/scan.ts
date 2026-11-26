@@ -153,7 +153,7 @@ CRITICAL REQUIREMENTS:
       },
       temperature: 0.1,
       responseMimeType: 'application/json',
-      timeoutMs: 25000,
+      maxServerBudgetMs: 20000,
     });
 
     const candidateText = geminiResult.text;

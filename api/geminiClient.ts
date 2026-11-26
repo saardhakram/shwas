@@ -2,10 +2,13 @@
  * Shared Gemini client with resilient retry logic, fallback model switching, and request timeouts.
  *
  * Rules:
- * - 25s timeout per call (AbortController).
- * - On HTTP 429, 500, or 503 (or network/timeout errors): retry up to 2 times with backoff (1s, then 3s).
- * - If retries fail, attempt the request with GEMINI_FALLBACK_MODEL (default: "gemini-2.5-flash").
- * - Returns null or throws if all attempts fail so calling function can drop into rule-based fallback.
+ * - Free tier is 5 requests/minute per model.
+ * - On HTTP 429 (quota exhausted): do NOT retry the same model — go straight to fallback model.
+ * - On HTTP 503 (service overloaded): retry once after 2s, then switch to fallback model.
+ * - Max 3 Gemini calls per request total.
+ * - Hard total server budget of 20 seconds.
+ * - Default primary model: "gemini-3.8-flash" (or process.env.GEMINI_MODEL)
+ * - Default fallback model: "gemini-3.1-flash-lite" (or process.env.GEMINI_FALLBACK_MODEL)
  */
 
 export interface GeminiCallOptions {
@@ -19,7 +22,7 @@ export interface GeminiCallOptions {
   };
   temperature?: number;
   responseMimeType?: string;
-  timeoutMs?: number; // default 25000 (25s)
+  maxServerBudgetMs?: number; // default 20000 (20s)
 }
 
 export interface GeminiCallResult {
@@ -28,18 +31,17 @@ export interface GeminiCallResult {
   attempts: number;
 }
 
-const RETRY_STATUS_CODES = new Set([429, 500, 503]);
-const RETRY_DELAYS_MS = [1000, 3000];
-
 function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
 async function executeSingleCall(
   model: string,
-  options: GeminiCallOptions
+  options: GeminiCallOptions,
+  remainingBudgetMs: number
 ): Promise<{ ok: boolean; status: number; text?: string; error?: string }> {
-  const timeoutMs = options.timeoutMs ?? 25000;
+  // Budget-constrained call timeout
+  const timeoutMs = Math.max(1000, Math.min(remainingBudgetMs, 18000));
   const controller = new AbortController();
   const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
 
@@ -94,14 +96,17 @@ async function executeSingleCall(
     return {
       ok: false,
       status: isTimeout ? 408 : 500,
-      error: isTimeout ? `Request timed out after ${timeoutMs}ms` : err?.message || 'Network error',
+      error: isTimeout ? `Call timed out after ${timeoutMs}ms` : err?.message || 'Network error',
     };
   }
 }
 
 /**
- * Calls Gemini with up to 2 retries on 429/500/503 (1s, then 3s),
- * then falls back to GEMINI_FALLBACK_MODEL if provided or default "gemini-2.5-flash".
+ * Executes Gemini calls adhering strictly to rate-limit and overload rules:
+ * - On 429: jump straight to fallback model (no retry on same model)
+ * - On 503: retry once after 2s, then jump to fallback model
+ * - Hard limit of max 3 calls total
+ * - Hard server budget of 20s
  */
 export async function callGeminiWithRetry(
   options: GeminiCallOptions
@@ -109,53 +114,61 @@ export async function callGeminiWithRetry(
   const primaryModel =
     options.primaryModel || process.env.GEMINI_MODEL || 'gemini-3.8-flash';
   const fallbackModel =
-    options.fallbackModel || process.env.GEMINI_FALLBACK_MODEL || 'gemini-2.5-flash';
+    options.fallbackModel || process.env.GEMINI_FALLBACK_MODEL || 'gemini-3.1-flash-lite';
 
-  let totalAttempts = 0;
+  const startTime = Date.now();
+  const totalBudgetMs = options.maxServerBudgetMs ?? 20000;
+  let totalCalls = 0;
 
-  // 1. Try primary model: initial attempt + up to 2 retries
-  for (let retryIndex = 0; retryIndex <= 2; retryIndex++) {
-    totalAttempts++;
-    const res = await executeSingleCall(primaryModel, options);
+  const getRemainingBudget = () => totalBudgetMs - (Date.now() - startTime);
 
-    if (res.ok && res.text) {
-      return {
-        text: res.text,
-        modelUsed: primaryModel,
-        attempts: totalAttempts,
-      };
+  // 1. First attempt on primary model
+  if (getRemainingBudget() > 1000 && totalCalls < 3) {
+    totalCalls++;
+    const res1 = await executeSingleCall(primaryModel, options, getRemainingBudget());
+
+    if (res1.ok && res1.text) {
+      return { text: res1.text, modelUsed: primaryModel, attempts: totalCalls };
     }
 
-    const shouldRetry = RETRY_STATUS_CODES.has(res.status) || res.status === 408;
     console.warn(
-      `[GeminiClient] Call to ${primaryModel} failed (status: ${res.status}, attempt: ${totalAttempts}). Error: ${res.error}`
+      `[GeminiClient] Call 1 to ${primaryModel} failed (status: ${res1.status}). Error: ${res1.error}`
     );
 
-    if (retryIndex < 2 && shouldRetry) {
-      const delay = RETRY_DELAYS_MS[retryIndex];
-      await sleep(delay);
-    } else if (!shouldRetry) {
-      // Non-retryable error (e.g. 400 Bad Request, 403 Forbidden)
-      break;
+    // If 503 (Overloaded), retry primary model ONCE after 2s sleep (if budget allows)
+    if (res1.status === 503 && getRemainingBudget() > 3000 && totalCalls < 3) {
+      await sleep(2000);
+      totalCalls++;
+      const res503 = await executeSingleCall(primaryModel, options, getRemainingBudget());
+      if (res503.ok && res503.text) {
+        return { text: res503.text, modelUsed: primaryModel, attempts: totalCalls };
+      }
+      console.warn(
+        `[GeminiClient] Retry after 503 to ${primaryModel} failed (status: ${res503.status}). Error: ${res503.error}`
+      );
     }
+    // Note: If res1.status === 429, we do NOT retry the primary model — we proceed directly to fallback
   }
 
-  // 2. Try fallback model if distinct and primary failed
-  if (fallbackModel && fallbackModel !== primaryModel) {
-    totalAttempts++;
-    console.warn(`[GeminiClient] Switching to fallback model: ${fallbackModel}`);
-    const fallbackRes = await executeSingleCall(fallbackModel, options);
+  // 2. Fallback model attempt (if available, distinct, and within budget & call limit)
+  if (
+    fallbackModel &&
+    fallbackModel !== primaryModel &&
+    getRemainingBudget() > 1000 &&
+    totalCalls < 3
+  ) {
+    totalCalls++;
+    console.warn(`[GeminiClient] Switching to fallback model: ${fallbackModel} (Call ${totalCalls})`);
+    const fallbackRes = await executeSingleCall(fallbackModel, options, getRemainingBudget());
     if (fallbackRes.ok && fallbackRes.text) {
-      return {
-        text: fallbackRes.text,
-        modelUsed: fallbackModel,
-        attempts: totalAttempts,
-      };
+      return { text: fallbackRes.text, modelUsed: fallbackModel, attempts: totalCalls };
     }
     console.warn(
-      `[GeminiClient] Fallback model ${fallbackModel} also failed (status: ${fallbackRes.status}). Error: ${fallbackRes.error}`
+      `[GeminiClient] Fallback model ${fallbackModel} failed (status: ${fallbackRes.status}). Error: ${fallbackRes.error}`
     );
   }
 
-  throw new Error(`All Gemini attempts failed after ${totalAttempts} tries.`);
+  throw new Error(
+    `All Gemini attempts failed after ${totalCalls} calls within ${Date.now() - startTime}ms.`
+  );
 }

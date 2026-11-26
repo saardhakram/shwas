@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { processPlanRequest } from './plan';
+import { processPlanRequest, clearPlanCacheForTesting } from './plan';
 import { UserProfile } from '../src/types';
 
 describe('Serverless Plan API (/api/plan)', () => {
@@ -29,6 +29,7 @@ describe('Serverless Plan API (/api/plan)', () => {
 
   beforeEach(() => {
     vi.restoreAllMocks();
+    clearPlanCacheForTesting();
     process.env = { ...originalEnv };
   });
 

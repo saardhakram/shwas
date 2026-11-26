@@ -125,6 +125,7 @@ export const TodayPage: React.FC = () => {
   const [planItems, setPlanItems] = useState<AirPlanItem[]>([]);
   const [planSource, setPlanSource] = useState<string>('loading');
   const [isPlanLoading, setIsPlanLoading] = useState<boolean>(false);
+  const [isStillThinking, setIsStillThinking] = useState<boolean>(false);
   const planRequestInFlight = useRef<string | null>(null);
 
   // Fetch real Open-Meteo data for profile location
@@ -226,7 +227,7 @@ export const TodayPage: React.FC = () => {
       if (cached) {
         const parsedItems = JSON.parse(cached);
         if (Array.isArray(parsedItems) && parsedItems.length >= 5) {
-          const enriched = buildEnrichedPlan(parsedItems, savedCompletedMap);
+          const enriched = buildEnrichedPlan(parsedItems, savedCompletedMap, baseCigarettes);
           setPlanItems(enriched);
           setPlanSource('cached');
           setIsPlanLoading(false);
@@ -243,13 +244,18 @@ export const TodayPage: React.FC = () => {
     }
     planRequestInFlight.current = dedupeKey;
 
-    // Fetch from serverless /api/plan with a 15-second loading timeout
+    // Fetch from serverless /api/plan with a 25-second loading timeout (showing "Still thinking..." after 8s)
     setIsPlanLoading(true);
+    setIsStillThinking(false);
 
     const abortController = new AbortController();
+    const stillThinkingTimer = setTimeout(() => {
+      if (active) setIsStillThinking(true);
+    }, 8000);
+
     const timeoutTimer = setTimeout(() => {
       abortController.abort();
-    }, 15000);
+    }, 25000);
 
     fetch('/api/plan', {
       method: 'POST',
@@ -261,39 +267,47 @@ export const TodayPage: React.FC = () => {
       signal: abortController.signal,
     })
       .then((res) => {
+        clearTimeout(stillThinkingTimer);
         clearTimeout(timeoutTimer);
         if (!res.ok) throw new Error(`Plan API error: ${res.status}`);
         return res.json();
       })
       .then((data) => {
+        clearTimeout(stillThinkingTimer);
         clearTimeout(timeoutTimer);
         if (!active) return;
         // Always render returned items for ANY source
         const rawPlan = (Array.isArray(data?.plan) && data.plan.length >= 5)
           ? data.plan
           : generateRuleBasedPlan(effectiveProfile, forecastPoints);
-        const enriched = buildEnrichedPlan(rawPlan, savedCompletedMap);
+        const enriched = buildEnrichedPlan(rawPlan, savedCompletedMap, baseCigarettes);
         setPlanItems(enriched);
         setPlanSource(data?.source || 'rule_based');
         localStorage.setItem(cacheKey, JSON.stringify(rawPlan));
       })
       .catch((err) => {
+        clearTimeout(stillThinkingTimer);
         clearTimeout(timeoutTimer);
         if (!active) return;
         console.warn('[TodayPage] Plan fetch dropped to rule generator fallback:', err);
         const fallback = generateRuleBasedPlan(effectiveProfile, forecastPoints);
-        const enriched = buildEnrichedPlan(fallback, savedCompletedMap);
+        const enriched = buildEnrichedPlan(fallback, savedCompletedMap, baseCigarettes);
         setPlanItems(enriched);
         setPlanSource('offline');
       })
       .finally(() => {
+        clearTimeout(stillThinkingTimer);
         clearTimeout(timeoutTimer);
         planRequestInFlight.current = null;
-        if (active) setIsPlanLoading(false);
+        if (active) {
+          setIsPlanLoading(false);
+          setIsStillThinking(false);
+        }
       });
 
     return () => {
       active = false;
+      clearTimeout(stillThinkingTimer);
       clearTimeout(timeoutTimer);
       if (planRequestInFlight.current === dedupeKey) {
         planRequestInFlight.current = null;
@@ -530,7 +544,9 @@ export const TodayPage: React.FC = () => {
               {t('today.planTimeline', "Today's Air Plan Timeline")}
             </h3>
             {isPlanLoading && planItems.length === 0 ? (
-              <span className="text-[10px] text-teal-400 animate-pulse">Generating...</span>
+              <span className="text-[10px] text-teal-400 animate-pulse">
+                {isStillThinking ? 'Still thinking…' : 'Generating...'}
+              </span>
             ) : planSource === 'gemini' ? (
               <Badge variant="mint" size="sm" icon={<Sparkle className="w-2.5 h-2.5" />}>
                 Gemini
@@ -597,7 +613,7 @@ export const TodayPage: React.FC = () => {
                       size="sm"
                       className="shrink-0 whitespace-nowrap font-mono"
                     >
-                      -{item.cigarettesSaved} cigs
+                      -{item.cigarettesSaved.toFixed(1)} cigs
                     </Badge>
                   </div>
 
