@@ -135,8 +135,10 @@ describe('Serverless Plan API (/api/plan)', () => {
     expect(capturedUrl).not.toContain('key=');
     // 3. Key must be sent in x-goog-api-key header
     expect(capturedHeaders['x-goog-api-key']).toBe('test_api_key');
-    // 4. responseMimeType in generationConfig must be camelCase
+    // 4. Fast Gemini 3.x settings (thinkingLevel minimal + maxOutputTokens 900 + JSON)
     expect(capturedBody.generationConfig?.responseMimeType).toBe('application/json');
+    expect(capturedBody.generationConfig?.maxOutputTokens).toBe(900);
+    expect(capturedBody.generationConfig?.thinkingConfig).toEqual({ thinkingLevel: 'minimal' });
 
     // 5. Successful response parses plan
     expect(res.source).toBe('gemini');
@@ -195,6 +197,9 @@ describe('Serverless Plan API (/api/plan)', () => {
     const res = await processPlanRequest({ profile }, 'bad_key');
 
     expect(warnSpy).toHaveBeenCalled();
+    const loggedMessage = warnSpy.mock.calls.map((c) => c.join(' ')).join('\n');
+    expect(loggedMessage).toContain('403');
+    expect(loggedMessage).toContain('gemini-3.5-flash');
     expect(res.source).toBe('rule_based_fallback');
     expect(res.plan.length).toBeGreaterThanOrEqual(6);
   });

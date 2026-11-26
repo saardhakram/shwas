@@ -15,6 +15,7 @@ interface AirQualityContextType {
   cityName: string;
   selectedFamilyId: string;
   userProfile: UserProfile | null;
+  isProfileReady: boolean;
   setSelectedFamilyId: (id: string) => void;
   setAqi: (aqi: number) => void;
   setAirQuality: (aqi: number, pm25: number) => void;
@@ -28,6 +29,7 @@ const AirQualityContext = createContext<AirQualityContextType>({
   cityName: 'Delhi NCR',
   selectedFamilyId: 'all',
   userProfile: null,
+  isProfileReady: false,
   setSelectedFamilyId: () => {},
   setAqi: () => {},
   setAirQuality: () => {},
@@ -37,28 +39,40 @@ const AirQualityContext = createContext<AirQualityContextType>({
 
 export const useAirQuality = () => useContext(AirQualityContext);
 
+function readStoredProfile(): UserProfile | null {
+  try {
+    if (typeof localStorage === 'undefined') return null;
+    const stored = localStorage.getItem('shwas_profile');
+    if (stored) {
+      return JSON.parse(stored) as UserProfile;
+    }
+  } catch (err) {
+    console.warn('Profile read error:', err);
+  }
+  return null;
+}
+
 export const AppLayout: React.FC = () => {
   const { t } = useTranslation();
   const location = useLocation();
   const [aqi, setAqi] = useState<number>(214); // Live Open-Meteo US AQI
   const [pm25, setPm25] = useState<number>(180);
-  const [cityName, setCityName] = useState<string>('Delhi NCR');
+  const [userProfile, setUserProfile] = useState<UserProfile | null>(() => readStoredProfile());
+  const [cityName, setCityName] = useState<string>(
+    () => readStoredProfile()?.location?.name || 'Delhi NCR'
+  );
   const [selectedFamilyId, setSelectedFamilyId] = useState<string>('all');
-  const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
+  const [isProfileReady, setIsProfileReady] = useState<boolean>(true);
 
   const reloadProfile = () => {
-    try {
-      const stored = localStorage.getItem('shwas_profile');
-      if (stored) {
-        const parsed: UserProfile = JSON.parse(stored);
-        setUserProfile(parsed);
-        if (parsed.location?.name) {
-          setCityName(parsed.location.name);
-        }
+    const parsed = readStoredProfile();
+    if (parsed) {
+      setUserProfile(parsed);
+      if (parsed.location?.name) {
+        setCityName(parsed.location.name);
       }
-    } catch (err) {
-      console.warn('Profile read error:', err);
     }
+    setIsProfileReady(true);
   };
 
   // Warm up Vercel serverless functions immediately on initial app load
@@ -164,6 +178,7 @@ export const AppLayout: React.FC = () => {
         cityName,
         selectedFamilyId,
         userProfile,
+        isProfileReady,
         setSelectedFamilyId,
         setAqi: (newAqi) => setAqi(newAqi),
         setAirQuality: (newAqi, newPm25) => {

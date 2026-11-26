@@ -36,8 +36,11 @@ import {
   generateRuleBasedPlan,
   buildEnrichedPlan,
   parsePlanCache,
-  serializePlanCache,
 } from '../lib/planGenerator';
+import {
+  buildPlanDedupeKey,
+  requestDailyPlanOnce,
+} from '../lib/planFetcher';
 import { upsertTodayDailySavings } from '../lib/communityService';
 import { RawPlanItem, UserProfile } from '../types';
 
@@ -114,6 +117,7 @@ export const TodayPage: React.FC = () => {
     pm25: outdoorPm25,
     selectedFamilyId,
     userProfile,
+    isProfileReady,
     setAirQuality,
     setCityName,
   } = useAirQuality();
@@ -122,6 +126,7 @@ export const TodayPage: React.FC = () => {
   const [forecastPoints, setForecastPoints] = useState<ForecastDataPoint[]>(
     () => getOfflineFallbackForecast().points
   );
+  const [isForecastReady, setIsForecastReady] = useState<boolean>(false);
   const [isSampleData, setIsSampleData] = useState<boolean>(true);
   const [isMlForecast, setIsMlForecast] = useState<boolean>(false);
   const [modelMae, setModelMae] = useState<number | null>(null);
@@ -134,7 +139,9 @@ export const TodayPage: React.FC = () => {
   const [planSource, setPlanSource] = useState<string>('loading');
   const [isPlanLoading, setIsPlanLoading] = useState<boolean>(false);
   const [isStillThinking, setIsStillThinking] = useState<boolean>(false);
-  const planRequestInFlight = useRef<string | null>(null);
+  const requestedPlanKeyRef = useRef<string | null>(null);
+  const latestForecastRef = useRef<ForecastDataPoint[]>(forecastPoints);
+  latestForecastRef.current = forecastPoints;
 
   // Fetch smart forecast (fresh Supabase ML -> Open-Meteo fallback) for profile location
   useEffect(() => {
@@ -145,19 +152,25 @@ export const TodayPage: React.FC = () => {
 
     if (setCityName) setCityName(locName);
 
-    fetchSmartForecast(lat, lon).then((res) => {
-      if (active) {
-        setForecastPoints(res.points);
-        setIsSampleData(res.isSampleData);
-        setIsMlForecast(Boolean(res.isMlForecast));
-        setModelMae(typeof res.modelMae === 'number' ? res.modelMae : null);
-        setMlGeneratedAt(res.generatedAt ?? null);
-        setSourceLabel(res.sourceLabel);
-        if (setAirQuality && res.currentAqi) {
-          setAirQuality(res.currentAqi, res.currentPm25);
+    fetchSmartForecast(lat, lon)
+      .then((res) => {
+        if (active) {
+          setForecastPoints(res.points);
+          setIsSampleData(res.isSampleData);
+          setIsMlForecast(Boolean(res.isMlForecast));
+          setModelMae(typeof res.modelMae === 'number' ? res.modelMae : null);
+          setMlGeneratedAt(res.generatedAt ?? null);
+          setSourceLabel(res.sourceLabel);
+          if (setAirQuality && res.currentAqi) {
+            setAirQuality(res.currentAqi, res.currentPm25);
+          }
         }
-      }
-    });
+      })
+      .finally(() => {
+        if (active) {
+          setIsForecastReady(true);
+        }
+      });
 
     return () => {
       active = false;
@@ -211,13 +224,21 @@ export const TodayPage: React.FC = () => {
     };
   }, [userProfile]);
 
-  // 5. Daily Air Plan fetching from /api/plan with daily caching and request deduplication
+  // Keep latest profile in a ref so object identity changes never re-trigger /api/plan
+  const effectiveProfileRef = useRef<UserProfile>(effectiveProfile);
+  effectiveProfileRef.current = effectiveProfile;
+
+  const planLang = effectiveProfile.language || 'en';
+  const planLocName = effectiveProfile.location?.name || 'city';
+
+  // 5. Daily Air Plan fetching from /api/plan:
+  //    - Runs ONLY after both profile AND forecast are ready
+  //    - Guarded by requestedPlanKeyRef + single-flight requestDailyPlanOnce
+  //    - Never re-triggers when forecast or location/profile object identities change
   useEffect(() => {
     let active = true;
     const dateStr = new Date().toISOString().slice(0, 10);
-    const lang = effectiveProfile.language || 'en';
-    const loc = effectiveProfile.location?.name || 'city';
-    const dedupeKey = `${dateStr}_${lang}_${loc}`;
+    const dedupeKey = buildPlanDedupeKey(planLang, planLocName, dateStr);
     const cacheKey = `shwas_plan_${dedupeKey}`;
     const completedCacheKey = `shwas_plan_completed_${dateStr}`;
 
@@ -233,118 +254,81 @@ export const TodayPage: React.FC = () => {
     }
     setCompletedMap(savedCompletedMap);
 
-    // Check plan cache first (supports { source, items, createdAt } and migrates legacy arrays)
-    let hasCachedOfflineItems = false;
+    // Show immediate interim plan (cached or rule-based) so hero savings are never "X -> X"
     try {
-      const cachedRaw = localStorage.getItem(cacheKey);
-      const cachedEntry = parsePlanCache(cachedRaw);
+      const cachedEntry = parsePlanCache(localStorage.getItem(cacheKey));
       if (cachedEntry && cachedEntry.items.length >= 5) {
         setRawPlanItems(cachedEntry.items);
         setPlanSource(cachedEntry.source);
-        // Migrate legacy plain-array entry in place
-        if (cachedRaw && cachedRaw.trim().startsWith('[')) {
-          localStorage.setItem(cacheKey, serializePlanCache(cachedEntry.source, cachedEntry.items));
-        }
-        // Only skip fetching if we already have a real Gemini plan for today
         if (cachedEntry.source === 'gemini') {
+          requestedPlanKeyRef.current = dedupeKey;
           setIsPlanLoading(false);
           setIsStillThinking(false);
           return;
         }
-        hasCachedOfflineItems = true;
+      } else if (rawPlanItems.length === 0) {
+        setRawPlanItems(
+          generateRuleBasedPlan(effectiveProfileRef.current, latestForecastRef.current)
+        );
+        setPlanSource('loading');
       }
     } catch {
-      // cache miss
+      if (rawPlanItems.length === 0) {
+        setRawPlanItems(
+          generateRuleBasedPlan(effectiveProfileRef.current, latestForecastRef.current)
+        );
+        setPlanSource('loading');
+      }
     }
 
-    // Show instant rule-based plan while Gemini loads so savings are immediately non-zero
-    // (will be replaced cleanly as soon as the Gemini response arrives)
-    if (!hasCachedOfflineItems) {
-      const immediateOffline = generateRuleBasedPlan(effectiveProfile, forecastPoints);
-      setRawPlanItems(immediateOffline);
-      setPlanSource('loading');
-    }
-
-    // Deduplicate: if an identical request is already in flight, don't fire another
-    if (planRequestInFlight.current === dedupeKey) {
+    // Wait until BOTH profile and forecast are ready before firing /api/plan
+    if (!isProfileReady || !isForecastReady) {
+      setIsPlanLoading(true);
       return;
     }
-    planRequestInFlight.current = dedupeKey;
 
-    // Fetch from serverless /api/plan with a 25-second timeout (showing "Still thinking…" after 6s)
-    setIsPlanLoading(true);
-    setIsStillThinking(false);
+    // Track requested key in a ref; requestDailyPlanOnce coalesces StrictMode / duplicate mounts
+    // into a single POST /api/plan network call while still delivering the resolved plan to this mount.
+    const alreadyRequested = requestedPlanKeyRef.current === dedupeKey;
+    requestedPlanKeyRef.current = dedupeKey;
 
-    const abortController = new AbortController();
+    if (!alreadyRequested) {
+      setIsPlanLoading(true);
+      setIsStillThinking(false);
+    }
+
     const stillThinkingTimer = setTimeout(() => {
       if (active) setIsStillThinking(true);
     }, 6000);
 
-    const timeoutTimer = setTimeout(() => {
-      abortController.abort();
-    }, 25000);
+    const promise = requestDailyPlanOnce({
+      profile: effectiveProfileRef.current,
+      forecast: latestForecastRef.current,
+      profileReady: isProfileReady,
+      forecastReady: isForecastReady,
+      dateStr,
+      timeoutMs: 28000,
+    });
 
-    fetch('/api/plan', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        profile: effectiveProfile,
-        forecast: forecastPoints.slice(0, 24),
-      }),
-      signal: abortController.signal,
-    })
-      .then((res) => {
-        clearTimeout(stillThinkingTimer);
-        clearTimeout(timeoutTimer);
-        if (!res.ok) throw new Error(`Plan API error: ${res.status}`);
-        return res.json();
-      })
-      .then((data) => {
-        clearTimeout(stillThinkingTimer);
-        clearTimeout(timeoutTimer);
-        if (!active) return;
-        const resolvedSource = data?.source || 'rule_based';
-        const rawPlan =
-          Array.isArray(data?.plan) && data.plan.length >= 5
-            ? data.plan
-            : generateRuleBasedPlan(effectiveProfile, forecastPoints);
-        // Replace interim offline plan whenever Gemini succeeds (or use returned fallback)
-        setRawPlanItems(rawPlan);
-        setPlanSource(resolvedSource);
-        // Persist Gemini plans to daily cache; never lock a temporary offline fallback into cache
-        if (resolvedSource === 'gemini') {
-          localStorage.setItem(cacheKey, serializePlanCache(resolvedSource, rawPlan));
-        }
-      })
-      .catch((err) => {
-        clearTimeout(stillThinkingTimer);
-        clearTimeout(timeoutTimer);
-        if (!active) return;
-        console.warn('[TodayPage] Plan fetch dropped to rule generator fallback:', err);
-        const fallback = generateRuleBasedPlan(effectiveProfile, forecastPoints);
-        setRawPlanItems(fallback);
-        setPlanSource('offline');
-      })
-      .finally(() => {
-        clearTimeout(stillThinkingTimer);
-        clearTimeout(timeoutTimer);
-        planRequestInFlight.current = null;
-        if (active) {
-          setIsPlanLoading(false);
-          setIsStillThinking(false);
-        }
-      });
+    if (!promise) {
+      clearTimeout(stillThinkingTimer);
+      return;
+    }
+
+    promise.then((result) => {
+      clearTimeout(stillThinkingTimer);
+      if (!active) return;
+      setRawPlanItems(result.items);
+      setPlanSource(result.source);
+      setIsPlanLoading(false);
+      setIsStillThinking(false);
+    });
 
     return () => {
       active = false;
       clearTimeout(stillThinkingTimer);
-      clearTimeout(timeoutTimer);
-      abortController.abort();
-      if (planRequestInFlight.current === dedupeKey) {
-        planRequestInFlight.current = null;
-      }
     };
-  }, [effectiveProfile.language, effectiveProfile.location?.name]);
+  }, [isProfileReady, isForecastReady, planLang, planLocName]);
 
   // Toggle plan item completion and persist to daily completed cache
   const togglePlanItem = (id: string) => {

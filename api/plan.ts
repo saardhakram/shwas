@@ -89,53 +89,50 @@ export async function processPlanRequest(
   }
 
   try {
-    const forecastSummary = forecast.slice(0, 24).map((p) => {
-      return `${p.time} (${p.day}): PM2.5 ${p.pm25} µg/m³, AQI ${p.usAqi}`;
-    }).join('\n');
+    // Compact forecast: sample at most 8 points (every 3h) for fast Gemini response
+    const next24h = forecast.slice(0, 24);
+    const sampledForecast =
+      next24h.length > 8
+        ? next24h.filter((_, idx) => idx % 3 === 0).slice(0, 8)
+        : next24h;
+    const forecastSummary =
+      sampledForecast.length > 0
+        ? sampledForecast
+            .map((p) => `${p.fullTime || p.time}(${p.day}):PM2.5=${p.pm25},AQI=${p.usAqi}`)
+            .join(' | ')
+        : 'Morning PM2.5=320 | Afternoon PM2.5=120 | Evening PM2.5=290';
 
-    const prompt = `You are Shwas, an expert urban air quality companion helping an Indian family navigate winter smog.
-Generate a daily air plan of 6 to 8 prioritized, actionable items for this family based on their home, routine, and upcoming 24h air forecast.
+    const familySummary = profile.family
+      .map(
+        (f) =>
+          `${f.name}(${f.age}${f.flags.asthma ? ',asthma' : ''}${f.flags.heart ? ',heart' : ''}${f.flags.pregnancy ? ',pregnant' : ''},${f.routine.hoursOutside}h out,${f.routine.hoursAway}h away)`
+      )
+      .join('; ');
 
-USER PROFILE:
-- Language: ${profile.language} (IMPORTANT: All action and reason text MUST be in "${profile.language}")
-- City/Location: ${profile.location.name}
-- Windows facing road: ${profile.home.windowsFacingRoad}
-- Air purifier: ${profile.home.purifier}
-- Kitchen chimney: ${profile.home.chimney}
-- Cooking fuel: ${profile.home.cookingFuel}
-- Commute mode: ${profile.home.commuteMode}
-- Family members: ${profile.family.map(f => `${f.name} (age ${f.age}${f.flags.asthma ? ', asthma' : ''}${f.flags.heart ? ', heart' : ''}${f.flags.pregnancy ? ', pregnant' : ''}, ${f.routine.hoursOutside}h outside, ${f.routine.hoursAway}h away)`).join('; ')}
+    const prompt = `You are Shwas, an Indian urban air quality assistant. Build a concise daily air plan of 6 items strictly in language "${profile.language}".
 
-NEXT 24-HOUR AIR QUALITY FORECAST:
-${forecastSummary || 'Morning peak PM2.5 ~320, afternoon clean window ~120, evening rush ~290'}
+PROFILE: City=${profile.location.name} | RoadWindows=${profile.home.windowsFacingRoad} | Purifier=${profile.home.purifier} | Chimney=${profile.home.chimney} | Fuel=${profile.home.cookingFuel} | Commute=${profile.home.commuteMode}
+FAMILY: ${familySummary}
+NEXT 24H (3h steps): ${forecastSummary}
 
-CRITICAL REQUIREMENTS:
-1. Output a strict JSON array of 6 to 8 items with this exact schema:
-[
-  {
-    "time": "7:30 AM",
-    "action": "clear instruction in ${profile.language}",
-    "reason": "why this helps in ${profile.language}",
-    "category": "seal" | "ventilate" | "commute" | "purify" | "routine",
-    "hours": 3.0,
-    "before_pm25": 280,
-    "after_pm25": 140
-  }
-]
-2. "hours" is the realistic duration in hours this action protects the family (e.g. windows sealed 3h, commute 1h, airing 0.5h, cooking exhaust 1.5h, purifier overnight 8h).
-3. "before_pm25" is the expected PM2.5 in µg/m³ without this action. "after_pm25" is the reduced PM2.5 with this action. Ensure before_pm25 > after_pm25.
-4. Language: write the "action" and "reason" strings strictly in "${profile.language}". If language is "hi", use natural Hindi (हिंदी).
-5. No markdown formatting, no backticks, no text outside the JSON array.`;
+Return ONLY a JSON array of 6 items (no markdown):
+[{"time":"7:30 AM","action":"short instruction in ${profile.language}","reason":"short reason in ${profile.language}","category":"seal|ventilate|commute|purify|routine","hours":3,"before_pm25":280,"after_pm25":140}]
+Rules: hours > 0; before_pm25 > after_pm25; keep action <= 12 words and reason <= 14 words.`;
 
     const geminiResult = await callGeminiWithRetry({
       apiKey,
       prompt,
-      temperature: 0.3,
+      temperature: 0.25,
+      maxOutputTokens: 900,
+      thinkingLevel: 'minimal',
       responseMimeType: 'application/json',
-      maxServerBudgetMs: 22000,
+      maxServerBudgetMs: 25000,
     });
 
-    const rawContent = geminiResult.text;
+    const rawContent = geminiResult.text
+      .replace(/```json/gi, '')
+      .replace(/```/g, '')
+      .trim();
     const parsed = JSON.parse(rawContent);
     const candidateList = Array.isArray(parsed)
       ? parsed
@@ -173,12 +170,19 @@ CRITICAL REQUIREMENTS:
       source: 'gemini',
     };
   } catch (err: any) {
-    console.warn('[Plan Generator] Falling back to rule-based plan:', err.message);
+    const attemptsDetail = Array.isArray(err?.attempts)
+      ? err.attempts
+          .map((a: any) => `${a.model} status=${a.status} (${String(a.error || '').slice(0, 120)})`)
+          .join(' | ')
+      : 'no_attempt_details';
+    console.warn(
+      `[api/plan] Gemini failure (${attemptsDetail}) — falling back to rule-based plan. Error: ${err?.message || err}`
+    );
     const fallbackPlan = generateRuleBasedPlan(profile, forecast);
     return {
       plan: fallbackPlan,
       source: 'rule_based_fallback',
-      error: err.message,
+      error: err?.message || 'gemini_failed',
     };
   }
 }

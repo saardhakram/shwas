@@ -146,6 +146,7 @@ export async function callGeminiWithRetry(
     ? Math.max(5000, Math.min(12000, totalBudgetMs - fallbackReserveMs))
     : totalBudgetMs;
   let totalCalls = 0;
+  const attemptFailures: Array<{ model: string; status: number; error: string }> = [];
 
   const getRemainingBudget = () => totalBudgetMs - (Date.now() - startTime);
 
@@ -161,6 +162,11 @@ export async function callGeminiWithRetry(
       return { text: res1.text, modelUsed: primaryModel, attempts: totalCalls };
     }
 
+    attemptFailures.push({
+      model: primaryModel,
+      status: res1.status,
+      error: (res1.error || '').slice(0, 200),
+    });
     console.warn(
       `[GeminiClient] Call 1 to ${primaryModel} failed (status: ${res1.status}). Error: ${res1.error}`
     );
@@ -175,6 +181,11 @@ export async function callGeminiWithRetry(
       if (res503.ok && res503.text) {
         return { text: res503.text, modelUsed: primaryModel, attempts: totalCalls };
       }
+      attemptFailures.push({
+        model: primaryModel,
+        status: res503.status,
+        error: (res503.error || '').slice(0, 200),
+      });
       console.warn(
         `[GeminiClient] Retry after 503 to ${primaryModel} failed (status: ${res503.status}). Error: ${res503.error}`
       );
@@ -191,12 +202,22 @@ export async function callGeminiWithRetry(
     if (fallbackRes.ok && fallbackRes.text) {
       return { text: fallbackRes.text, modelUsed: fallbackModel, attempts: totalCalls };
     }
+    attemptFailures.push({
+      model: fallbackModel,
+      status: fallbackRes.status,
+      error: (fallbackRes.error || '').slice(0, 200),
+    });
     console.warn(
       `[GeminiClient] Fallback model ${fallbackModel} failed (status: ${fallbackRes.status}). Error: ${fallbackRes.error}`
     );
   }
 
-  throw new Error(
-    `All Gemini attempts failed after ${totalCalls} calls within ${Date.now() - startTime}ms.`
-  );
+  const summary = attemptFailures
+    .map((f) => `${f.model}: HTTP ${f.status}`)
+    .join('; ');
+  const err = new Error(
+    `All Gemini attempts failed after ${totalCalls} calls within ${Date.now() - startTime}ms${summary ? ` [${summary}]` : ''}.`
+  ) as Error & { attempts?: Array<{ model: string; status: number; error: string }> };
+  err.attempts = attemptFailures;
+  throw err;
 }
