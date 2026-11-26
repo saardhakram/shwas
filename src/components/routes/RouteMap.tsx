@@ -212,41 +212,57 @@ export const RouteMap: React.FC<RouteMapProps> = ({
       const bounds = new window.google.maps.LatLngBounds();
       bounds.extend({ lat: origin.lat, lng: origin.lon });
 
-      // Origin marker (mint)
-      const originMarker = new window.google.maps.Marker({
-        position: { lat: origin.lat, lng: origin.lon },
-        map,
-        title: 'Origin',
-        icon: {
-          path: window.google.maps.SymbolPath.CIRCLE,
-          scale: 7,
-          fillColor: '#2DD4BF',
-          fillOpacity: 1,
-          strokeColor: '#0B0F17',
-          strokeWeight: 2.5,
-        },
+      // Origin pin (fixed-pixel polyline circle icon — avoids deprecated google.maps.Marker warnings)
+      const originPin = new window.google.maps.Polyline({
+        path: [
+          { lat: origin.lat, lng: origin.lon },
+          { lat: origin.lat, lng: origin.lon },
+        ],
+        strokeOpacity: 0,
+        icons: [
+          {
+            icon: {
+              path: window.google.maps.SymbolPath.CIRCLE,
+              scale: 7,
+              fillColor: '#2DD4BF',
+              fillOpacity: 1,
+              strokeColor: '#0B0F17',
+              strokeWeight: 2.5,
+            },
+            offset: '0%',
+          },
+        ],
         zIndex: 50,
+        map,
       });
-      googleOverlaysRef.current.push(originMarker);
+      googleOverlaysRef.current.push(originPin);
 
-      // Destination marker (amber)
+      // Destination pin (amber)
       if (destination) {
         bounds.extend({ lat: destination.lat, lng: destination.lon });
-        const destMarker = new window.google.maps.Marker({
-          position: { lat: destination.lat, lng: destination.lon },
-          map,
-          title: 'Destination',
-          icon: {
-            path: window.google.maps.SymbolPath.CIRCLE,
-            scale: 7,
-            fillColor: '#F59E0B',
-            fillOpacity: 1,
-            strokeColor: '#0B0F17',
-            strokeWeight: 2.5,
-          },
+        const destPin = new window.google.maps.Polyline({
+          path: [
+            { lat: destination.lat, lng: destination.lon },
+            { lat: destination.lat, lng: destination.lon },
+          ],
+          strokeOpacity: 0,
+          icons: [
+            {
+              icon: {
+                path: window.google.maps.SymbolPath.CIRCLE,
+                scale: 7,
+                fillColor: '#F59E0B',
+                fillOpacity: 1,
+                strokeColor: '#0B0F17',
+                strokeWeight: 2.5,
+              },
+              offset: '0%',
+            },
+          ],
           zIndex: 50,
+          map,
         });
-        googleOverlaysRef.current.push(destMarker);
+        googleOverlaysRef.current.push(destPin);
       }
 
       // Draw routes sorted so selected route renders on top
@@ -304,7 +320,18 @@ export const RouteMap: React.FC<RouteMapProps> = ({
       setProvider('leaflet');
       onMapProviderChange?.('leaflet');
     }
-  }, [provider, googleReady, origin, destination, routes, selectedRouteId, onSelectRoute, onMapProviderChange]);
+  }, [
+    provider,
+    googleReady,
+    origin.lat,
+    origin.lon,
+    destination?.lat,
+    destination?.lon,
+    routes,
+    selectedRouteId,
+    onSelectRoute,
+    onMapProviderChange,
+  ]);
 
   // 3. Initialize & update Leaflet + OpenStreetMap fallback
   useEffect(() => {
@@ -392,7 +419,16 @@ export const RouteMap: React.FC<RouteMapProps> = ({
     } else {
       map.setView([origin.lat, origin.lon], 12);
     }
-  }, [provider, origin, destination, routes, selectedRouteId, onSelectRoute]);
+  }, [
+    provider,
+    origin.lat,
+    origin.lon,
+    destination?.lat,
+    destination?.lon,
+    routes,
+    selectedRouteId,
+    onSelectRoute,
+  ]);
 
   // Cleanup Leaflet map on unmount
   useEffect(() => {

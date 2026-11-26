@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
   MapPin,
@@ -105,12 +105,15 @@ export const RoutesPage: React.FC = () => {
   const [departurePreset, setDeparturePreset] = useState<DeparturePreset>('now');
   const [customTime, setCustomTime] = useState<string>('14:30');
 
-  // Map & routing state
-  const [mapProvider, setMapProvider] = useState<'google' | 'leaflet'>('leaflet');
+  // Map & routing state ('loading' waits until RouteMap resolves Google Maps vs Leaflet so we don't double-fetch)
+  const [mapProvider, setMapProvider] = useState<'loading' | 'google' | 'leaflet'>('loading');
   const [routingProvider, setRoutingProvider] = useState<RoutingProvider>('osrm');
   const [evaluatedRoutes, setEvaluatedRoutes] = useState<EvaluatedRouteOption[]>([]);
   const [selectedRouteId, setSelectedRouteId] = useState<string | null>(null);
   const [isLoadingRoutes, setIsLoadingRoutes] = useState<boolean>(false);
+  const lastFetchKeyRef = useRef<string>('');
+  const livePm25Ref = useRef<number>(livePm25 || 150);
+  livePm25Ref.current = livePm25 || 150;
 
   // 48h forecast for departure timing tip strip
   const [forecastPoints, setForecastPoints] = useState<ForecastDataPoint[]>([]);
@@ -144,32 +147,33 @@ export const RoutesPage: React.FC = () => {
 
   // Main route + single-batch Open-Meteo exposure computation
   const computeRoutes = useCallback(
-    async (orig: PlaceSuggestion, dest: PlaceSuggestion, depDate: Date) => {
+    async (orig: PlaceSuggestion, dest: PlaceSuggestion, depDate: Date, providerMode: 'google' | 'leaflet') => {
       setIsLoadingRoutes(true);
       try {
         const { routes, provider } = await fetchRoutesForTrip(
           { lat: orig.lat, lon: orig.lon },
           { lat: dest.lat, lon: dest.lon },
           depDate,
-          mapProvider === 'google'
+          providerMode === 'google'
         );
         setRoutingProvider(provider);
 
         // Sample 5 points per route and fetch ALL of them in ONE Open-Meteo batch request
         const sampledPerRoute = routes.map((r) => sampleRoutePoints(r.path, 5));
         const flattenedPoints = sampledPerRoute.flat();
+        const fallbackPm = livePm25Ref.current;
 
         const pm25Values = await fetchRoutePointsPm25(
           flattenedPoints,
           depDate,
-          livePm25 || 150
+          fallbackPm
         );
 
         let offset = 0;
         const routeAvgPm25s = sampledPerRoute.map((pts) => {
           const slice = pm25Values.slice(offset, offset + pts.length);
           offset += pts.length;
-          if (slice.length === 0) return livePm25 || 150;
+          if (slice.length === 0) return fallbackPm;
           return slice.reduce((a, b) => a + b, 0) / slice.length;
         });
 
@@ -180,20 +184,30 @@ export const RoutesPage: React.FC = () => {
         const rec = evaluated.find((r) => r.recommended) || evaluated[0];
         setSelectedRouteId(rec ? rec.id : null);
       } catch (err) {
-        console.error('[RoutesPage] Failed to compute routes:', err);
+        console.warn('[RoutesPage] Failed to compute routes:', err);
       } finally {
         setIsLoadingRoutes(false);
       }
     },
-    [mapProvider, livePm25]
+    []
   );
 
-  // Recompute whenever origin, destination, or departure time changes
+  // Recompute once mapProvider resolves, and whenever origin, destination, or departure time changes
   useEffect(() => {
-    if (destination) {
-      computeRoutes(origin, destination, departureDate);
-    }
-  }, [origin.lat, origin.lon, destination?.lat, destination?.lon, departurePreset, customTime, computeRoutes]);
+    if (!destination || mapProvider === 'loading') return;
+    const fetchKey = `${origin.lat.toFixed(4)},${origin.lon.toFixed(4)}|${destination.lat.toFixed(4)},${destination.lon.toFixed(4)}|${departurePreset}|${departurePreset === 'custom' ? customTime : ''}|${mapProvider}`;
+    if (lastFetchKeyRef.current === fetchKey) return;
+    lastFetchKeyRef.current = fetchKey;
+    computeRoutes(origin, destination, departureDate, mapProvider);
+  }, [
+    origin,
+    destination,
+    departurePreset,
+    customTime,
+    departureDate,
+    mapProvider,
+    computeRoutes,
+  ]);
 
   // Debounced search for Destination
   const handleDestSearch = async (query: string) => {
@@ -265,11 +279,9 @@ export const RoutesPage: React.FC = () => {
         <Badge variant="mint" size="sm" className="whitespace-nowrap shrink-0">
           {routingProvider === 'google_routes'
             ? 'Google Routes'
-            : routingProvider === 'google_directions'
-              ? 'Google Directions'
-              : routingProvider === 'osrm'
-                ? 'OSRM (Fallback)'
-                : 'Offline Estimate'}
+            : routingProvider === 'osrm'
+              ? 'OSRM (Fallback)'
+              : 'Offline Estimate'}
         </Badge>
       </div>
 
