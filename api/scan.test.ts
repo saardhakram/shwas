@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { processScanRequest } from './scan';
+import { processScanRequest } from './scan.js';
 
 describe('/api/scan serverless handler', () => {
   const originalFetch = global.fetch;

@@ -12,9 +12,9 @@
  * - Enforces 20 questions per user per day rate limit.
  */
 
-import { callGeminiWithRetry } from './geminiClient';
-import { UserProfile, RawPlanItem } from '../src/types';
-import { ForecastDataPoint } from '../src/lib/forecast';
+import { callGeminiWithRetry } from './_lib/geminiClient.js';
+import type { UserProfile, RawPlanItem } from '../src/types/index.js';
+import type { ForecastDataPoint } from '../src/shared/forecastWindow.js';
 
 export const DAILY_QUESTION_LIMIT = 20;
 

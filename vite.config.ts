@@ -28,9 +28,6 @@ function apiDevPlugin() {
                 if (env.GEMINI_FALLBACK_MODEL) {
                   process.env.GEMINI_FALLBACK_MODEL = env.GEMINI_FALLBACK_MODEL;
                 }
-                if (env.GEMINI_FALLBACK_MODEL) {
-                  process.env.GEMINI_FALLBACK_MODEL = env.GEMINI_FALLBACK_MODEL;
-                }
 
                 const result = await processPlanRequest(parsedBody, apiKey);
                 res.setHeader('Content-Type', 'application/json');

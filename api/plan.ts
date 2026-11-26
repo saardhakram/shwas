@@ -11,10 +11,10 @@
  * - Duration in hours per plan item so cigarette savings can be accurately calculated
  */
 
-import { generateRuleBasedPlan } from '../src/lib/planGenerator';
-import { UserProfile, RawPlanItem } from '../src/types';
-import { ForecastDataPoint } from '../src/lib/forecast';
-import { callGeminiWithRetry } from './geminiClient';
+import { generateRuleBasedPlan } from '../src/shared/planRules.js';
+import type { UserProfile, RawPlanItem } from '../src/types/index.js';
+import type { ForecastDataPoint } from '../src/shared/forecastWindow.js';
+import { callGeminiWithRetry } from './_lib/geminiClient.js';
 
 interface CacheEntry {
   plan: RawPlanItem[];
@@ -191,7 +191,7 @@ export default async function handler(req: any, res: any) {
   }
 
   const apiKey = process.env.GEMINI_API_KEY;
-  const body = typeof req.body === 'string' ? JSON.parse(req.body) : req.body;
+  const body = typeof req.body === 'string' ? JSON.parse(req.body) : req.body || {};
   const result = await processPlanRequest(body, apiKey);
 
   return res.status(200).json(result);

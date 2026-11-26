@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { callGeminiWithRetry } from './geminiClient';
+import { callGeminiWithRetry } from './geminiClient.js';
 
-describe('api/geminiClient.ts (Gemini resilient retry & fallback)', () => {
+describe('api/_lib/geminiClient.ts (Gemini resilient retry & fallback)', () => {
   const originalFetch = global.fetch;
 
   beforeEach(() => {
@@ -40,7 +40,6 @@ describe('api/geminiClient.ts (Gemini resilient retry & fallback)', () => {
       requestedUrls.push(url);
 
       if (callCount === 1) {
-        // First call to primary model returns 429 Too Many Requests
         return {
           ok: false,
           status: 429,
@@ -48,7 +47,6 @@ describe('api/geminiClient.ts (Gemini resilient retry & fallback)', () => {
         };
       }
 
-      // Second call is immediately the fallback model
       return {
         ok: true,
         status: 200,
@@ -65,7 +63,7 @@ describe('api/geminiClient.ts (Gemini resilient retry & fallback)', () => {
       fallbackModel: 'gemini-3.1-flash-lite',
     });
 
-    expect(callCount).toBe(2); // Exactly 1 on primary, then 1 on fallback
+    expect(callCount).toBe(2);
     expect(requestedUrls[0]).toContain('gemini-3.5-flash');
     expect(requestedUrls[1]).toContain('gemini-3.1-flash-lite');
     expect(result.modelUsed).toBe('gemini-3.1-flash-lite');
@@ -81,7 +79,6 @@ describe('api/geminiClient.ts (Gemini resilient retry & fallback)', () => {
       requestedUrls.push(url);
 
       if (callCount <= 2) {
-        // Attempts 1 and 2 (initial + retry) return 503
         return {
           ok: false,
           status: 503,
@@ -89,7 +86,6 @@ describe('api/geminiClient.ts (Gemini resilient retry & fallback)', () => {
         };
       }
 
-      // Attempt 3: fallback model succeeds
       return {
         ok: true,
         status: 200,
@@ -106,7 +102,7 @@ describe('api/geminiClient.ts (Gemini resilient retry & fallback)', () => {
       fallbackModel: 'gemini-3.1-flash-lite',
     });
 
-    expect(callCount).toBe(3); // 2 on primary + 1 on fallback
+    expect(callCount).toBe(3);
     expect(requestedUrls[0]).toContain('gemini-3.5-flash');
     expect(requestedUrls[1]).toContain('gemini-3.5-flash');
     expect(requestedUrls[2]).toContain('gemini-3.1-flash-lite');
@@ -134,6 +130,6 @@ describe('api/geminiClient.ts (Gemini resilient retry & fallback)', () => {
       })
     ).rejects.toThrow('All Gemini attempts failed');
 
-    expect(callCount).toBe(3); // 2 on primary + 1 on fallback = max 3 calls
+    expect(callCount).toBe(3);
   }, 10000);
 });

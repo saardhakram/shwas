@@ -4,9 +4,9 @@ import {
   clearAskRateLimitForTesting,
   DAILY_QUESTION_LIMIT,
   buildTimeMiniCard,
-} from './ask';
-import { UserProfile } from '../src/types';
-import { ForecastDataPoint } from '../src/lib/forecast';
+} from './ask.js';
+import type { UserProfile } from '../src/types/index.js';
+import type { ForecastDataPoint } from '../src/shared/forecastWindow.js';
 
 describe('Serverless Ask Shwas API (/api/ask)', () => {
   const originalFetch = global.fetch;

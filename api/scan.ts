@@ -12,7 +12,7 @@
  * Validates output and returns { sources: [], source: "offline" } on failure.
  */
 
-import { callGeminiWithRetry } from './geminiClient';
+import { callGeminiWithRetry } from './_lib/geminiClient.js';
 
 export interface ScanRequestBody {
   image?: string; // base64 string or data URL
@@ -219,10 +219,11 @@ CRITICAL REQUIREMENTS:
 export default async function handler(req: any, res: any) {
   if (req.method !== 'POST') {
     res.setHeader('Allow', 'POST');
-    return res.status(455).json({ error: 'Method not allowed' });
+    return res.status(405).json({ error: 'Method not allowed' });
   }
 
   const apiKey = process.env.GEMINI_API_KEY;
-  const result = await processScanRequest(req.body, apiKey);
+  const body = typeof req.body === 'string' ? JSON.parse(req.body) : req.body || {};
+  const result = await processScanRequest(body, apiKey);
   return res.status(200).json(result);
 }

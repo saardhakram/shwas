@@ -1,0 +1,4 @@
+# Exclude test files and ML workspace artifacts from Vercel serverless builds
+api/**/*.test.ts
+ml/
+.pytest_cache/

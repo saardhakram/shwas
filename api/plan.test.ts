@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { processPlanRequest, clearPlanCacheForTesting } from './plan';
-import { UserProfile } from '../src/types';
+import { processPlanRequest, clearPlanCacheForTesting } from './plan.js';
+import type { UserProfile } from '../src/types/index.js';
 
 describe('Serverless Plan API (/api/plan)', () => {
   const profile: UserProfile = {

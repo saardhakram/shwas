@@ -6,7 +6,7 @@
  * - On HTTP 429 (quota exhausted): do NOT retry the same model — go straight to fallback model.
  * - On HTTP 503 (service overloaded): retry once after 2s, then switch to fallback model.
  * - Max 3 Gemini calls per request total.
- * - Hard total server budget of 20 seconds.
+ * - Hard total server budget of 20 seconds (configurable per route).
  * - Default primary model: "gemini-3.5-flash" (or process.env.GEMINI_MODEL)
  * - Default fallback model: "gemini-3.1-flash-lite" (or process.env.GEMINI_FALLBACK_MODEL)
  */
