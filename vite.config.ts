@@ -152,6 +152,24 @@ export default defineConfig({
   test: {
     globals: true,
     environment: 'node',
+    coverage: {
+      provider: 'v8',
+      reporter: ['text', 'json-summary'],
+      include: ['src/**/*.{ts,tsx}', 'api/**/*.ts', 'shared/**/*.ts'],
+      exclude: [
+        '**/*.test.{ts,tsx}',
+        'src/locales/**',
+        'src/main.tsx',
+        'src/vite-env.d.ts',
+        'src/types/**',
+        'shared/types.ts',
+        'shared/index.ts',
+      ],
+      thresholds: {
+        lines: 60,
+        statements: 60,
+      },
+    },
   },
   server: {
     port: 5180,

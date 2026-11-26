@@ -73,8 +73,10 @@ describe('All 6 page components — heading hierarchy & axe accessibility', () =
     localStorage.clear();
     Element.prototype.scrollIntoView = vi.fn();
     HTMLCanvasElement.prototype.getContext = vi.fn(() => null);
+    let rafTime = 0;
     rafSpy = vi.spyOn(window, 'requestAnimationFrame').mockImplementation((cb) => {
-      cb(performance.now() + 1000);
+      rafTime += 500;
+      cb(rafTime);
       return 0;
     });
   });
