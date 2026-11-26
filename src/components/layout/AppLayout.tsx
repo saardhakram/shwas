@@ -168,10 +168,19 @@ export const AppLayout: React.FC = () => {
       }}
     >
       <div
-        className={`min-h-screen text-slate-100 bg-gradient-to-b ${atmosphere.bg} transition-colors duration-1000 relative selection:bg-teal-500/30 selection:text-teal-200`}
+        className={`min-h-screen overflow-x-hidden text-slate-100 bg-gradient-to-b ${atmosphere.bg} transition-colors duration-1000 relative selection:bg-teal-500/30 selection:text-teal-200`}
       >
+        {/* Skip link for keyboard & screen-reader users */}
+        <a
+          href="#main-content"
+          className="sr-only focus:not-sr-only focus:fixed focus:top-2 focus:left-2 focus:z-50 focus:px-3 focus:py-1.5 focus:rounded-lg focus:bg-teal-400 focus:text-slate-950 focus:text-xs focus:font-semibold"
+        >
+          {t('app.skipToContent', 'Skip to main content')}
+        </a>
+
         {/* Atmospheric radial haze background glow */}
         <div
+          aria-hidden="true"
           className="pointer-events-none fixed inset-0 z-0 transition-opacity duration-1000"
           style={{
             background: `radial-gradient(circle at 50% 12%, ${atmosphere.glow} 0%, rgba(11, 15, 23, 0) 65%)`,
@@ -179,21 +188,24 @@ export const AppLayout: React.FC = () => {
         />
 
         {/* Central mobile frame container */}
-        <div className="relative z-10 max-w-md mx-auto min-h-screen flex flex-col px-4 pt-3 pb-24">
+        <div className="relative z-10 w-full max-w-md mx-auto min-h-screen flex flex-col px-4 pt-3 pb-24">
           {!isOnboarding && (
             <header className="flex flex-col gap-3 pb-3 border-b border-white/[0.06] mb-4">
-              <div className="flex items-center justify-between">
+              <div className="flex items-center justify-between gap-2">
                 {/* Brand / Logo & Real Location */}
-                <div className="flex items-center gap-2">
-                  <div className="w-8 h-8 rounded-xl bg-teal-500/15 border border-teal-500/30 flex items-center justify-center text-teal-300 shadow-sm shadow-teal-500/20">
+                <div className="flex items-center gap-2 min-w-0">
+                  <div
+                    aria-hidden="true"
+                    className="w-8 h-8 rounded-xl bg-teal-500/15 border border-teal-500/30 flex items-center justify-center text-teal-300 shadow-sm shadow-teal-500/20 shrink-0"
+                  >
                     <Wind className="w-4 h-4 animate-pulse-subtle" />
                   </div>
-                  <div>
+                  <div className="min-w-0">
                     <div className="flex items-center gap-1.5 leading-none">
                       <span className="font-display font-bold text-base tracking-tight text-white">
                         Shwas
                       </span>
-                      <span className="text-[11px] font-normal text-teal-400/80">
+                      <span className="text-[11px] font-normal text-teal-400/80" aria-hidden="true">
                         श्वास
                       </span>
                     </div>
@@ -204,21 +216,22 @@ export const AppLayout: React.FC = () => {
                 </div>
 
                 {/* Right controls: AQI pill & Language */}
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-2 shrink-0">
                   <button
                     type="button"
                     onClick={() => setAqi(aqi >= 300 ? 45 : 342)}
                     title="Click to toggle between Severe Smog and Clean Dawn Teal demo atmosphere"
-                    className="group"
+                    aria-label={`Current AQI ${aqi}, ${atmosphere.label}. Activate to preview severe vs clean air atmosphere`}
+                    className="group rounded-full focus:outline-none focus-visible:ring-2 focus-visible:ring-teal-400"
                   >
                     <Badge
                       variant={atmosphere.badgeVariant}
                       size="sm"
                       icon={
                         aqi >= 300 ? (
-                          <ShieldAlert className="w-3 h-3 text-red-400" />
+                          <ShieldAlert className="w-3 h-3 text-red-400" aria-hidden="true" />
                         ) : (
-                          <Sparkles className="w-3 h-3 text-teal-300" />
+                          <Sparkles className="w-3 h-3 text-teal-300" aria-hidden="true" />
                         )
                       }
                       className="cursor-pointer transition-transform group-hover:scale-105 font-mono"
@@ -241,7 +254,7 @@ export const AppLayout: React.FC = () => {
           )}
 
           {/* Main Route Content */}
-          <main className="flex-1">
+          <main id="main-content" className="flex-1 min-w-0">
             <Outlet />
           </main>
         </div>

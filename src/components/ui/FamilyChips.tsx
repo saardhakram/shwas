@@ -35,24 +35,29 @@ export const FamilyChips: React.FC<FamilyChipsProps> = ({
   const list = members && members.length > 0 ? members : defaultMembers;
 
   return (
-    <div className={`flex items-center gap-2 overflow-x-auto pb-1 no-scrollbar touch-pan-x scroll-smooth ${className}`}>
+    <div
+      role="group"
+      aria-label="Filter exposure by family member"
+      className={`flex items-center gap-2 overflow-x-auto pb-1 no-scrollbar touch-pan-x scroll-smooth ${className}`}
+    >
       {list.map((member) => {
         const isSelected = selectedId === member.id;
         return (
           <button
             key={member.id}
             type="button"
+            aria-pressed={isSelected}
             onClick={() => onSelect(member.id)}
-            className={`flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-medium whitespace-nowrap transition-all duration-200 border ${
+            className={`flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-medium whitespace-nowrap transition-all duration-200 border focus:outline-none focus-visible:ring-2 focus-visible:ring-teal-400 ${
               isSelected
                 ? 'bg-teal-500/20 text-teal-300 border-teal-500/40 shadow-sm shadow-teal-500/20 ring-1 ring-teal-500/30'
                 : 'bg-white/[0.04] text-slate-400 border-white/[0.07] hover:bg-white/[0.08] hover:text-slate-200'
             }`}
           >
             {member.id === 'all' ? (
-              <Users className="w-3.5 h-3.5" />
+              <Users className="w-3.5 h-3.5" aria-hidden="true" />
             ) : (
-              <User className="w-3.5 h-3.5" />
+              <User className="w-3.5 h-3.5" aria-hidden="true" />
             )}
             <span>{member.name}</span>
             {member.tag && (
@@ -65,9 +70,9 @@ export const FamilyChips: React.FC<FamilyChipsProps> = ({
                     : 'bg-white/10 text-slate-300 border-white/20'
                 }`}
               >
-                {member.tagType === 'asthma' && <HeartPulse className="w-2.5 h-2.5 inline" />}
-                {member.tagType === 'senior' && <ShieldAlert className="w-2.5 h-2.5 inline" />}
-                {member.tagType === 'child' && <Baby className="w-2.5 h-2.5 inline" />}
+                {member.tagType === 'asthma' && <HeartPulse className="w-2.5 h-2.5 inline" aria-hidden="true" />}
+                {member.tagType === 'senior' && <ShieldAlert className="w-2.5 h-2.5 inline" aria-hidden="true" />}
+                {member.tagType === 'child' && <Baby className="w-2.5 h-2.5 inline" aria-hidden="true" />}
                 {member.tag}
               </span>
             )}

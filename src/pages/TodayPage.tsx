@@ -402,10 +402,10 @@ export const TodayPage: React.FC = () => {
         {/* Top header row: Subtitle and Badge separated in flex layout so they never overlap */}
         <div className="flex items-center justify-between gap-2 mb-2">
           <div className="flex items-center gap-1.5 text-xs text-slate-400 font-medium min-w-0">
-            <Cigarette className="w-4 h-4 text-amber-400 shrink-0" />
+            <Cigarette className="w-4 h-4 text-amber-400 shrink-0" aria-hidden="true" />
             <span className="truncate">
               {selectedFamilyId === 'all'
-                ? 'per person (family average)'
+                ? t('today.familyAverage', 'per person (family average)')
                 : t('today.heroSubtitle', 'breathed today across your routine')}
             </span>
           </div>
@@ -466,10 +466,10 @@ export const TodayPage: React.FC = () => {
       <GlassCard className="border-white/[0.08] bg-[#121927]/60 p-4">
         <div className="flex items-center justify-between gap-2 mb-2">
           <div className="flex items-center gap-2 min-w-0">
-            <Calendar className="w-4 h-4 text-teal-400 shrink-0" />
+            <Calendar className="w-4 h-4 text-teal-400 shrink-0" aria-hidden="true" />
             <h3 className="text-sm font-semibold text-slate-200 truncate">
               {isMlForecast
-                ? 'Shwas Forecast (ML)'
+                ? t('today.forecastMlTitle', 'Shwas Forecast (ML)')
                 : t('today.forecastTitle', '48-Hour Forecast')}
             </h3>
             {isMlForecast && (
@@ -573,11 +573,13 @@ export const TodayPage: React.FC = () => {
               {t('today.planTimeline', "Today's Air Plan Timeline")}
             </h3>
             {isPlanLoading && planItems.length === 0 ? (
-              <span className="text-[10px] text-teal-400 animate-pulse">
-                {isStillThinking ? 'Still thinking…' : 'Generating...'}
+              <span className="text-[10px] text-teal-400 animate-pulse" role="status">
+                {isStillThinking
+                  ? t('today.stillThinking', 'Still thinking…')
+                  : t('today.generating', 'Generating...')}
               </span>
             ) : planSource === 'gemini' ? (
-              <Badge variant="mint" size="sm" icon={<Sparkle className="w-2.5 h-2.5" />}>
+              <Badge variant="mint" size="sm" icon={<Sparkle className="w-2.5 h-2.5" aria-hidden="true" />}>
                 Gemini
               </Badge>
             ) : null}
@@ -605,17 +607,19 @@ export const TodayPage: React.FC = () => {
                 {/* Checkbox Icon */}
                 <button
                   type="button"
+                  role="checkbox"
+                  aria-checked={item.completed}
                   onClick={(e) => {
                     e.stopPropagation();
                     togglePlanItem(item.id);
                   }}
-                  className="mt-0.5 shrink-0 focus:outline-none"
-                  aria-label={item.completed ? 'Mark incomplete' : 'Mark complete'}
+                  className="mt-0.5 shrink-0 rounded-full focus:outline-none focus-visible:ring-2 focus-visible:ring-teal-400"
+                  aria-label={`${item.completed ? 'Mark incomplete' : 'Mark complete'}: ${item.action}`}
                 >
                   {item.completed ? (
-                    <CheckCircle2 className="w-5 h-5 text-teal-400 transition-transform active:scale-90" />
+                    <CheckCircle2 className="w-5 h-5 text-teal-400 transition-transform active:scale-90" aria-hidden="true" />
                   ) : (
-                    <Circle className="w-5 h-5 text-slate-500 hover:text-slate-300 transition-transform active:scale-90" />
+                    <Circle className="w-5 h-5 text-slate-500 hover:text-slate-300 transition-transform active:scale-90" aria-hidden="true" />
                   )}
                 </button>
 
@@ -658,7 +662,9 @@ export const TodayPage: React.FC = () => {
         {/* Small label under the plan: "Plan by Gemini" when source is "gemini", otherwise "Offline plan" */}
         <div className="text-center pt-1 pb-1">
           <span className="text-[11px] font-mono text-slate-400">
-            {planSource === 'gemini' ? 'Plan by Gemini' : 'Offline plan'}
+            {planSource === 'gemini'
+              ? t('today.planByGemini', 'Plan by Gemini')
+              : t('today.offlinePlan', 'Offline plan')}
           </span>
         </div>
       </div>

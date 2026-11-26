@@ -146,6 +146,17 @@ export function computeStreakDays(activeDays: string[], todayStr: string): numbe
 }
 
 /**
+ * Cleans up a member display name — removes accidental "My Family..." concatenation
+ * from pre-filled inputs (e.g. "My FamilyRam Family" -> "Ram Family") and falls back cleanly.
+ */
+export function cleanDisplayName(raw?: string | null): string {
+  const trimmed = (raw || '').trim();
+  if (!trimmed) return 'Family';
+  const stripped = trimmed.replace(/^My Family(?=[A-Za-z0-9])/i, '').trim();
+  return stripped || 'My Family';
+}
+
+/**
  * Aggregates weekly group cigarette savings (rolling 7 days ending today),
  * member count, per-member weekly & today totals, and streak flames.
  */
@@ -160,7 +171,7 @@ export function aggregateWeeklyCommunityStats(
   // Build map of userId -> displayName (including any user present in savings)
   const memberMap = new Map<string, string>();
   for (const m of members) {
-    memberMap.set(m.user_id, m.display_name || 'Family');
+    memberMap.set(m.user_id, cleanDisplayName(m.display_name));
   }
   for (const row of dailySavings) {
     if (!memberMap.has(row.user_id)) {

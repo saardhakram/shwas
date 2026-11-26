@@ -3,6 +3,7 @@ import {
   generateJoinCode,
   normalizeJoinCode,
   isValidJoinCode,
+  cleanDisplayName,
   computeStreakDays,
   aggregateWeeklyCommunityStats,
   formatRelativeTime,
@@ -90,6 +91,20 @@ describe('community.ts (Join Codes, Weekly Savings Aggregation & Share Copy)', (
       expect(formatRelativeTime('2026-11-26T11:40:00Z', now)).toBe('20 min ago');
       expect(formatRelativeTime('2026-11-26T10:00:00Z', now)).toBe('2 hr ago');
       expect(formatRelativeTime('2026-11-25T12:00:00Z', now)).toBe('1 day ago');
+    });
+
+    it('cleans accidental My Family concatenation in display names', () => {
+      expect(cleanDisplayName('My FamilyRam Family')).toBe('Ram Family');
+      expect(cleanDisplayName('My Family')).toBe('My Family');
+      expect(cleanDisplayName('  Sharma Family  ')).toBe('Sharma Family');
+      expect(cleanDisplayName('')).toBe('Family');
+
+      const stats = aggregateWeeklyCommunityStats(
+        [{ group_id: 'g1', user_id: 'u1', display_name: 'My FamilyRam Family' }],
+        [],
+        new Date('2026-11-26T10:00:00Z')
+      );
+      expect(stats.leaderboard[0].displayName).toBe('Ram Family');
     });
 
     it('builds share message and WhatsApp deep link', () => {

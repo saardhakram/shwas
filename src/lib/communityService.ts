@@ -268,22 +268,23 @@ export async function joinCommunityGroupByCode(
 
   if (isSupabaseConfigured) {
     try {
-      const { data, error } = await supabase
-        .from('groups')
-        .select('id, name, join_code, created_by, created_at')
-        .eq('join_code', code)
-        .maybeSingle();
+      // Use SECURITY DEFINER RPC `join_group_by_code` (005_join_by_code.sql) so groups table
+      // never exposes join codes to non-members
+      const { data, error } = await supabase.rpc('join_group_by_code', {
+        code,
+        display_name: safeDisplay,
+      });
 
-      if (!error && data) {
-        const grp = data as CommunityGroup;
-        await supabase.from('group_members').upsert(
-          { group_id: grp.id, user_id: userId, display_name: safeDisplay },
-          { onConflict: 'group_id,user_id' }
-        );
+      const resolved = Array.isArray(data) ? data[0] : data;
+      if (!error && resolved?.id) {
+        const grp = resolved as CommunityGroup;
         const store = readLocalStore();
         store.groups[grp.id] = grp;
         const list = store.members[grp.id] || [];
-        if (!list.some((m) => m.user_id === userId)) {
+        const existingIdx = list.findIndex((m) => m.user_id === userId);
+        if (existingIdx >= 0) {
+          list[existingIdx].display_name = safeDisplay;
+        } else {
           list.push({ group_id: grp.id, user_id: userId, display_name: safeDisplay });
         }
         store.members[grp.id] = list;
@@ -291,8 +292,15 @@ export async function joinCommunityGroupByCode(
         setActiveCommunityGroup(grp);
         return { group: grp };
       }
+
+      if (error && String(error.message || '').includes('GROUP_NOT_FOUND')) {
+        return {
+          group: null,
+          error: `No group found for code "${code}". Check the code or create a new group.`,
+        };
+      }
     } catch (err) {
-      console.warn('[Community] Supabase joinGroup lookup failed:', err);
+      console.warn('[Community] Supabase join_group_by_code RPC notice:', err);
     }
   }
 

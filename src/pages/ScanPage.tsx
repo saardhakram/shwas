@@ -164,6 +164,7 @@ export const ScanPage: React.FC = () => {
         type="file"
         accept="image/*"
         capture="environment"
+        aria-label="Choose or capture room photo for indoor air scan"
         className="hidden"
         onChange={handleFileChange}
       />
@@ -183,11 +184,13 @@ export const ScanPage: React.FC = () => {
         </div>
         {imagePreview && (
           <button
+            type="button"
             onClick={handleReset}
-            className="p-2 rounded-xl bg-white/5 border border-white/10 text-slate-400 hover:text-white hover:bg-white/10 transition-colors"
+            className="p-2 rounded-xl bg-white/5 border border-white/10 text-slate-400 hover:text-white hover:bg-white/10 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-teal-400"
             title="Scan another photo"
+            aria-label="Reset scan and choose another photo"
           >
-            <RotateCcw className="w-4 h-4" />
+            <RotateCcw className="w-4 h-4" aria-hidden="true" />
           </button>
         )}
       </div>
@@ -195,24 +198,26 @@ export const ScanPage: React.FC = () => {
       {/* Empty State / Photo Capture Hero */}
       {!imagePreview && (
         <GlassCard className="p-7 text-center flex flex-col items-center justify-center gap-4 border-dashed border-white/20">
-          <div className="w-16 h-16 rounded-full bg-teal-500/10 border border-teal-500/30 flex items-center justify-center text-teal-300 shadow-lg shadow-teal-500/10">
+          <div className="w-16 h-16 rounded-full bg-teal-500/10 border border-teal-500/30 flex items-center justify-center text-teal-300 shadow-lg shadow-teal-500/10" aria-hidden="true">
             <Camera className="w-8 h-8" />
           </div>
           <div className="space-y-1.5 max-w-sm">
-            <h3 className="text-sm font-semibold text-white">Scan Room, Kitchen, or Window</h3>
+            <h3 className="text-sm font-semibold text-white">
+              {t('scan.scanHeading', 'Scan Room, Kitchen, or Window')}
+            </h3>
             <p className="text-xs text-slate-400 leading-relaxed">
-              Snap a photo of your living room, unvented stove, incense corner, or street windows.
-              Gemini Vision pinpoints sources and calculates your cigarette savings.
+              {t('scan.scanSubtitle', 'Snap a photo of your living room, unvented stove, incense corner, or street windows. Gemini Vision pinpoints sources and calculates your cigarette savings.')}
             </p>
           </div>
 
           <button
             type="button"
             onClick={handleOpenPicker}
-            className="px-5 py-2.5 rounded-xl bg-teal-400 text-slate-950 font-semibold text-xs flex items-center gap-2 hover:bg-teal-300 active:scale-95 transition-all shadow-lg shadow-teal-400/20"
+            aria-label={t('scan.takePhoto', 'Take Photo / Choose Image')}
+            className="px-5 py-2.5 rounded-xl bg-teal-400 text-slate-950 font-semibold text-xs flex items-center gap-2 hover:bg-teal-300 active:scale-95 transition-all shadow-lg shadow-teal-400/20 focus:outline-none focus-visible:ring-2 focus-visible:ring-white"
           >
-            <Camera className="w-4 h-4" />
-            <span>Take Photo / Choose Image</span>
+            <Camera className="w-4 h-4" aria-hidden="true" />
+            <span>{t('scan.takePhoto', 'Take Photo / Choose Image')}</span>
           </button>
 
           <div className="flex items-center gap-4 text-[11px] text-slate-400 pt-2 border-t border-white/10 w-full justify-center">
@@ -323,10 +328,11 @@ export const ScanPage: React.FC = () => {
               <button
                 type="button"
                 onClick={handleOpenPicker}
-                className="px-3 py-1.5 rounded-lg bg-white/10 border border-white/15 text-xs text-slate-200 hover:bg-white/20 transition-colors flex items-center gap-1.5"
+                aria-label={t('scan.retake', 'Retake')}
+                className="px-3 py-1.5 rounded-lg bg-white/10 border border-white/15 text-xs text-slate-200 hover:bg-white/20 transition-colors flex items-center gap-1.5 focus:outline-none focus-visible:ring-2 focus-visible:ring-teal-400"
               >
-                <Camera className="w-3.5 h-3.5" />
-                <span>Retake</span>
+                <Camera className="w-3.5 h-3.5" aria-hidden="true" />
+                <span>{t('scan.retake', 'Retake')}</span>
               </button>
             </div>
           </GlassCard>
@@ -393,11 +399,12 @@ export const ScanPage: React.FC = () => {
                     <button
                       type="button"
                       disabled={isAdded}
+                      aria-label={isAdded ? `${item.label} added to plan` : `Add ${item.label} fix to today's plan`}
                       onClick={(e) => {
                         e.stopPropagation();
                         handleAddToPlan(item);
                       }}
-                      className={`px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-all ${
+                      className={`px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-teal-400 ${
                         isAdded
                           ? 'bg-emerald-500/20 border border-emerald-500/40 text-emerald-300 cursor-default'
                           : 'bg-teal-400 text-slate-950 hover:bg-teal-300 active:scale-95 shadow-md shadow-teal-400/20'
@@ -405,13 +412,13 @@ export const ScanPage: React.FC = () => {
                     >
                       {isAdded ? (
                         <>
-                          <CheckCircle2 className="w-3.5 h-3.5" />
-                          <span>Added to Plan</span>
+                          <CheckCircle2 className="w-3.5 h-3.5" aria-hidden="true" />
+                          <span>{t('scan.addedToPlan', 'Added to Plan')}</span>
                         </>
                       ) : (
                         <>
-                          <PlusCircle className="w-3.5 h-3.5" />
-                          <span>Add to my plan</span>
+                          <PlusCircle className="w-3.5 h-3.5" aria-hidden="true" />
+                          <span>{t('scan.addToPlan', 'Add to my plan')}</span>
                         </>
                       )}
                     </button>

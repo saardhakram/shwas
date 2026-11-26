@@ -1,196 +1,174 @@
-# Shwas (श्वास) — "breathing"
+# Shwas (श्वास) — Urban Air Quality Assistant
 
-> **Shwas turns invisible smog into a number families feel — cigarettes per day — then helps them bring it down with a daily plan, a home scan and cleaner routes, in their own language and together with their community.**
+> **Shwas turns invisible smog into a number families feel — cigarettes per day — then helps them bring it down with a daily plan, an AI home scan, cleaner routes, a custom 48-hour ML forecast, and neighborhood action — in 6 Indian languages.**
 
-Built for **PromptWars: Virtual — Challenge 06: Urban Air Quality Assistant** (Hack2skill × Google for Developers).
-
----
-
-## 1. The challenge (official brief)
-
-> Create a GenAI-powered assistant that helps families and communities navigate severe winter smog and urban air pollution. The application should suggest low-emission daily routines, indoor air quality hacks, and sustainable alternatives tailored to their location and lifestyle, while clearly explaining the direct impact of their choices.
-
-**Rules to remember**
-- Must be built with **Google Antigravity** (FAQ: required for all submissions).
-- Submission = **code + live preview link** + **narrative** (technical blog post *and* LinkedIn "Build-in-Public" post — do both).
-- Deadline: Day 13 of the 14-day cycle — confirm the exact date on the Hack2skill dashboard.
-- Support: promptwarssupport@hack2skill.com
-
-### How Shwas covers the brief
-| Brief requirement | Shwas feature |
-|---|---|
-| Low-emission daily routines | Daily Air Plan + Clean Routes |
-| Indoor air quality hacks | Shwas Scan |
-| Sustainable alternatives | Metro / walk / carpool suggestions, CO₂ shown |
-| Tailored to location & lifestyle | Onboarding profile (city, family, home, routine) |
-| Clearly explain the impact | Cigarette Counter — every action shows cigarettes saved (+ CO₂) |
+Built with **Google Antigravity** for **PromptWars: Virtual — Challenge 06: Urban Air Quality Assistant** (Hack2skill × Google for Developers).
 
 ---
 
-## 2. Core idea: the Cigarette Counter
+## 1. How Shwas Meets Challenge 06
 
-Breathing air with **22 µg/m³ of PM2.5 for a full day ≈ smoking 1 cigarette** (Berkeley Earth estimate).
+> *"Create a GenAI-powered assistant that helps families and communities navigate severe winter smog and urban air pollution. The application should suggest low-emission daily routines, indoor air quality hacks, and sustainable alternatives tailored to their location and lifestyle, while clearly explaining the direct impact of their choices."*
 
-```
-cigarettes_today = Σ over places ( PM2.5_at_place ÷ 22 × hours_at_place ÷ 24 )
-```
-
-**Example — Delhi winter day (outdoor PM2.5 ≈ 300 µg/m³)**
-
-| Where | Hours | PM2.5 | Cigarettes |
-|---|---|---|---|
-| Outside (commute, market) | 2 | 300 | 1.1 |
-| School / office | 8 | 200 | 3.0 |
-| Home, windows open | 14 | 180 | 4.8 |
-| **Total** | | | **≈ 9** |
-
-Shut windows + purifier at home (PM2.5 → 60) and take the metro → **≈ 5 cigarettes**.
-App message: *"You saved your family 4 cigarettes today."*
-
-- Calculated **per family member** (child at school ≠ grandparent at home).
-- Indoor PM2.5 estimated from outdoor level × home factors (windows, purifier, chimney, cooking fuel).
-- Shown in-app with a caveat: *awareness estimate, not a medical measurement.*
-
----
-
-## 3. Features (locked)
-
-| # | Feature | What it does | Priority |
-|---|---|---|---|
-| 0 | **Daily Air Plan** | Gemini builds today's timeline: when to shut windows, best airing window, commute, kids' play time | Must |
-| 1 | **Cigarette Counter** | Hero number per person, "9 → 5 if you follow your plan", saving on every plan item | Must |
-| 2 | **Shwas Scan** | Photo of room/kitchen/street → Gemini Vision finds pollution sources → fixes with impact → "Add to my plan" | Must |
-| 6 | **Clean Routes** | Compare Metro / Auto / Bike / Walk / Car by time, cigarettes and CO₂; map routes coloured by exposure | Must (mode comparison) / Nice (real map routes) |
-| ML | **Shwas Forecast** | Our own trained 48-hour PM2.5 model → better plan timing + "tomorrow's cigarettes" | Must |
-| — | **Multilingual** | English, हिंदी, తెలుగు, தமிழ், বাংলা, मराठी (Gemini writes AI text in chosen language; i18next for UI strings) | Must |
-| — | **Community** | Society/school groups via join code, leaderboard, local alerts (e.g. garbage burning), WhatsApp share card | Should |
-| — | **Ask Shwas** | Chat assistant with voice input: "Can Dadi walk at 6 PM?" | Nice |
-| — | **Onboarding** | Language → location → family (age, asthma/heart/pregnancy) → home & routine → animated reveal | Must |
-
----
-
-## 4. Tech stack (no Google Cloud, no billing)
-
-The rules only require **Google Antigravity**. Everything below runs on free tiers with no credit card.
-
-| Layer | Choice | Cost |
+| Challenge 06 Requirement | Shwas Feature | Implementation |
 |---|---|---|
-| Design | **Google Stitch** (designs only) | Free |
-| Build | **Google Antigravity** (required) | Free |
-| Frontend | React (Vite) + Tailwind CSS | — |
-| Hosting + API | **Vercel** — static frontend + serverless functions (`/api/*`) | Free (Hobby) |
-| Database | **Supabase** Postgres — profiles, family, plans, groups, leaderboard, alerts, forecasts | Free |
-| Auth | **Supabase Auth** — anonymous (guest) + email magic link (GitHub login optional) | Free |
-| Realtime | Supabase Realtime — live leaderboard & local alerts | Free |
-| File storage | Supabase Storage — scan photos | Free |
-| AI | **Gemini API** via a Google AI Studio key — plan, chat, Vision scan, translation | Free tier |
-| Air quality (live + forecast) | **Open-Meteo Air Quality API** (PM2.5, PM10, NO₂, O₃, US AQI; hourly, no key) | Free |
-| Ground-truth stations | **OpenAQ** API (CPCB station data) | Free key |
-| Weather | **Open-Meteo** forecast + historical archive | Free, no key |
-| Map in the app | **Google Maps JS** with the **Maps Demo Key** — dark-styled map, markers, exposure-coloured route polylines | Free, no card (daily limit) |
-| Routes | **Google Compute Routes** (Demo Key) for drive / walk / bike | Free, no card (daily limit) |
-| Place search | **Google Places UI Kit + Geocoding** (Demo Key) | Free, no card (daily limit) |
-| Metro / transit | "Open in Google Maps" button using **Google Maps URLs** (`/maps/dir/?api=1&travelmode=transit`) | Free, no key |
-| Map fallback | **Leaflet** + OpenStreetMap, plus OpenRouteService for routes — auto-switch if the demo key's daily limit is hit | Free |
-| Charts | Recharts | — |
-| i18n | i18next for UI + Gemini for generated text | — |
-| Voice input | Browser Web Speech API | Free |
-| Share card | html-to-image | — |
-| ML training | Python, pandas, LightGBM, SHAP in **Google Colab** | Free |
-| ML serving + daily refresh | **GitHub Actions** cron → runs model → writes 48-h forecast rows to Supabase | Free |
-
-**Flow:** Browser (Vercel) shows the Google Map → Vercel `/api/*` functions → Gemini · Open-Meteo · OpenAQ · Google Routes. Forecasts, profiles and community data live in Supabase.
-
-**Google tools used:** Antigravity · Stitch · Gemini · Google Maps — no Google Cloud billing anywhere.
-
-**Why GitHub Actions for ML:** no model server to keep awake (free servers sleep and take ~50 s to wake — bad in a live demo). A scheduled job pre-computes the next 48 hours for each demo station and stores them; the app just reads a table. Instant.
-
-**Metro / transit:** the demo key doesn't cover transit routing. In-app, estimate metro trips as walk-to-station + distance at average metro speed (labelled "estimate"); the Metro card has an **Open in Google Maps** button for real metro directions.
-
-**Rules:**
-- Never commit any key to this repo. Use `.env.local` locally and Vercel environment variables in production.
-- The Maps key is visible in the browser by design — restrict it to your Vercel domain(s) and `localhost` (HTTP referrer restriction) in the Google Maps key settings.
-- Keep the Gemini key server-side: call Gemini only from `/api/*`.
-- Turn on Row Level Security for every Supabase table.
-- Demo key is for prototyping only and has a daily limit — keep the Leaflet fallback working before judging.
+| **Low-emission daily routines** | **Daily Air Plan (`/today`)** | Gemini builds a personalized 5–6 step daily timeline using live AQI, 48-hour forecast windows, family ages/health flags, and home setup. |
+| **Indoor air quality hacks** | **Shwas Scan (`/scan`)** | Upload or snap a photo of a room, kitchen, or street-facing window → Gemini Vision detects indoor sources (incense, unvented stove, road ingress) with glowing bounding boxes and one-tap **"Add to my plan"**. |
+| **Sustainable alternatives** | **Clean Routes (`/routes`)** | Compares **Metro, Walk, Two-Wheeler, Auto, and Car** on smog exposure (cigarettes), travel time, and **CO₂ emissions**. Recommendations balance lung health and sustainability (never recommending Car when Metro/Walk/Bike is within 0.02 cigarettes and 15 min). |
+| **Tailored to location & lifestyle** | **5-Step Onboarding (`/onboarding`)** | Captures language (English, हिंदी, తెలుగు, தமிழ், বাংলা, मराठी), GPS/city, family members (age, asthma/heart/pregnancy), home factors (road-facing windows, purifier, chimney, cooking fuel), and commute mode. |
+| **Clearly explain direct impact** | **Cigarette Counter** | Berkeley Earth equivalent (`22 µg/m³ PM2.5 for 24h ≈ 1 cigarette`). Computed deterministically in code (`src/lib/cigarettes.ts`, `src/lib/fixes.ts`, `src/lib/routeExposure.ts`) — never delegated to LLM arithmetic. |
+| **Community action** | **Community (`/community`)** | Society & school groups via 6-character join codes (backed by Supabase RLS + `SECURITY DEFINER` RPC), weekly collective savings leaderboard with streaks, hyperlocal smoke/dust alerts, and downloadable/WhatsApp share cards. |
+| **Conversational guidance** | **Ask Shwas (`/ask`)** | Context-aware AI assistant with voice input (Web Speech API), dynamic family suggestion chips, inline AQI/cigarette mini-cards, and medical safety guardrails (20 questions/user/day). |
 
 ---
 
-## 5. ML: Shwas Forecast (48-hour PM2.5)
+## 2. Architecture
 
-The cigarette formula is fixed; ML improves its **input** — the PM2.5 forecast.
+```text
+Browser (React 19 + Vite + Tailwind + i18next, hosted on Vercel)
+ ├── /today       → Cigarette Counter + 48h Forecast + Gemini Daily Air Plan
+ ├── /scan        → Client-side JPEG resize → POST /api/scan (Gemini Vision) → deterministic fixes
+ ├── /routes      → Google Maps JS (dark theme) + Google Routes API
+ │                  ↳ auto-fallback to Leaflet/OSM + OSRM + batched Open-Meteo PM2.5
+ ├── /community   → Supabase Postgres + Realtime + RLS + RPC join_group_by_code + html-to-image
+ └── /ask         → POST /api/ask (Gemini + Web Speech API + inline AQI/cigarette mini-cards)
 
-1. **Define** — predict PM2.5 for hours +1…+48; start with one city, 3–5 stations.
-2. **Collect** — CPCB/OpenAQ hourly PM2.5 (3–5 yrs); Open-Meteo weather history (wind speed/direction, temp, humidity, rain, boundary layer height); events calendar (Diwali, stubble-burning Oct–Nov, holidays).
-3. **Clean** — IST timezone, hourly resample, drop sensor errors (negatives, 999s, flat-lines), interpolate short gaps, merge on timestamp + station.
-4. **Features** — lags (t-1, t-3, t-24), rolling means (6/12/24 h), hour/weekday/month, weather, event flags, forecast weather for future hours.
-5. **Split by time** — train on older winters, validate on part of 2024–25, test on the latest winter. Never random split.
-6. **Baselines** — persistence ("next hour = now"), same-hour-yesterday. Model must beat these.
-7. **Train** — LightGBM / XGBoost; horizon-as-feature or separate models for 1/6/12/24/48 h; tune a few params.
-8. **Evaluate** — MAE (main), RMSE, AQI-category accuracy, error by horizon, predicted-vs-actual plot, SHAP importance. Compare live against the Open-Meteo air-quality forecast during build week.
-9. **Deploy** — commit the trained model file to the repo; a GitHub Actions cron (e.g. hourly) fetches latest OpenAQ + Open-Meteo data, runs the model and upserts 48-h forecasts into a Supabase `forecasts` table. Fallback: show the Open-Meteo forecast if a row is missing or stale.
-10. **Integrate** — plan timing ("best air 2–4 PM"), tomorrow's cigarettes, route departure times.
-11. **Write up** — metrics table + charts for the blog.
+Vercel Serverless Functions (api/*.ts, Node runtime)
+ ├── api/geminiClient.ts → Shared Gemini SDK wrapper (gemini-3.5-flash primary + gemini-3.1-flash-lite fallback,
+ │                         thinkingLevel: "minimal", retry + fallback budget reservation)
+ ├── api/plan.ts         → Daily Air Plan generator + 6h server cache + rule-based fallback
+ ├── api/scan.ts         → Gemini Vision indoor pollution hotspot detector
+ └── api/ask.ts          → Grounded family Q&A + time-aware exposure mini-card + 20/day rate limit
 
----
+ML Serving Pipeline (Zero-cost, Zero-cold-start)
+ └── GitHub Actions (.github/workflows/forecast.yml, every 6h)
+      → fetches latest Delhi PM2.5 & weather → runs LightGBM (ml/model/shwas_lgbm.joblib)
+      → upserts 48h predictions into Supabase `forecasts` table
+      → App reads fresh (<3h) ML predictions from Supabase, else falls back seamlessly to Open-Meteo
+```
 
-## 6. Build plan (8 days)
-
-| Day | Work |
-|---|---|
-| 1 | Setup, onboarding, Daily Air Plan, Cigarette Counter, i18n · **start ML data download** |
-| 2 | Finish plan + counter, Open-Meteo / OpenAQ wiring, Supabase schema |
-| 3 | Shwas Scan (Gemini Vision) |
-| 4 | ML: data cleaning, features, baselines |
-| 5 | ML: train, evaluate, deploy, connect |
-| 6 | Clean Routes |
-| 7 | Community (groups, leaderboard, alerts, share card) + Ask Shwas |
-| 8 | Polish, deploy, blog + LinkedIn post (+ Instagram reel), submit |
-
-**Tips:** record screenshots/clips as you go (blog, LinkedIn, reel prize) · keep a fallback for every external service · use one demo city everywhere.
-
----
-
-## 7. Setup status
-
-| Item | Status |
-|---|---|
-| Stitch designs | ✅ Today, Scan, Routes, Community, Ask Shwas + design system · ⚠️ verify onboarding screens |
-| GitHub repo | ✅ this repo (private — **make public before submitting**) |
-| Google Maps Demo Key | ✅ created (no card). Retrieve it at https://console.cloud.google.com/google/maps-hosted/demo-api-key. Add as `VITE_GOOGLE_MAPS_KEY` in `.env.local` / Vercel |
-| Gemini API key | ✅ created in Google AI Studio → put in `GEMINI_API_KEY` (server-side only) |
-| Supabase project | ✅ `shwas` — Mumbai (`ap-south-1`), URL `https://znjiyhfedmnweoycljys.supabase.co` (Kaizen paused to free the slot) |
-| Supabase Auth | ✅ anonymous (guest) + email sign-in enabled |
-| Env template | ✅ `.env.example` — copy to `.env.local` and fill in |
-| Vercel project | ⏳ import this repo, add env vars |
-| OpenAQ / OpenRouteService keys | ⏳ free sign-up (OpenRouteService only needed for the fallback map) |
-| Open-Meteo | ✅ no key needed |
-
-**Not used anymore:** Google Cloud billing, Cloud Run, Firebase. (The earlier `shwas-515315` Google Cloud/Firebase project is unused and costs nothing — leave it or delete it.)
-
-**Links**
-- Stitch project: https://stitch.google.com/projects/824895366468295722
-- Maps Demo Key docs: https://developers.google.com/maps/demo-key
-- Google AI Studio (Gemini key): https://aistudio.google.com/apikey
-- Open-Meteo Air Quality API: https://open-meteo.com/en/docs/air-quality-api
-- PromptWars page: https://promptwars.in/promptwarsVirtual.html
+### Security & Fallbacks
+- **Zero secrets in the browser**: `GEMINI_API_KEY` and `SUPABASE_SERVICE_ROLE_KEY` are strictly server-side / GitHub Actions only.
+- **Supabase Row Level Security (RLS)**: Enabled across `profiles`, `forecasts`, `groups`, `group_members`, `daily_savings`, and `alerts`. Groups are only readable by members/creators; joining by code happens via `SECURITY DEFINER` RPC `join_group_by_code(code, display_name)` with `EXECUTE` revoked from `anon`.
+- **Every external service has an automatic fallback**:
+  - Gemini Vision / Plan / Ask → automatic model fallback (`gemini-3.5-flash` → `gemini-3.1-flash-lite`) → deterministic offline plan/audit.
+  - Google Maps & Google Routes → automatic fallback to dark-styled **Leaflet + OpenStreetMap** and **OSRM**.
+  - Supabase ML Forecast → automatic fallback to live **Open-Meteo Air Quality API** → offline sample curve.
 
 ---
 
-## 8. Stitch prompts (for regenerating designs)
+## 3. ML Results — Shwas Forecast (48-Hour PM2.5)
 
-<details>
-<summary>Master prompt (Today screen)</summary>
+Located in [`ml/`](ml/) (Python 3.11, LightGBM, SHAP).
 
-Design a mobile-first web app called "Shwas" (Sanskrit for "breathing") — a GenAI air-quality companion for Indian families living through severe winter smog. Core idea: Shwas converts the air a person breathes into "cigarettes smoked today" (PM2.5 ÷ 22 = 1 cigarette), then helps the family bring that number down through a daily plan, a home scan, and cleaner routes. Vibe: cinematic, atmospheric, hopeful — not clinical. Background gradient shifts with air quality (murky haze → clear dawn teal). Glassmorphism cards, Space Grotesk/Sora for numbers, Inter for body, mint #2DD4BF accent, amber/red for danger, dark mode first. Bottom nav: Today, Scan, Routes, Community, Ask Shwas. Language switcher + family avatar switcher top-right. Today screen: hero "9 cigarettes", "9 → 5 if you follow your plan" arc, family chips, live AQI pill, 48-h "Shwas Forecast (ML)" chart with best window highlighted, "Today's Air Plan" timeline with checkboxes and savings badges.
-</details>
+- **Task**: Predict hourly PM2.5 for horizons `+1h` through `+48h` across 3 Delhi stations (**Anand Vihar**, **R.K. Puram**, **ITO**).
+- **Split strategy**: Strictly **time-based** (never random) — trained on older seasons, validated chronologically, and tested on the held-out latest Delhi winter (**`2025-11-01` → `2026-02-19`**, **190,224** forecast rows).
+- **Features**: Lagged PM2.5 (`t-1`, `t-3`, `t-6`, `t-24`), rolling means (`6h`, `12h`, `24h`), cyclical hour/weekday/month, boundary layer height, wind vector (`u`/`v`), temperature, humidity, precipitation, Diwali / Oct–Nov stubble-burning / weekend flags, and forecast horizon (`1–48h`).
 
-<details>
-<summary>Scan · Routes · Community · Ask Shwas · Onboarding</summary>
+### Held-Out Winter Test Results (1–48h)
 
-- **Scan:** camera viewfinder + shutter; result photo with hotspot markers (incense, stove without chimney, window facing road); Fixes cards with impact badge and "Add to my plan"; summary "3 fixes found · Save up to 2.4 cigarettes/day".
-- **Routes:** From/To + saved places + departure time; map with exposure-coloured routes; Metro/Auto/Bike/Walk/Car cards (time, cigarettes, CO₂) with Recommended ribbon; tip "Leave at 2:30 PM to breathe 40% less smog".
-- **Community:** group header + join code; "Together we saved 1,240 cigarettes this week"; leaderboard with streaks; local alerts feed; WhatsApp share card.
-- **Ask Shwas:** chat with wind-swirl avatar, suggestion chips, inline mini AQI card, mic + language indicator.
-- **Onboarding (5 static screens):** language tiles → location → family + health flags → home & routine → reveal "Your family breathes 9 cigarettes a day. Let's bring it down."
-</details>
+| Model | MAE (µg/m³) | RMSE (µg/m³) | AQI Category Accuracy |
+|---|---:|---:|---:|
+| **Shwas ML (LightGBM)** | **23.44** | **33.23** | **74.1%** |
+| Baseline: Same-Hour Yesterday | 37.12 | 52.96 | 64.1% |
+| Baseline: Persistence (`next = now`) | 45.23 | 62.01 | 57.3% |
+
+- **Overall improvement**: **+36.9% lower MAE** than the strongest baseline (`23.44` vs `37.12 µg/m³`).
+
+### Error by Horizon Bucket (MAE, µg/m³)
+
+| Horizon | Shwas ML (LightGBM) | Persistence | Same-Hour Yesterday |
+|---|---:|---:|---:|
+| **1–6h** | **18.49** | 26.95 | 31.99 |
+| **7–12h** | **21.45** | 45.80 | 31.99 |
+| **13–24h** | **23.27** | 43.69 | 32.02 |
+| **25–48h** | **25.25** | 50.43 | 42.23 |
+
+### Top SHAP Features (Mean |SHAP| µg/m³)
+1. `target_boundary_layer_height` (`12.40`)
+2. `pm25_roll_24h` (`12.23`)
+3. `target_temperature_2m` (`6.63`)
+4. `pm25_now` (`6.48`)
+5. `pm25_roll_12h` (`5.81`)
+
+Full evaluation report and charts (`predicted_vs_actual.png`, `error_by_horizon.png`, `shap_importance.png`) are saved in [`ml/reports/metrics.md`](ml/reports/metrics.md).
+
+> **Honest Limitations & Methodological Notes**
+> 1. **Training target source**: Because no `OPENAQ_API_KEY` was configured during collection, historical hourly PM2.5 was downloaded from the **Open-Meteo Air Quality (Copernicus CAMS)** archive rather than raw CPCB ground-truth monitors. `ml/collect.py` supports OpenAQ v3 CPCB ingestion directly when `OPENAQ_API_KEY` is provided.
+> 2. **Observed vs. forecasted test weather**: During held-out winter evaluation, future-hour meteorological features (`target_boundary_layer_height`, wind, temperature) came from historical observed/reanalysis archive data rather than archived NWP weather forecasts. Live real-time prediction error using live forecasted weather may therefore be somewhat higher than the `23.44 µg/m³` offline test MAE.
+
+---
+
+## 4. Local Setup & Running
+
+### Prerequisites
+- **Node.js 20+** and **npm**
+- **Python 3.11** (optional — only needed to re-train or test the ML pipeline in `ml/`)
+
+### 1. Install & Configure Environment
+```bash
+git clone https://github.com/saardhakram/shwas.git
+cd shwas
+npm install --legacy-peer-deps
+cp .env.example .env.local
+```
+Fill in `.env.local` using the Environment Variables table below.
+
+### 2. Run Locally
+```bash
+npm run dev
+```
+Vite dev middleware automatically mounts `/api/plan`, `/api/scan`, and `/api/ask` locally on `http://localhost:5173`.
+
+### 3. Run Tests & Production Build
+```bash
+# TypeScript / Vitest suite (cigarettes, plan, fixes, routes, ask, community, forecast)
+npm test
+
+# Production bundle check
+npm run build
+
+# ML feature & leakage tests (Python)
+python -m venv ml/.venv
+ml/.venv/Scripts/pip install -r ml/requirements.txt   # or source ml/.venv/bin/activate on macOS/Linux
+ml/.venv/Scripts/pytest ml/test_features.py -v
+```
+
+### 4. Supabase Database Migrations
+Apply the SQL files in `supabase/migrations/` in order via the Supabase SQL Editor:
+1. `supabase/migrations/002_forecasts.sql` — `forecasts` table for 48h ML predictions (public read, service-role write).
+2. `supabase/migrations/003_community.sql` — `groups`, `group_members`, `daily_savings`, `alerts` + RLS + Realtime.
+3. `supabase/migrations/004_restrict_is_group_member.sql` — Revokes `EXECUTE` on `is_group_member(uuid)` from `public, anon`.
+4. `supabase/migrations/005_join_by_code.sql` — Adds `SECURITY DEFINER` RPC `join_group_by_code(code, display_name)` and restricts `groups` `SELECT` to members/creators only.
+
+### 5. Deploy to Vercel
+- Import the repository in Vercel (`vercel.json` is pre-configured to serve `api/*.ts` as Node serverless functions and rewrite SPA routes to `/index.html`).
+- Add the Environment Variables below in **Vercel → Project Settings → Environment Variables**.
+- Add `SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY` as **GitHub Repository Secrets** for `.github/workflows/forecast.yml`.
+
+---
+
+## 5. Environment Variables
+
+| Variable | Scope | Required? | Purpose |
+|---|---|---|---|
+| `VITE_SUPABASE_URL` | Frontend (Vercel + `.env.local`) | Optional (recommended) | Supabase project URL for profiles, ML forecasts, and Community. |
+| `VITE_SUPABASE_ANON_KEY` | Frontend (Vercel + `.env.local`) | Optional (recommended) | Supabase anon/publishable key (protected by RLS). |
+| `VITE_GOOGLE_MAPS_KEY` | Frontend (Vercel + `.env.local`) | Optional | Google Maps JS + Places + Routes key (restrict by HTTP referrer). Auto-falls back to Leaflet + OSM + OSRM if omitted or quota-limited. |
+| `GEMINI_API_KEY` | **Server-only** (Vercel + `.env.local`) | Required for AI | Google AI Studio key used by `/api/plan`, `/api/scan`, and `/api/ask`. Never exposed to client. |
+| `GEMINI_MODEL` | **Server-only** | Optional | Primary model (default: `gemini-3.5-flash`). Fallback: `gemini-3.1-flash-lite`. |
+| `SUPABASE_URL` | **GitHub Actions Secret** | Required for ML cron | Supabase URL used by `ml/predict.py`. |
+| `SUPABASE_SERVICE_ROLE_KEY` | **GitHub Actions Secret** | Required for ML cron | Service-role key used by `ml/predict.py` to upsert `forecasts`. Never expose to client. |
+| `OPENAQ_API_KEY` | Local / GitHub Actions | Optional | Enables OpenAQ v3 CPCB ground-station ingestion in `ml/collect.py` & `ml/predict.py`. |
+
+---
+
+## 6. Supported Languages
+
+Shwas includes full UI translations (`i18next`) and multilingual Gemini responses across 6 languages:
+- **English** (`en`)
+- **हिंदी — Hindi** (`hi`)
+- **తెలుగు — Telugu** (`te`)
+- **தமிழ் — Tamil** (`ta`)
+- **বাংলা — Bengali** (`bn`)
+- **मराठी — Marathi** (`mr`)

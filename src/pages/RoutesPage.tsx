@@ -111,6 +111,7 @@ export const RoutesPage: React.FC = () => {
   const [evaluatedRoutes, setEvaluatedRoutes] = useState<EvaluatedRouteOption[]>([]);
   const [selectedRouteId, setSelectedRouteId] = useState<string | null>(null);
   const [isLoadingRoutes, setIsLoadingRoutes] = useState<boolean>(false);
+  const [routeError, setRouteError] = useState<string | null>(null);
   const lastFetchKeyRef = useRef<string>('');
   const livePm25Ref = useRef<number>(livePm25 || 150);
   livePm25Ref.current = livePm25 || 150;
@@ -149,6 +150,7 @@ export const RoutesPage: React.FC = () => {
   const computeRoutes = useCallback(
     async (orig: PlaceSuggestion, dest: PlaceSuggestion, depDate: Date, providerMode: 'google' | 'leaflet') => {
       setIsLoadingRoutes(true);
+      setRouteError(null);
       try {
         const { routes, provider } = await fetchRoutesForTrip(
           { lat: orig.lat, lon: orig.lon },
@@ -185,6 +187,7 @@ export const RoutesPage: React.FC = () => {
         setSelectedRouteId(rec ? rec.id : null);
       } catch (err) {
         console.warn('[RoutesPage] Failed to compute routes:', err);
+        setRouteError('Could not load route comparison right now. Please try another destination or retry.');
       } finally {
         setIsLoadingRoutes(false);
       }
@@ -292,21 +295,27 @@ export const RoutesPage: React.FC = () => {
           {/* FROM input */}
           <div className="relative">
             <div className="flex items-center gap-2 bg-white/[0.04] border border-white/[0.09] rounded-xl px-3 py-2 focus-within:border-teal-400/50 transition-colors">
-              <span className="w-2.5 h-2.5 rounded-full bg-teal-400 shrink-0" />
-              <span className="text-[10px] uppercase tracking-wider text-slate-400 font-semibold w-9 shrink-0">
-                From
-              </span>
+              <span className="w-2.5 h-2.5 rounded-full bg-teal-400 shrink-0" aria-hidden="true" />
+              <label
+                htmlFor="routes-origin-input"
+                className="text-[10px] uppercase tracking-wider text-slate-400 font-semibold w-9 shrink-0"
+              >
+                {t('routes.from', 'From')}
+              </label>
               <input
+                id="routes-origin-input"
                 type="text"
                 value={originInput}
                 onChange={(e) => handleOriginSearch(e.target.value)}
                 placeholder="Starting point"
+                aria-label="Origin starting point"
                 className="flex-1 bg-transparent text-xs text-white placeholder-slate-500 focus:outline-none min-w-0"
               />
               {originInput !== quickPresets.home.name && (
                 <button
                   type="button"
                   onClick={() => handleChipClick('home')}
+                  aria-label="Reset origin to saved home"
                   className="text-[10px] text-teal-300 hover:text-teal-200 whitespace-nowrap"
                 >
                   Reset
@@ -327,7 +336,7 @@ export const RoutesPage: React.FC = () => {
                     }}
                     className="w-full text-left px-3 py-2 text-xs hover:bg-teal-500/15 flex items-center gap-2 border-b border-white/[0.05] last:border-none"
                   >
-                    <MapPin className="w-3.5 h-3.5 text-teal-400 shrink-0" />
+                    <MapPin className="w-3.5 h-3.5 text-teal-400 shrink-0" aria-hidden="true" />
                     <div className="min-w-0">
                       <div className="text-white font-medium truncate">{s.name}</div>
                       {s.subtitle && <div className="text-[10px] text-slate-400 truncate">{s.subtitle}</div>}
@@ -341,11 +350,15 @@ export const RoutesPage: React.FC = () => {
           {/* TO input */}
           <div className="relative">
             <div className="flex items-center gap-2 bg-white/[0.04] border border-white/[0.09] rounded-xl px-3 py-2 focus-within:border-amber-400/50 transition-colors">
-              <span className="w-2.5 h-2.5 rounded-full bg-amber-400 shrink-0" />
-              <span className="text-[10px] uppercase tracking-wider text-slate-400 font-semibold w-9 shrink-0">
-                To
-              </span>
+              <span className="w-2.5 h-2.5 rounded-full bg-amber-400 shrink-0" aria-hidden="true" />
+              <label
+                htmlFor="routes-dest-input"
+                className="text-[10px] uppercase tracking-wider text-slate-400 font-semibold w-9 shrink-0"
+              >
+                {t('routes.to', 'To')}
+              </label>
               <input
+                id="routes-dest-input"
                 type="text"
                 value={destInput}
                 onChange={(e) => handleDestSearch(e.target.value)}
@@ -357,11 +370,12 @@ export const RoutesPage: React.FC = () => {
                     setDestSuggestions([]);
                   }
                 }}
-                placeholder="Search destination (office, school, market...)"
+                placeholder={t('routes.searchPlaceholder', 'Search destination (office, school, market...)')}
+                aria-label="Destination address"
                 className="flex-1 bg-transparent text-xs text-white placeholder-slate-500 focus:outline-none min-w-0"
               />
               {isSearchingTo ? (
-                <Loader2 className="w-3.5 h-3.5 text-teal-400 animate-spin shrink-0" />
+                <Loader2 className="w-3.5 h-3.5 text-teal-400 animate-spin shrink-0" aria-hidden="true" />
               ) : destInput ? (
                 <button
                   type="button"
@@ -372,10 +386,10 @@ export const RoutesPage: React.FC = () => {
                   className="text-slate-500 hover:text-slate-300"
                   aria-label="Clear destination"
                 >
-                  <X className="w-3.5 h-3.5" />
+                  <X className="w-3.5 h-3.5" aria-hidden="true" />
                 </button>
               ) : (
-                <Search className="w-3.5 h-3.5 text-slate-500 shrink-0" />
+                <Search className="w-3.5 h-3.5 text-slate-500 shrink-0" aria-hidden="true" />
               )}
             </div>
 
@@ -392,7 +406,7 @@ export const RoutesPage: React.FC = () => {
                     }}
                     className="w-full text-left px-3 py-2 text-xs hover:bg-teal-500/15 flex items-center gap-2 border-b border-white/[0.05] last:border-none"
                   >
-                    <MapPin className="w-3.5 h-3.5 text-amber-400 shrink-0" />
+                    <MapPin className="w-3.5 h-3.5 text-amber-400 shrink-0" aria-hidden="true" />
                     <div className="min-w-0">
                       <div className="text-white font-medium truncate">{s.name}</div>
                       {s.subtitle && <div className="text-[10px] text-slate-400 truncate">{s.subtitle}</div>}
@@ -406,47 +420,57 @@ export const RoutesPage: React.FC = () => {
 
         {/* Quick Destination Chips (Home / School / Office) + Departure Time */}
         <div className="flex flex-wrap items-center justify-between gap-2 pt-1">
-          <div className="flex items-center gap-1.5">
+          <div className="flex items-center gap-1.5" role="group" aria-label="Quick place presets">
             <button
               type="button"
               onClick={() => handleChipClick('home')}
+              aria-label="Set starting point to Home"
               className="px-2.5 py-1 rounded-full text-[11px] font-medium bg-white/[0.05] border border-white/[0.09] text-slate-200 hover:bg-teal-500/15 hover:border-teal-400/40 flex items-center gap-1 transition-colors"
             >
-              <Home className="w-3 h-3 text-teal-400" />
-              <span>Home</span>
+              <Home className="w-3 h-3 text-teal-400" aria-hidden="true" />
+              <span>{t('routes.home', 'Home')}</span>
             </button>
             <button
               type="button"
               onClick={() => handleChipClick('school')}
+              aria-pressed={destination?.name === quickPresets.school.name}
+              aria-label="Set destination to School"
               className={`px-2.5 py-1 rounded-full text-[11px] font-medium border flex items-center gap-1 transition-colors ${
                 destination?.name === quickPresets.school.name
                   ? 'bg-teal-500/20 border-teal-400/50 text-teal-200'
                   : 'bg-white/[0.05] border-white/[0.09] text-slate-200 hover:bg-teal-500/15'
               }`}
             >
-              <GraduationCap className="w-3 h-3 text-amber-400" />
-              <span>School</span>
+              <GraduationCap className="w-3 h-3 text-amber-400" aria-hidden="true" />
+              <span>{t('routes.school', 'School')}</span>
             </button>
             <button
               type="button"
               onClick={() => handleChipClick('office')}
+              aria-pressed={destination?.name === quickPresets.office.name}
+              aria-label="Set destination to Office"
               className={`px-2.5 py-1 rounded-full text-[11px] font-medium border flex items-center gap-1 transition-colors ${
                 destination?.name === quickPresets.office.name
                   ? 'bg-teal-500/20 border-teal-400/50 text-teal-200'
                   : 'bg-white/[0.05] border-white/[0.09] text-slate-200 hover:bg-teal-500/15'
               }`}
             >
-              <Briefcase className="w-3 h-3 text-indigo-300" />
-              <span>Office</span>
+              <Briefcase className="w-3 h-3 text-indigo-300" aria-hidden="true" />
+              <span>{t('routes.office', 'Office')}</span>
             </button>
           </div>
 
           {/* Departure Time Selector */}
-          <div className="flex items-center gap-1 bg-white/[0.04] border border-white/[0.08] rounded-full p-0.5">
+          <div
+            role="group"
+            aria-label="Departure time preset"
+            className="flex items-center gap-1 bg-white/[0.04] border border-white/[0.08] rounded-full p-0.5"
+          >
             {(['now', 'plus1h', 'custom'] as DeparturePreset[]).map((preset) => (
               <button
                 key={preset}
                 type="button"
+                aria-pressed={departurePreset === preset}
                 onClick={() => setDeparturePreset(preset)}
                 className={`px-2.5 py-1 rounded-full text-[10px] font-semibold transition-colors ${
                   departurePreset === preset
@@ -454,7 +478,11 @@ export const RoutesPage: React.FC = () => {
                     : 'text-slate-300 hover:text-white'
                 }`}
               >
-                {preset === 'now' ? 'Now' : preset === 'plus1h' ? '+1h' : 'Custom'}
+                {preset === 'now'
+                  ? t('routes.now', 'Now')
+                  : preset === 'plus1h'
+                    ? '+1h'
+                    : t('routes.custom', 'Custom')}
               </button>
             ))}
           </div>
@@ -463,14 +491,16 @@ export const RoutesPage: React.FC = () => {
         {/* Custom time picker row */}
         {departurePreset === 'custom' && (
           <div className="flex items-center justify-between gap-2 px-3 py-1.5 rounded-xl bg-white/[0.03] border border-white/[0.08] text-xs">
-            <span className="text-slate-300 flex items-center gap-1.5">
-              <Clock className="w-3.5 h-3.5 text-teal-400" />
+            <label htmlFor="routes-custom-time" className="text-slate-300 flex items-center gap-1.5">
+              <Clock className="w-3.5 h-3.5 text-teal-400" aria-hidden="true" />
               <span>Departure time</span>
-            </span>
+            </label>
             <input
+              id="routes-custom-time"
               type="time"
               value={customTime}
               onChange={(e) => setCustomTime(e.target.value)}
+              aria-label="Custom departure time"
               className="bg-[#0B0F17] border border-white/15 rounded-lg px-2 py-1 text-xs text-white font-mono focus:outline-none focus:border-teal-400"
             />
           </div>
@@ -481,7 +511,7 @@ export const RoutesPage: React.FC = () => {
       {departureTip && (
         <div className="p-3 rounded-2xl bg-gradient-to-r from-teal-500/15 to-emerald-500/10 border border-teal-400/30 flex items-center justify-between gap-2.5">
           <div className="flex items-center gap-2 min-w-0">
-            <Sparkles className="w-4 h-4 text-teal-300 shrink-0" />
+            <Sparkles className="w-4 h-4 text-teal-300 shrink-0" aria-hidden="true" />
             <span className="text-xs text-teal-100 font-medium leading-snug">
               {departureTip.message}
             </span>
@@ -489,10 +519,11 @@ export const RoutesPage: React.FC = () => {
           <button
             type="button"
             onClick={handleApplyTipTime}
+            aria-label={`Set departure time to ${departureTip.bestTimeLabel}`}
             className="px-2.5 py-1 rounded-lg bg-teal-400/20 border border-teal-400/40 text-[10px] font-semibold text-teal-200 hover:bg-teal-400/30 whitespace-nowrap shrink-0 flex items-center gap-1"
           >
             <span>Use</span>
-            <ArrowRight className="w-3 h-3" />
+            <ArrowRight className="w-3 h-3" aria-hidden="true" />
           </button>
         </div>
       )}
@@ -507,18 +538,38 @@ export const RoutesPage: React.FC = () => {
         onMapProviderChange={handleMapProviderChange}
       />
 
-      {/* Mode Comparison Cards */}
-      <div className="space-y-2.5">
+      {/* Mode Comparison Cards (uses solid dark surface without backdrop-blur to prevent Chromium map scroll blanking) */}
+      <div className="space-y-2.5 relative z-10">
         <div className="flex items-center justify-between px-0.5">
           <h3 className="text-xs font-semibold uppercase tracking-wider text-slate-400">
-            Route & Mode Exposure Comparison
+            {t('routes.comparisonHeading', 'Route & Mode Exposure Comparison')}
           </h3>
           {isLoadingRoutes && (
-            <span className="text-[11px] text-teal-300 flex items-center gap-1.5">
-              <Loader2 className="w-3 h-3 animate-spin" /> Sampling PM2.5…
+            <span className="text-[11px] text-teal-300 flex items-center gap-1.5" role="status">
+              <Loader2 className="w-3 h-3 animate-spin" aria-hidden="true" /> Sampling PM2.5…
             </span>
           )}
         </div>
+
+        {routeError && (
+          <div
+            role="alert"
+            className="p-3 rounded-xl bg-amber-500/10 border border-amber-400/30 text-xs text-amber-200"
+          >
+            {routeError}
+          </div>
+        )}
+
+        {isLoadingRoutes && evaluatedRoutes.length === 0 && (
+          <div className="space-y-2.5" aria-label="Loading route options">
+            {[1, 2, 3].map((k) => (
+              <div
+                key={k}
+                className="h-28 rounded-2xl bg-[#131b2c]/90 border border-white/[0.08] animate-pulse"
+              />
+            ))}
+          </div>
+        )}
 
         {evaluatedRoutes.map((route) => {
           const isSelected = route.id === selectedRouteId;
@@ -530,19 +581,29 @@ export const RoutesPage: React.FC = () => {
                 : 'danger';
 
           return (
-            <GlassCard
+            <div
               key={route.id}
+              role="button"
+              tabIndex={0}
+              aria-pressed={isSelected}
+              aria-label={`${route.label}, ${route.cigarettes.toFixed(2)} cigarettes, ${route.durationMin} minutes, ${route.co2Kg.toFixed(2)} kg CO2`}
               onClick={() => setSelectedRouteId(route.id)}
-              className={`relative overflow-hidden p-3.5 cursor-pointer transition-all space-y-2.5 ${
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' || e.key === ' ') {
+                  e.preventDefault();
+                  setSelectedRouteId(route.id);
+                }
+              }}
+              className={`relative rounded-2xl p-3.5 cursor-pointer transition-colors space-y-2.5 border focus:outline-none focus-visible:ring-2 focus-visible:ring-teal-400 ${
                 isSelected
-                  ? 'border-teal-400/50 bg-teal-500/[0.07] shadow-lg shadow-teal-500/10'
-                  : 'border-white/[0.08] hover:border-white/20'
+                  ? 'bg-[#122531] border-teal-400/60 shadow-lg shadow-teal-500/10'
+                  : 'bg-[#131b2c]/95 border-white/[0.1] hover:border-white/25'
               }`}
             >
               {/* Recommended Ribbon with Reason */}
               {route.recommended && (
                 <div className="mb-1 inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-teal-400 text-slate-950 text-[10px] font-bold tracking-wide shadow-md">
-                  <Sparkles className="w-2.5 h-2.5 shrink-0" />
+                  <Sparkles className="w-2.5 h-2.5 shrink-0" aria-hidden="true" />
                   <span>
                     Recommended · {route.recommendedReason || 'cleanest for you and the city'}
                   </span>
@@ -553,6 +614,7 @@ export const RoutesPage: React.FC = () => {
               <div className="flex items-start justify-between gap-2">
                 <div className="flex items-center gap-2.5 min-w-0">
                   <div
+                    aria-hidden="true"
                     className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0 border"
                     style={{
                       backgroundColor: `${route.strokeColor}1A`,
@@ -586,9 +648,9 @@ export const RoutesPage: React.FC = () => {
               {/* Relative Smog Bar & Comparison */}
               <div className="space-y-1">
                 <div className="flex items-center justify-between gap-2 text-[11px]">
-                  <div className="flex items-center gap-1.5">
+                  <div className="flex items-center gap-1.5 flex-wrap">
                     <Badge variant={badgeVariant} size="sm" className="font-mono whitespace-nowrap">
-                      <Cigarette className="w-3 h-3 mr-1 inline" />
+                      <Cigarette className="w-3 h-3 mr-1 inline" aria-hidden="true" />
                       {route.cigarettes.toFixed(2)} cigs
                     </Badge>
                     <span
@@ -599,7 +661,10 @@ export const RoutesPage: React.FC = () => {
                     </span>
                   </div>
                 </div>
-                <div className="w-full h-1.5 rounded-full bg-white/[0.06] overflow-hidden">
+                <div
+                  className="w-full h-1.5 rounded-full bg-white/[0.08] overflow-hidden"
+                  aria-hidden="true"
+                >
                   <div
                     className="h-full rounded-full transition-all duration-300"
                     style={{
@@ -611,28 +676,28 @@ export const RoutesPage: React.FC = () => {
               </div>
 
               {/* Metrics Row: Time · Distance · CO2 */}
-              <div className="grid grid-cols-3 gap-2 pt-1 border-t border-white/[0.06]">
-                <div className="bg-white/[0.03] rounded-xl px-2.5 py-1.5">
+              <div className="grid grid-cols-3 gap-2 pt-1 border-t border-white/[0.08]">
+                <div className="bg-white/[0.04] rounded-xl px-2.5 py-1.5">
                   <div className="text-[10px] text-slate-400 flex items-center gap-1">
-                    <Clock className="w-3 h-3" /> Time
+                    <Clock className="w-3 h-3" aria-hidden="true" /> Time
                   </div>
                   <div className="text-xs font-numbers font-bold text-white mt-0.5">
                     {route.durationMin} min
                   </div>
                 </div>
 
-                <div className="bg-white/[0.03] rounded-xl px-2.5 py-1.5">
+                <div className="bg-white/[0.04] rounded-xl px-2.5 py-1.5">
                   <div className="text-[10px] text-slate-400 flex items-center gap-1">
-                    <Navigation className="w-3 h-3 text-slate-400" /> Distance
+                    <Navigation className="w-3 h-3 text-slate-400" aria-hidden="true" /> Distance
                   </div>
                   <div className="text-xs font-numbers font-bold text-slate-200 mt-0.5">
                     {route.distanceKm} km
                   </div>
                 </div>
 
-                <div className="bg-white/[0.03] rounded-xl px-2.5 py-1.5">
+                <div className="bg-white/[0.04] rounded-xl px-2.5 py-1.5">
                   <div className="text-[10px] text-slate-400 flex items-center gap-1">
-                    <Leaf className="w-3 h-3 text-emerald-400" /> CO₂
+                    <Leaf className="w-3 h-3 text-emerald-400" aria-hidden="true" /> CO₂
                   </div>
                   <div className="text-xs font-numbers font-bold text-slate-200 mt-0.5">
                     {route.co2Kg === 0 ? '0 kg' : `${route.co2Kg.toFixed(2)} kg`}
@@ -648,15 +713,16 @@ export const RoutesPage: React.FC = () => {
                     target="_blank"
                     rel="noopener noreferrer"
                     onClick={(e) => e.stopPropagation()}
-                    className="w-full py-2 px-3 rounded-xl bg-teal-400/15 hover:bg-teal-400/25 border border-teal-400/40 text-teal-200 text-xs font-semibold flex items-center justify-center gap-2 transition-colors"
+                    aria-label={t('routes.openInMaps', 'Open in Google Maps')}
+                    className="w-full py-2 px-3 rounded-xl bg-teal-400/15 hover:bg-teal-400/25 border border-teal-400/40 text-teal-200 text-xs font-semibold flex items-center justify-center gap-2 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-teal-400"
                   >
-                    <Train className="w-3.5 h-3.5" />
-                    <span>Open in Google Maps</span>
-                    <ExternalLink className="w-3.5 h-3.5" />
+                    <Train className="w-3.5 h-3.5" aria-hidden="true" />
+                    <span>{t('routes.openInMaps', 'Open in Google Maps')}</span>
+                    <ExternalLink className="w-3.5 h-3.5" aria-hidden="true" />
                   </a>
                 </div>
               )}
-            </GlassCard>
+            </div>
           );
         })}
       </div>

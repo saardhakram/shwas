@@ -67,13 +67,16 @@ export const CommunityPage: React.FC = () => {
   const [savings, setSavings] = useState<DailySavingRow[]>([]);
   const [alerts, setAlerts] = useState<CommunityAlert[]>([]);
   const [isLoading, setIsLoading] = useState<boolean>(false);
+  const [loadError, setLoadError] = useState<string | null>(null);
 
-  // Create / Join forms
+  // Create / Join forms (start empty with placeholder to prevent "My FamilyRam Family" concatenation)
   const [groupNameInput, setGroupNameInput] = useState<string>('');
   const [joinCodeInput, setJoinCodeInput] = useState<string>('');
-  const [familyNameInput, setFamilyNameInput] = useState<string>(defaultFamilyLabel);
+  const [familyNameInput, setFamilyNameInput] = useState<string>('');
   const [formError, setFormError] = useState<string | null>(null);
   const [copiedCode, setCopiedCode] = useState<boolean>(false);
+
+  const resolvedFamilyName = familyNameInput.trim() || defaultFamilyLabel;
 
   // Report Alert drawer
   const [showReportForm, setShowReportForm] = useState<boolean>(false);
@@ -94,11 +97,15 @@ export const CommunityPage: React.FC = () => {
 
   const refreshSnapshot = useCallback(async (group: CommunityGroup) => {
     setIsLoading(true);
+    setLoadError(null);
     try {
       const snap = await loadCommunitySnapshot(group);
       setMembers(snap.members);
       setSavings(snap.savings);
       setAlerts(snap.alerts);
+    } catch (err) {
+      console.warn('[CommunityPage] Snapshot load error:', err);
+      setLoadError('Could not refresh group data. Showing cached snapshot.');
     } finally {
       setIsLoading(false);
     }
@@ -155,7 +162,7 @@ export const CommunityPage: React.FC = () => {
       setFormError('Enter a society or school name (at least 2 characters).');
       return;
     }
-    const created = await createCommunityGroup(groupNameInput, familyNameInput);
+    const created = await createCommunityGroup(groupNameInput, resolvedFamilyName);
     setActiveGroup(created);
     setGroupNameInput('');
   };
@@ -167,7 +174,7 @@ export const CommunityPage: React.FC = () => {
       setFormError('Enter a valid 6-character join code (e.g. GRNPK6).');
       return;
     }
-    const res = await joinCommunityGroupByCode(joinCodeInput, familyNameInput);
+    const res = await joinCommunityGroupByCode(joinCodeInput, resolvedFamilyName);
     if (res.group) {
       setActiveGroup(res.group);
       setJoinCodeInput('');
@@ -178,7 +185,7 @@ export const CommunityPage: React.FC = () => {
 
   const handleJoinDemo = async () => {
     setFormError(null);
-    const demo = await joinDemoGreenParkSociety(familyNameInput);
+    const demo = await joinDemoGreenParkSociety(resolvedFamilyName);
     setActiveGroup(demo);
   };
 
@@ -313,20 +320,22 @@ export const CommunityPage: React.FC = () => {
 
         {/* Display Name input */}
         <GlassCard variant="subtle" className="p-3.5 space-y-1.5">
-          <label className="text-[11px] font-semibold text-slate-300 block">
+          <label htmlFor="community-family-name" className="text-[11px] font-semibold text-slate-300 block">
             Your Family Display Name
           </label>
           <input
+            id="community-family-name"
             type="text"
             value={familyNameInput}
             onChange={(e) => setFamilyNameInput(e.target.value)}
-            placeholder="e.g. Sharma Family"
-            className="w-full bg-white/[0.05] border border-white/[0.1] rounded-xl px-3 py-2 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-teal-400/50"
+            placeholder={defaultFamilyLabel}
+            aria-label="Your Family Display Name"
+            className="w-full bg-white/[0.05] border border-white/[0.1] rounded-xl px-3 py-2 text-xs text-white placeholder-slate-400 focus:outline-none focus:border-teal-400/50"
           />
         </GlassCard>
 
         {formError && (
-          <div className="p-2.5 rounded-xl bg-amber-500/10 border border-amber-500/30 text-xs text-amber-200">
+          <div role="alert" className="p-2.5 rounded-xl bg-amber-500/10 border border-amber-500/30 text-xs text-amber-200">
             {formError}
           </div>
         )}
@@ -334,26 +343,34 @@ export const CommunityPage: React.FC = () => {
         {/* Create a Group */}
         <GlassCard className="p-4 space-y-3 border-white/[0.1]">
           <div className="flex items-center gap-2">
-            <Users className="w-4 h-4 text-teal-400" />
-            <h3 className="text-xs font-bold text-white">Create a Society or School Group</h3>
+            <Users className="w-4 h-4 text-teal-400" aria-hidden="true" />
+            <h3 className="text-xs font-bold text-white">
+              {t('community.createGroup', 'Create a Society or School Group')}
+            </h3>
           </div>
           <p className="text-[11px] text-slate-400">
             Creates a private group with a 6-character join code you can share on WhatsApp.
           </p>
           <form onSubmit={handleCreateGroup} className="flex gap-2">
+            <label htmlFor="community-group-name" className="sr-only">
+              Society or school group name
+            </label>
             <input
+              id="community-group-name"
               type="text"
               value={groupNameInput}
               onChange={(e) => setGroupNameInput(e.target.value)}
               placeholder="e.g. Green Park Society"
-              className="flex-1 bg-white/[0.05] border border-white/[0.1] rounded-xl px-3 py-2 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-teal-400/50"
+              aria-label="Society or school group name"
+              className="flex-1 min-w-0 bg-white/[0.05] border border-white/[0.1] rounded-xl px-3 py-2 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-teal-400/50"
             />
             <button
               type="submit"
-              className="px-3.5 py-2 rounded-xl bg-teal-400 hover:bg-teal-300 text-slate-950 font-semibold text-xs flex items-center gap-1.5 shrink-0 transition-colors"
+              aria-label="Create community group"
+              className="px-3.5 py-2 rounded-xl bg-teal-400 hover:bg-teal-300 text-slate-950 font-semibold text-xs flex items-center gap-1.5 shrink-0 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-white"
             >
-              <Plus className="w-3.5 h-3.5" />
-              <span>Create</span>
+              <Plus className="w-3.5 h-3.5" aria-hidden="true" />
+              <span>{t('community.createBtn', 'Create')}</span>
             </button>
           </form>
         </GlassCard>
@@ -361,23 +378,31 @@ export const CommunityPage: React.FC = () => {
         {/* Join with a 6-character code */}
         <GlassCard className="p-4 space-y-3 border-white/[0.1]">
           <div className="flex items-center gap-2">
-            <KeyRound className="w-4 h-4 text-amber-400" />
-            <h3 className="text-xs font-bold text-white">Join with a 6-Character Code</h3>
+            <KeyRound className="w-4 h-4 text-amber-400" aria-hidden="true" />
+            <h3 className="text-xs font-bold text-white">
+              {t('community.joinGroup', 'Join with a 6-Character Code')}
+            </h3>
           </div>
           <form onSubmit={handleJoinGroup} className="flex gap-2">
+            <label htmlFor="community-join-code" className="sr-only">
+              6-character group join code
+            </label>
             <input
+              id="community-join-code"
               type="text"
               value={joinCodeInput}
               onChange={(e) => setJoinCodeInput(normalizeJoinCode(e.target.value))}
               maxLength={6}
               placeholder="e.g. GRNPK6"
-              className="flex-1 bg-white/[0.05] border border-white/[0.1] rounded-xl px-3 py-2 text-xs font-mono tracking-widest uppercase text-white placeholder-slate-500 focus:outline-none focus:border-teal-400/50"
+              aria-label="6-character group join code"
+              className="flex-1 min-w-0 bg-white/[0.05] border border-white/[0.1] rounded-xl px-3 py-2 text-xs font-mono tracking-widest uppercase text-white placeholder-slate-500 focus:outline-none focus:border-teal-400/50"
             />
             <button
               type="submit"
-              className="px-4 py-2 rounded-xl bg-white/10 hover:bg-white/20 border border-white/15 text-white font-semibold text-xs shrink-0 transition-colors"
+              aria-label="Join community group with code"
+              className="px-4 py-2 rounded-xl bg-white/10 hover:bg-white/20 border border-white/15 text-white font-semibold text-xs shrink-0 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-teal-400"
             >
-              Join
+              {t('community.joinBtn', 'Join')}
             </button>
           </form>
         </GlassCard>
@@ -386,7 +411,7 @@ export const CommunityPage: React.FC = () => {
         <GlassCard variant="mint" className="p-3.5 flex items-center justify-between gap-3">
           <div className="min-w-0">
             <div className="text-xs font-semibold text-teal-200 flex items-center gap-1.5">
-              <Sparkles className="w-3.5 h-3.5 text-teal-400 shrink-0" />
+              <Sparkles className="w-3.5 h-3.5 text-teal-400 shrink-0" aria-hidden="true" />
               <span>Preview Green Park Society</span>
             </div>
             <p className="text-[11px] text-slate-300 mt-0.5">
@@ -396,7 +421,8 @@ export const CommunityPage: React.FC = () => {
           <button
             type="button"
             onClick={handleJoinDemo}
-            className="px-3 py-1.5 rounded-xl bg-teal-400 text-slate-950 font-semibold text-xs whitespace-nowrap shrink-0 hover:bg-teal-300"
+            aria-label="Join Green Park Society demo group"
+            className="px-3 py-1.5 rounded-xl bg-teal-400 text-slate-950 font-semibold text-xs whitespace-nowrap shrink-0 hover:bg-teal-300 focus:outline-none focus-visible:ring-2 focus-visible:ring-white"
           >
             Join Demo
           </button>
@@ -419,26 +445,41 @@ export const CommunityPage: React.FC = () => {
             <button
               type="button"
               onClick={handleCopyCode}
-              className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-white/[0.06] hover:bg-white/[0.12] border border-white/[0.1] text-[10px] font-mono text-teal-300 transition-colors"
+              aria-label={`Copy join code ${activeGroup.join_code}`}
+              className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-white/[0.06] hover:bg-white/[0.12] border border-white/[0.1] text-[10px] font-mono text-teal-300 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-teal-400"
               title="Copy join code"
             >
               <span>Code: {activeGroup.join_code}</span>
-              {copiedCode ? <Check className="w-3 h-3 text-emerald-400" /> : <Copy className="w-3 h-3" />}
+              {copiedCode ? (
+                <Check className="w-3 h-3 text-emerald-400" aria-hidden="true" />
+              ) : (
+                <Copy className="w-3 h-3" aria-hidden="true" />
+              )}
             </button>
-            {isLoading && <span className="text-[10px] text-slate-400">Syncing…</span>}
+            {isLoading && (
+              <span className="text-[10px] text-slate-400" role="status">
+                Syncing…
+              </span>
+            )}
           </div>
         </div>
 
         <button
           type="button"
           onClick={handleLeaveGroup}
-          className="p-2 rounded-xl bg-white/[0.05] hover:bg-white/[0.1] border border-white/[0.08] text-slate-400 hover:text-white transition-colors shrink-0"
+          className="p-2 rounded-xl bg-white/[0.05] hover:bg-white/[0.1] border border-white/[0.08] text-slate-400 hover:text-white transition-colors shrink-0 focus:outline-none focus-visible:ring-2 focus-visible:ring-teal-400"
           title="Switch or leave group"
           aria-label="Leave group"
         >
-          <LogOut className="w-4 h-4" />
+          <LogOut className="w-4 h-4" aria-hidden="true" />
         </button>
       </div>
+
+      {loadError && (
+        <div role="alert" className="p-2.5 rounded-xl bg-amber-500/10 border border-amber-500/30 text-xs text-amber-200">
+          {loadError}
+        </div>
+      )}
 
       {/* Big Weekly Hero Stat + Share my day CTA */}
       <GlassCard
@@ -453,11 +494,9 @@ export const CommunityPage: React.FC = () => {
             {formatSavedCount(weeklyStats.totalWeeklySaved)}
           </div>
           <p className="text-xs text-slate-200 font-medium">
-            Together we saved{' '}
-            <strong className="text-teal-300">
-              {formatSavedCount(weeklyStats.totalWeeklySaved)} cigarettes
-            </strong>{' '}
-            this week
+            {t('community.togetherSaved', 'Together we saved {{count}} cigarettes this week', {
+              count: Number(formatSavedCount(weeklyStats.totalWeeklySaved)),
+            })}
           </p>
         </div>
 
@@ -465,24 +504,25 @@ export const CommunityPage: React.FC = () => {
           <button
             type="button"
             onClick={handleOpenShare}
-            className="px-4 py-2 rounded-xl bg-teal-400 hover:bg-teal-300 text-slate-950 font-semibold text-xs flex items-center gap-2 transition-all shadow-lg shadow-teal-400/20 active:scale-95"
+            aria-label={t('community.shareDay', 'Share my day')}
+            className="px-4 py-2 rounded-xl bg-teal-400 hover:bg-teal-300 text-slate-950 font-semibold text-xs flex items-center gap-2 transition-all shadow-lg shadow-teal-400/20 active:scale-95 focus:outline-none focus-visible:ring-2 focus-visible:ring-white"
           >
-            <Share2 className="w-3.5 h-3.5" />
-            <span>Share my day</span>
+            <Share2 className="w-3.5 h-3.5" aria-hidden="true" />
+            <span>{t('community.shareDay', 'Share my day')}</span>
           </button>
         </div>
       </GlassCard>
 
       {/* Neighborhood Leaderboard with Streak Flame */}
       <GlassCard className="p-4 space-y-3 border-white/[0.1]">
-        <div className="flex items-center justify-between">
+        <div className="flex items-center justify-between gap-2">
           <div className="flex items-center gap-2">
-            <Award className="w-4 h-4 text-amber-400" />
+            <Award className="w-4 h-4 text-amber-400" aria-hidden="true" />
             <h3 className="text-xs font-bold text-slate-100 uppercase tracking-wider">
-              Weekly Leaderboard
+              {t('community.leaderboard', 'Weekly Leaderboard')}
             </h3>
           </div>
-          <span className="text-[10px] text-slate-400">
+          <span className="text-[10px] text-slate-400 text-right">
             Check items on Today to climb
           </span>
         </div>
@@ -510,16 +550,16 @@ export const CommunityPage: React.FC = () => {
                     {member.rank}
                   </span>
                   <div className="min-w-0">
-                    <div className="font-semibold text-white truncate flex items-center gap-1.5">
-                      <span>{member.displayName}</span>
+                    <div className="font-semibold text-white flex items-center gap-1.5 min-w-0">
+                      <span className="truncate">{member.displayName}</span>
                       {isMe && (
-                        <span className="text-[9px] uppercase font-mono px-1.5 py-0.2 rounded bg-teal-400/20 text-teal-300">
-                          You
+                        <span className="text-[9px] uppercase font-mono font-bold px-1.5 py-0.5 rounded-full bg-teal-400/20 border border-teal-400/40 text-teal-200 shrink-0">
+                          YOU
                         </span>
                       )}
                     </div>
                     <div className="flex items-center gap-1 text-[10px] text-amber-400 font-medium">
-                      <Flame className="w-3 h-3 shrink-0 fill-amber-400/30" />
+                      <Flame className="w-3 h-3 shrink-0 fill-amber-400/30" aria-hidden="true" />
                       <span>
                         {member.streakDays > 0
                           ? `${member.streakDays}d streak`
@@ -547,18 +587,20 @@ export const CommunityPage: React.FC = () => {
       <GlassCard className="p-4 space-y-3 border-white/[0.1]">
         <div className="flex items-center justify-between gap-2">
           <div className="flex items-center gap-2">
-            <Megaphone className="w-4 h-4 text-amber-400" />
+            <Megaphone className="w-4 h-4 text-amber-400" aria-hidden="true" />
             <h3 className="text-xs font-bold text-slate-100 uppercase tracking-wider">
-              Local Air Alerts
+              {t('community.localAlerts', 'Local Air Alerts')}
             </h3>
           </div>
           <button
             type="button"
+            aria-expanded={showReportForm}
+            aria-label={showReportForm ? 'Close local alert form' : 'Report local smoke or dust alert'}
             onClick={() => setShowReportForm((v) => !v)}
-            className="px-3 py-1 rounded-lg bg-amber-500/20 hover:bg-amber-500/30 border border-amber-400/40 text-amber-200 font-semibold text-[11px] flex items-center gap-1 transition-colors"
+            className="px-3 py-1 rounded-lg bg-amber-500/20 hover:bg-amber-500/30 border border-amber-400/40 text-amber-200 font-semibold text-[11px] flex items-center gap-1 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-400"
           >
-            <AlertTriangle className="w-3 h-3" />
-            <span>{showReportForm ? 'Close' : 'Report'}</span>
+            <AlertTriangle className="w-3 h-3" aria-hidden="true" />
+            <span>{showReportForm ? 'Close' : t('community.reportBtn', 'Report')}</span>
           </button>
         </div>
 
@@ -568,13 +610,14 @@ export const CommunityPage: React.FC = () => {
             onSubmit={handleReportSubmit}
             className="p-3 rounded-xl bg-white/[0.04] border border-amber-400/25 space-y-2.5"
           >
-            <div className="grid grid-cols-2 gap-1.5">
+            <div className="grid grid-cols-2 gap-1.5" role="group" aria-label="Alert type">
               {(Object.keys(ALERT_TYPE_META) as AlertType[]).map((typeKey) => (
                 <button
                   key={typeKey}
                   type="button"
+                  aria-pressed={alertType === typeKey}
                   onClick={() => setAlertType(typeKey)}
-                  className={`px-2.5 py-1.5 rounded-lg text-[11px] font-medium border text-left transition-colors ${
+                  className={`px-2.5 py-1.5 rounded-lg text-[11px] font-medium border text-left transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-400 ${
                     alertType === typeKey
                       ? 'bg-amber-500/20 border-amber-400/60 text-amber-200'
                       : 'bg-white/[0.03] border-white/[0.08] text-slate-300 hover:bg-white/[0.07]'
@@ -585,11 +628,16 @@ export const CommunityPage: React.FC = () => {
               ))}
             </div>
 
+            <label htmlFor="community-alert-msg" className="sr-only">
+              Alert location and details
+            </label>
             <input
+              id="community-alert-msg"
               type="text"
               value={alertMessage}
               onChange={(e) => setAlertMessage(e.target.value)}
               placeholder="Where is it? e.g. Near Block C park gate"
+              aria-label="Alert location and details"
               maxLength={240}
               className="w-full bg-[#0B0F17]/80 border border-white/[0.12] rounded-xl px-3 py-2 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-amber-400/50"
             />
@@ -597,7 +645,8 @@ export const CommunityPage: React.FC = () => {
             <button
               type="submit"
               disabled={!alertMessage.trim() || isSubmittingAlert}
-              className="w-full py-2 rounded-xl bg-amber-400 hover:bg-amber-300 disabled:opacity-40 text-slate-950 font-semibold text-xs transition-colors"
+              aria-label="Post local air alert to group"
+              className="w-full py-2 rounded-xl bg-amber-400 hover:bg-amber-300 disabled:opacity-40 text-slate-950 font-semibold text-xs transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-white"
             >
               {isSubmittingAlert ? 'Posting alert…' : 'Post Alert to Group'}
             </button>

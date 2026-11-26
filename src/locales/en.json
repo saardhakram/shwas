@@ -2,7 +2,8 @@
   "app": {
     "name": "Shwas",
     "tagline": "Urban Air Quality Assistant",
-    "disclaimer": "Awareness estimate, not a medical measurement."
+    "disclaimer": "Awareness estimate, not a medical measurement.",
+    "skipToContent": "Skip to main content"
   },
   "nav": {
     "today": "Today",
@@ -15,15 +16,21 @@
     "title": "Today's Air Plan",
     "heroCigarettes": "cigarettes",
     "heroSubtitle": "breathed today across your routine",
+    "familyAverage": "per person (family average)",
     "targetPlan": "if you follow your plan",
     "saveCallout": "You can save your family {{saved}} cigarettes today",
     "liveAqi": "Live AQI",
     "familyTitle": "Family Exposure",
     "forecastTitle": "48-Hour Forecast",
-    "forecastBestWindow": "Best air window: {{window}}",
-    "planTimeline": "Timeline & Low-Emission Actions",
+    "forecastMlTitle": "Shwas Forecast (ML)",
+    "forecastBestWindow": "Best upcoming window: {{window}}",
+    "planTimeline": "Today's Air Plan Timeline",
+    "planByGemini": "Plan by Gemini",
+    "offlinePlan": "Offline plan",
+    "generating": "Generating...",
+    "stillThinking": "Still thinking…",
     "emptyState": "Setting up your daily air plan...",
-    "emptySubtitle": "Personalized actions based on live CPCB stations and your home scan."
+    "emptySubtitle": "Personalized actions based on live air quality and your home profile."
   },
   "family": {
     "all": "All Family",
@@ -46,19 +53,45 @@
     "title": "Shwas Scan",
     "subtitle": "AI-powered indoor pollution audit with Gemini Vision",
     "takePhoto": "Take Photo / Choose Image",
-    "scanSubtitle": "Snap a photo of your living room, stove, incense corner, or street windows."
+    "scanHeading": "Scan Room, Kitchen, or Window",
+    "scanSubtitle": "Snap a photo of your living room, stove, incense corner, or street windows.",
+    "addToPlan": "Add to my plan",
+    "addedToPlan": "Added to Plan",
+    "retake": "Retake"
   },
   "routes": {
     "title": "Clean Routes",
-    "subtitle": "Compare Metro, Auto, Walk & Bike by pollution exposure"
+    "subtitle": "Compare Metro, Car, Auto, Bike & Walk by smog exposure",
+    "from": "From",
+    "to": "To",
+    "searchPlaceholder": "Search destination (office, school, market...)",
+    "home": "Home",
+    "school": "School",
+    "office": "Office",
+    "now": "Now",
+    "custom": "Custom",
+    "comparisonHeading": "Route & Mode Exposure Comparison",
+    "openInMaps": "Open in Google Maps"
   },
   "community": {
     "title": "Community",
-    "subtitle": "Together we breathe cleaner air"
+    "subtitle": "Track clean air savings with your society or school",
+    "createGroup": "Create a Society or School Group",
+    "createBtn": "Create",
+    "joinGroup": "Join with a 6-Character Code",
+    "joinBtn": "Join",
+    "shareDay": "Share my day",
+    "leaderboard": "Weekly Leaderboard",
+    "localAlerts": "Local Air Alerts",
+    "reportBtn": "Report",
+    "togetherSaved": "Together we saved {{count}} cigarettes this week"
   },
   "ask": {
     "title": "Ask Shwas",
-    "subtitle": "Ask anything about air quality, kids' play, or elderly safety"
+    "subtitle": "Air quality & family routine guidance",
+    "placeholder": "Ask about walks, kids, masks, or rooms…",
+    "listening": "Listening… speak your question",
+    "disclaimer": "Session-only chat · Not medical advice — please consult a doctor for symptoms."
   },
   "onboarding": {
     "title": "Welcome to Shwas",

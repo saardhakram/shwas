@@ -442,12 +442,16 @@ export const RouteMap: React.FC<RouteMapProps> = ({
   }, []);
 
   return (
-    <div className="relative rounded-2xl overflow-hidden border border-white/[0.1] bg-[#0B0F17] shadow-xl">
+    <div
+      className="relative isolate rounded-2xl overflow-hidden border border-white/[0.1] bg-[#0B0F17] shadow-xl"
+      style={{ isolation: 'isolate', contain: 'layout paint' }}
+    >
       {/* Map canvas container — fixed height so it is never blank */}
       {provider === 'google' ? (
         <div
           ref={googleContainerRef}
           className="w-full h-[270px] sm:h-[320px]"
+          role="region"
           aria-label="Clean Routes Exposure Map (Google Maps)"
         />
       ) : (
@@ -455,6 +459,7 @@ export const RouteMap: React.FC<RouteMapProps> = ({
           <div
             ref={leafletContainerRef}
             className="w-full h-[270px] sm:h-[320px] z-0"
+            role="region"
             aria-label="Clean Routes Exposure Map (OpenStreetMap)"
           />
         </div>

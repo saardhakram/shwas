@@ -346,16 +346,20 @@ export const AskPage: React.FC = () => {
       </div>
 
       {/* Suggestion Chips (dynamic from real family profile) */}
-      <div className="flex gap-1.5 overflow-x-auto no-scrollbar pb-0.5">
+      <div
+        role="group"
+        aria-label="Suggested air quality questions"
+        className="flex gap-1.5 overflow-x-auto no-scrollbar pb-0.5"
+      >
         {suggestionChips.map((chip) => (
           <button
             key={chip}
             type="button"
             disabled={isSending}
             onClick={() => sendQuestion(chip)}
-            className="px-3 py-1.5 rounded-full bg-white/[0.05] hover:bg-teal-500/15 border border-white/[0.1] hover:border-teal-400/40 text-xs text-slate-200 whitespace-nowrap transition-colors flex items-center gap-1.5 shrink-0 disabled:opacity-50"
+            className="px-3 py-1.5 rounded-full bg-white/[0.05] hover:bg-teal-500/15 border border-white/[0.1] hover:border-teal-400/40 text-xs text-slate-200 whitespace-nowrap transition-colors flex items-center gap-1.5 shrink-0 disabled:opacity-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-teal-400"
           >
-            <Sparkles className="w-3 h-3 text-teal-400 shrink-0" />
+            <Sparkles className="w-3 h-3 text-teal-400 shrink-0" aria-hidden="true" />
             <span>{chip}</span>
           </button>
         ))}
@@ -364,7 +368,12 @@ export const AskPage: React.FC = () => {
       {/* Chat Container */}
       <GlassCard className="p-3.5 flex flex-col justify-between min-h-[380px] max-h-[58vh] border-white/[0.1]">
         {/* Message Feed */}
-        <div className="flex-1 overflow-y-auto space-y-3 pr-1">
+        <div
+          role="log"
+          aria-live="polite"
+          aria-label="Ask Shwas conversation"
+          className="flex-1 overflow-y-auto space-y-3 pr-1"
+        >
           {messages.map((msg) => {
             const isUser = msg.role === 'user';
             return (
@@ -453,10 +462,11 @@ export const AskPage: React.FC = () => {
             type="text"
             value={input}
             onChange={(e) => setInput(e.target.value)}
+            aria-label="Ask Shwas an air quality question"
             placeholder={
               isListening
-                ? 'Listening… speak your question'
-                : 'Ask about walks, kids, masks, or rooms…'
+                ? t('ask.listening', 'Listening… speak your question')
+                : t('ask.placeholder', 'Ask about walks, kids, masks, or rooms…')
             }
             disabled={isSending || remainingToday <= 0}
             className="flex-1 bg-white/[0.05] border border-white/[0.1] rounded-xl px-3 py-2.5 text-xs text-white placeholder-slate-400 focus:outline-none focus:border-teal-400/50 disabled:opacity-50"
@@ -468,7 +478,7 @@ export const AskPage: React.FC = () => {
               type="button"
               onClick={handleToggleVoice}
               disabled={isSending || remainingToday <= 0}
-              className={`p-2.5 rounded-xl border transition-all shrink-0 ${
+              className={`p-2.5 rounded-xl border transition-all shrink-0 focus:outline-none focus-visible:ring-2 focus-visible:ring-teal-400 ${
                 isListening
                   ? 'bg-red-500/20 border-red-400/60 text-red-300 animate-pulse'
                   : 'bg-white/[0.06] border-white/[0.1] hover:bg-white/[0.12] text-slate-300'
@@ -476,24 +486,24 @@ export const AskPage: React.FC = () => {
               title={isListening ? 'Stop listening' : 'Speak your question'}
               aria-label={isListening ? 'Stop voice input' : 'Start voice input'}
             >
-              {isListening ? <MicOff className="w-4 h-4" /> : <Mic className="w-4 h-4" />}
+              {isListening ? <MicOff className="w-4 h-4" aria-hidden="true" /> : <Mic className="w-4 h-4" aria-hidden="true" />}
             </button>
           )}
 
           <button
             type="submit"
             disabled={!input.trim() || isSending || remainingToday <= 0}
-            className="p-2.5 rounded-xl bg-teal-400 hover:bg-teal-300 disabled:opacity-40 text-slate-950 font-semibold transition-colors shrink-0 shadow-md shadow-teal-400/20"
+            className="p-2.5 rounded-xl bg-teal-400 hover:bg-teal-300 disabled:opacity-40 text-slate-950 font-semibold transition-colors shrink-0 shadow-md shadow-teal-400/20 focus:outline-none focus-visible:ring-2 focus-visible:ring-white"
             title="Send question"
             aria-label="Send question"
           >
-            <Send className="w-4 h-4" />
+            <Send className="w-4 h-4" aria-hidden="true" />
           </button>
         </form>
       </GlassCard>
 
       <p className="text-[10px] text-center text-slate-500">
-        Session-only chat · Not medical advice — please consult a doctor for symptoms.
+        {t('ask.disclaimer', 'Session-only chat · Not medical advice — please consult a doctor for symptoms.')}
       </p>
     </div>
   );

@@ -5,10 +5,10 @@ import { Globe, ChevronDown, Check } from 'lucide-react';
 export const LANGUAGES = [
   { code: 'en', label: 'English', native: 'English' },
   { code: 'hi', label: 'Hindi', native: 'हिंदी' },
-  { code: 'te', label: 'Telugu (Soon)', native: 'తెలుగు', disabled: true },
-  { code: 'ta', label: 'Tamil (Soon)', native: 'தமிழ்', disabled: true },
-  { code: 'bn', label: 'Bengali (Soon)', native: 'বাংলা', disabled: true },
-  { code: 'mr', label: 'Marathi (Soon)', native: 'मराठी', disabled: true },
+  { code: 'te', label: 'Telugu', native: 'తెలుగు' },
+  { code: 'ta', label: 'Tamil', native: 'தமிழ்' },
+  { code: 'bn', label: 'Bengali', native: 'বাংলা' },
+  { code: 'mr', label: 'Marathi', native: 'मराठी' },
 ];
 
 export const LanguageSwitcher: React.FC<{ className?: string }> = ({ className = '' }) => {
@@ -24,14 +24,32 @@ export const LanguageSwitcher: React.FC<{ className?: string }> = ({ className =
         setIsOpen(false);
       }
     };
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        setIsOpen(false);
+      }
+    };
     document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
+    document.addEventListener('keydown', handleKeyDown);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+      document.removeEventListener('keydown', handleKeyDown);
+    };
   }, []);
 
-  const handleSelect = (code: string, disabled?: boolean) => {
-    if (disabled) return;
+  const handleSelect = (code: string) => {
     i18n.changeLanguage(code);
     localStorage.setItem('shwas_lang', code);
+    // Keep saved profile language in sync so Gemini replies match selected language
+    try {
+      const stored = localStorage.getItem('shwas_profile');
+      if (stored) {
+        const parsed = JSON.parse(stored);
+        localStorage.setItem('shwas_profile', JSON.stringify({ ...parsed, language: code }));
+      }
+    } catch {
+      // ignore storage errors
+    }
     setIsOpen(false);
   };
 
@@ -40,16 +58,22 @@ export const LanguageSwitcher: React.FC<{ className?: string }> = ({ className =
       <button
         type="button"
         onClick={() => setIsOpen(!isOpen)}
-        className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl bg-white/[0.05] hover:bg-white/[0.1] border border-white/[0.08] text-xs font-medium text-slate-300 transition-all"
-        title="Switch Language"
+        aria-haspopup="listbox"
+        aria-expanded={isOpen}
+        aria-label={`Select language, current language ${currentLang.label}`}
+        className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl bg-white/[0.06] hover:bg-white/[0.12] border border-white/[0.1] text-xs font-medium text-slate-200 transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal-400"
       >
-        <Globe className="w-3.5 h-3.5 text-teal-400" />
+        <Globe className="w-3.5 h-3.5 text-teal-400" aria-hidden="true" />
         <span>{currentLang.native}</span>
-        <ChevronDown className="w-3 h-3 text-slate-400" />
+        <ChevronDown className="w-3 h-3 text-slate-400" aria-hidden="true" />
       </button>
 
       {isOpen && (
-        <div className="absolute right-0 mt-1.5 w-44 rounded-xl bg-[#141C2E] border border-white/[0.12] shadow-2xl backdrop-blur-2xl p-1.5 z-50 animate-in fade-in zoom-in-95 duration-150">
+        <div
+          role="listbox"
+          aria-label="Available languages"
+          className="absolute right-0 mt-1.5 w-44 rounded-xl bg-[#141C2E] border border-white/[0.14] shadow-2xl p-1.5 z-50"
+        >
           <div className="px-2 py-1 text-[10px] font-semibold tracking-wider text-slate-400 uppercase">
             Languages
           </div>
@@ -59,18 +83,18 @@ export const LanguageSwitcher: React.FC<{ className?: string }> = ({ className =
               <button
                 key={lang.code}
                 type="button"
-                onClick={() => handleSelect(lang.code, lang.disabled)}
-                disabled={lang.disabled}
-                className={`w-full flex items-center justify-between px-2.5 py-1.5 rounded-lg text-xs transition-colors ${
+                role="option"
+                aria-selected={isSelected}
+                aria-label={`${lang.label} (${lang.native})`}
+                onClick={() => handleSelect(lang.code)}
+                className={`w-full flex items-center justify-between px-2.5 py-1.5 rounded-lg text-xs transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal-400 ${
                   isSelected
                     ? 'bg-teal-500/20 text-teal-300 font-semibold'
-                    : lang.disabled
-                    ? 'opacity-40 cursor-not-allowed text-slate-400'
-                    : 'text-slate-300 hover:bg-white/[0.06] hover:text-white'
+                    : 'text-slate-200 hover:bg-white/[0.08] hover:text-white'
                 }`}
               >
                 <span>{lang.native}</span>
-                {isSelected && <Check className="w-3.5 h-3.5 text-teal-400" />}
+                {isSelected && <Check className="w-3.5 h-3.5 text-teal-400" aria-hidden="true" />}
               </button>
             );
           })}
