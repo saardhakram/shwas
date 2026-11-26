@@ -164,6 +164,52 @@ export function calculateMemberDailyCigarettes(
 }
 
 /**
+ * Single source of truth for family cigarette exposure calculations.
+ *
+ * Used uniformly across the Onboarding reveal screen and the Today screen.
+ * - When selectedMemberId === 'all' (or not specified): returns the per-person average exposure across all family members.
+ * - When selectedMemberId matches a specific member: returns that member's exposure.
+ */
+export function calculateFamilyExposure(
+  family: ProfileFamilyMember[],
+  outdoorPm25: number,
+  home: ProfileHome,
+  selectedMemberId: string = 'all'
+): {
+  cigarettes: number;
+  perPersonAverage: number;
+  memberBreakdown: Array<{ id: string; name: string; age: number; cigarettes: number }>;
+} {
+  if (!family || family.length === 0) {
+    return { cigarettes: 0, perPersonAverage: 0, memberBreakdown: [] };
+  }
+
+  const memberBreakdown = family.map((mem) => ({
+    id: mem.id,
+    name: mem.name,
+    age: mem.age,
+    cigarettes: calculateMemberDailyCigarettes(mem, outdoorPm25, home),
+  }));
+
+  const totalSum = memberBreakdown.reduce((sum, m) => sum + m.cigarettes, 0);
+  const perPersonAverage = Number((totalSum / memberBreakdown.length).toFixed(1));
+
+  let cigarettes = perPersonAverage;
+  if (selectedMemberId !== 'all') {
+    const specific = memberBreakdown.find((m) => m.id === selectedMemberId);
+    if (specific) {
+      cigarettes = specific.cigarettes;
+    }
+  }
+
+  return {
+    cigarettes,
+    perPersonAverage,
+    memberBreakdown,
+  };
+}
+
+/**
  * Utility helper to format cigarette count for display (e.g. "8.9" or "9")
  */
 export function formatCigarettes(cigs: number): string {

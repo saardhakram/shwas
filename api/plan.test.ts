@@ -181,7 +181,7 @@ describe('Serverless Plan API (/api/plan)', () => {
   });
 
   it('logs status and error body on non-200 response and returns fallback plan', async () => {
-    const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
 
     globalThis.fetch = vi.fn().mockImplementation(async () => {
       return {
@@ -193,11 +193,8 @@ describe('Serverless Plan API (/api/plan)', () => {
 
     const res = await processPlanRequest({ profile }, 'bad_key');
 
-    expect(errorSpy).toHaveBeenCalledWith(
-      '[Gemini API error] Status 403:',
-      'API_KEY_INVALID: User key has expired'
-    );
-    expect(res.source).toBe('rule_based_api_error');
+    expect(warnSpy).toHaveBeenCalled();
+    expect(res.source).toBe('rule_based_fallback');
     expect(res.plan.length).toBeGreaterThanOrEqual(6);
   });
 });

@@ -29,7 +29,10 @@ import {
   ProfileHome,
   HealthFlags,
 } from '../types';
-import { calculateMemberDailyCigarettes } from '../lib/cigarettes';
+import {
+  calculateMemberDailyCigarettes,
+  calculateFamilyExposure,
+} from '../lib/cigarettes';
 import { fetchOpenMeteoForecast } from '../lib/forecast';
 import { upsertProfile } from '../lib/supabase';
 
@@ -221,13 +224,11 @@ export const OnboardingPage: React.FC = () => {
           const livePm25 = res.currentPm25 || 240;
           setOutdoorPm25(livePm25);
 
-          // Calculate real cigarettes for all family members
-          const cigsList = family.map((mem) =>
-            calculateMemberDailyCigarettes(mem, livePm25, home)
-          );
-          const maxOrAvg = Math.max(...cigsList);
-          const currentHero = Math.round(maxOrAvg) || 9;
-          const targetHero = Math.max(2, Math.round(currentHero * 0.55));
+          // Calculate real cigarettes using single standardized family exposure function
+          const { perPersonAverage } = calculateFamilyExposure(family, livePm25, home, 'all');
+          const currentHero = perPersonAverage;
+          // Target Y is strictly less than current X (e.g. 40% reduction, minimum 1 decimal place, never higher than X)
+          const targetHero = Number(Math.max(0.5, Math.min(currentHero - 0.5, currentHero * 0.6)).toFixed(1));
 
           setRevealedCigarettes(currentHero);
           setTargetCigarettes(targetHero);
@@ -844,12 +845,12 @@ export const OnboardingPage: React.FC = () => {
                 >
                   <div className="flex items-center justify-center gap-1.5 text-xs text-amber-300 font-medium">
                     <Cigarette className="w-4 h-4 text-amber-400" />
-                    <span>Your family breathes</span>
+                    <span>Your family breathes (per person average)</span>
                   </div>
 
                   <div className="flex items-baseline justify-center gap-2">
                     <span className="font-numbers text-7xl font-bold tracking-tight text-white drop-shadow-lg">
-                      {revealedCigarettes}
+                      {revealedCigarettes.toFixed(1)}
                     </span>
                     <span className="text-lg font-sans text-slate-300 font-medium">
                       cigarettes / day
@@ -859,7 +860,7 @@ export const OnboardingPage: React.FC = () => {
                   <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-teal-500/20 border border-teal-400/40 text-teal-300 text-xs font-semibold">
                     <Sparkles className="w-4 h-4 text-teal-400" />
                     <span>
-                      {revealedCigarettes} → {targetCigarettes} with your daily air plan
+                      {revealedCigarettes.toFixed(1)} → {targetCigarettes.toFixed(1)} with your daily air plan
                     </span>
                   </div>
 

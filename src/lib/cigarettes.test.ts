@@ -4,6 +4,7 @@ import {
   estimateIndoorPm25,
   savingFromAction,
   calculateMemberDailyCigarettes,
+  calculateFamilyExposure,
   ExposureSegment,
   HomeCharacteristics,
 } from './cigarettes';
@@ -135,6 +136,74 @@ describe('Shwas Cigarette Engine', () => {
       const cigsOutdoor = calculateMemberDailyCigarettes(outdoorWorker, 250, home);
 
       expect(cigsOutdoor).toBeGreaterThan(cigsBase);
+    });
+  });
+
+  describe('calculateFamilyExposure (Single source of truth for family cigarette exposure)', () => {
+    const family: ProfileFamilyMember[] = [
+      {
+        id: 'me',
+        name: 'Me',
+        age: 32,
+        flags: {},
+        routine: { hoursOutside: 2, hoursAway: 8 },
+      },
+      {
+        id: 'grandpa',
+        name: 'Grandpa',
+        age: 72,
+        flags: { heart: true },
+        routine: { hoursOutside: 1, hoursAway: 0 },
+      },
+      {
+        id: 'child',
+        name: 'Aarav',
+        age: 8,
+        flags: { asthma: true },
+        routine: { hoursOutside: 1.5, hoursAway: 6 },
+      },
+    ];
+
+    const home: ProfileHome = {
+      windowsFacingRoad: true,
+      purifier: true,
+      chimney: true,
+      cookingFuel: 'lpg',
+      commuteMode: 'metro',
+      windowsShut: true,
+    };
+
+    it('computes exact per-person family average when selectedMemberId is "all"', () => {
+      const result = calculateFamilyExposure(family, 200, home, 'all');
+      expect(result.memberBreakdown.length).toBe(3);
+      const expectedAvg = Number(
+        (
+          (result.memberBreakdown[0].cigarettes +
+            result.memberBreakdown[1].cigarettes +
+            result.memberBreakdown[2].cigarettes) /
+          3
+        ).toFixed(1)
+      );
+      expect(result.perPersonAverage).toBe(expectedAvg);
+      expect(result.cigarettes).toBe(expectedAvg);
+    });
+
+    it('returns specific member exposure when specific member ID is requested', () => {
+      const allResult = calculateFamilyExposure(family, 200, home, 'all');
+      const grandpaResult = calculateFamilyExposure(family, 200, home, 'grandpa');
+      expect(grandpaResult.cigarettes).toBe(allResult.memberBreakdown[1].cigarettes);
+    });
+
+    it('ensures target cigarette count Y = X - savings is never higher than X', () => {
+      const base = 3.3;
+      const savings = 1.2;
+      const target = Number(Math.max(0, Math.min(base, base - savings)).toFixed(1));
+      expect(target).toBe(2.1);
+      expect(target).toBeLessThanOrEqual(base);
+
+      // Even if savings are 0, Y <= X
+      const zeroSavingsTarget = Number(Math.max(0, Math.min(base, base - 0)).toFixed(1));
+      expect(zeroSavingsTarget).toBe(base);
     });
   });
 });

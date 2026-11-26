@@ -10,13 +10,12 @@
 import { generateRuleBasedPlan } from '../src/lib/planGenerator';
 import { UserProfile, RawPlanItem } from '../src/types';
 import { ForecastDataPoint } from '../src/lib/forecast';
+import { callGeminiWithRetry } from './geminiClient';
 
 export async function processPlanRequest(
   body: { profile?: UserProfile; forecast?: ForecastDataPoint[] },
   apiKey?: string
 ): Promise<{ plan: RawPlanItem[]; source: string; error?: string }> {
-  const model = process.env.GEMINI_MODEL || 'gemini-3.8-flash';
-
   const profile: UserProfile = body.profile || {
     language: 'en',
     location: { lat: 28.6139, lon: 77.2090, name: 'Delhi NCR' },
@@ -84,41 +83,15 @@ CRITICAL REQUIREMENTS:
 3. Language: write the "action" and "reason" strings strictly in "${profile.language}". If language is "hi", use natural Hindi (हिंदी).
 4. No markdown formatting, no backticks, no text outside the JSON array.`;
 
-    const response = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`,
-      {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'x-goog-api-key': apiKey,
-        },
-        body: JSON.stringify({
-          contents: [{ parts: [{ text: prompt }] }],
-          generationConfig: {
-            temperature: 0.3,
-            responseMimeType: 'application/json',
-          },
-        }),
-      }
-    );
+    const geminiResult = await callGeminiWithRetry({
+      apiKey,
+      prompt,
+      temperature: 0.3,
+      responseMimeType: 'application/json',
+      timeoutMs: 25000,
+    });
 
-    if (!response.ok) {
-      const errorText = await response.text();
-      console.error(`[Gemini API error] Status ${response.status}:`, errorText);
-      return {
-        plan: generateRuleBasedPlan(profile, forecast),
-        source: 'rule_based_api_error',
-        error: `Gemini status ${response.status}`,
-      };
-    }
-
-    const result = await response.json();
-    const rawContent = result?.candidates?.[0]?.content?.parts?.[0]?.text;
-
-    if (!rawContent) {
-      throw new Error('Empty Gemini response content');
-    }
-
+    const rawContent = geminiResult.text;
     const parsed = JSON.parse(rawContent);
     const candidateList = Array.isArray(parsed)
       ? parsed

@@ -108,7 +108,7 @@ describe('/api/scan serverless handler', () => {
 
     expect(result.source).toBe('offline');
     expect(result.sources).toEqual([]);
-    expect(result.message).toContain('Gemini API error');
+    expect(result.message).toContain('Failed to analyze photo');
   });
 
   it('normalizes invalid IDs and clamps box coordinates', async () => {

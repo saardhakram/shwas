@@ -12,6 +12,8 @@
  * Validates output and returns { sources: [], source: "offline" } on failure.
  */
 
+import { callGeminiWithRetry } from './geminiClient';
+
 export interface ScanRequestBody {
   image?: string; // base64 string or data URL
   mimeType?: string;
@@ -68,7 +70,6 @@ export async function processScanRequest(
   body: ScanRequestBody,
   apiKey?: string
 ): Promise<ScanResponseBody> {
-  const model = process.env.GEMINI_MODEL || 'gemini-3.8-flash';
   const language = body.language || 'en';
 
   if (!body.image) {
@@ -143,61 +144,19 @@ CRITICAL REQUIREMENTS:
 3. If no pollution hazards are visible, return "sources": [].
 4. "label" text MUST be in language: "${language}".`;
 
-    const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`;
-
-    const requestPayload = {
-      contents: [
-        {
-          role: 'user',
-          parts: [
-            { text: prompt },
-            {
-              inlineData: {
-                mimeType: mimeType,
-                data: rawBase64,
-              },
-            },
-          ],
-        },
-      ],
-      generationConfig: {
-        temperature: 0.1,
-        responseMimeType: 'application/json',
+    const geminiResult = await callGeminiWithRetry({
+      apiKey,
+      prompt,
+      inlineData: {
+        mimeType,
+        data: rawBase64,
       },
-    };
-
-    const res = await fetch(endpoint, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'x-goog-api-key': apiKey,
-      },
-      body: JSON.stringify(requestPayload),
+      temperature: 0.1,
+      responseMimeType: 'application/json',
+      timeoutMs: 25000,
     });
 
-    if (!res.ok) {
-      const errText = await res.text();
-      console.error(`[api/scan] Gemini API responded with status ${res.status}:`, errText);
-      return {
-        room: 'other',
-        sources: [],
-        source: 'offline',
-        message: `Gemini API error (Status ${res.status})`,
-      };
-    }
-
-    const data = await res.json();
-    const candidateText = data?.candidates?.[0]?.content?.parts?.[0]?.text;
-
-    if (!candidateText) {
-      console.error('[api/scan] No candidate text returned from Gemini');
-      return {
-        room: 'other',
-        sources: [],
-        source: 'offline',
-        message: 'No response generated.',
-      };
-    }
+    const candidateText = geminiResult.text;
 
     // Clean Markdown fences if present
     const cleanedJson = candidateText

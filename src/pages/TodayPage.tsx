@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
   Cigarette,
@@ -30,7 +30,7 @@ import {
   computeBestWindow,
   ForecastDataPoint,
 } from '../lib/forecast';
-import { calculateMemberDailyCigarettes } from '../lib/cigarettes';
+import { calculateFamilyExposure } from '../lib/cigarettes';
 import {
   generateRuleBasedPlan,
   buildEnrichedPlan,
@@ -125,6 +125,7 @@ export const TodayPage: React.FC = () => {
   const [planItems, setPlanItems] = useState<AirPlanItem[]>([]);
   const [planSource, setPlanSource] = useState<string>('loading');
   const [isPlanLoading, setIsPlanLoading] = useState<boolean>(false);
+  const planRequestInFlight = useRef<string | null>(null);
 
   // Fetch real Open-Meteo data for profile location
   useEffect(() => {
@@ -198,13 +199,14 @@ export const TodayPage: React.FC = () => {
     };
   }, [userProfile]);
 
-  // 5. Daily Air Plan fetching from /api/plan with daily caching in localStorage
+  // 5. Daily Air Plan fetching from /api/plan with daily caching and request deduplication
   useEffect(() => {
     let active = true;
     const dateStr = new Date().toISOString().slice(0, 10);
     const lang = effectiveProfile.language || 'en';
-    const loc = effectiveProfile.location.name || 'city';
-    const cacheKey = `shwas_plan_${dateStr}_${lang}_${loc}`;
+    const loc = effectiveProfile.location?.name || 'city';
+    const dedupeKey = `${dateStr}_${lang}_${loc}`;
+    const cacheKey = `shwas_plan_${dedupeKey}`;
     const completedCacheKey = `shwas_plan_completed_${dateStr}`;
 
     // Read cached completed state
@@ -227,6 +229,7 @@ export const TodayPage: React.FC = () => {
           const enriched = buildEnrichedPlan(parsedItems, savedCompletedMap);
           setPlanItems(enriched);
           setPlanSource('cached');
+          setIsPlanLoading(false);
           return;
         }
       }
@@ -234,8 +237,20 @@ export const TodayPage: React.FC = () => {
       // cache miss
     }
 
-    // Fetch from serverless /api/plan
+    // Deduplicate: if an identical request is already in flight, don't fire another
+    if (planRequestInFlight.current === dedupeKey) {
+      return;
+    }
+    planRequestInFlight.current = dedupeKey;
+
+    // Fetch from serverless /api/plan with a 15-second loading timeout
     setIsPlanLoading(true);
+
+    const abortController = new AbortController();
+    const timeoutTimer = setTimeout(() => {
+      abortController.abort();
+    }, 15000);
+
     fetch('/api/plan', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -243,35 +258,48 @@ export const TodayPage: React.FC = () => {
         profile: effectiveProfile,
         forecast: forecastPoints.slice(0, 24),
       }),
+      signal: abortController.signal,
     })
       .then((res) => {
+        clearTimeout(timeoutTimer);
         if (!res.ok) throw new Error(`Plan API error: ${res.status}`);
         return res.json();
       })
       .then((data) => {
+        clearTimeout(timeoutTimer);
         if (!active) return;
-        const rawPlan = data?.plan || generateRuleBasedPlan(effectiveProfile, forecastPoints);
+        // Always render returned items for ANY source
+        const rawPlan = (Array.isArray(data?.plan) && data.plan.length >= 5)
+          ? data.plan
+          : generateRuleBasedPlan(effectiveProfile, forecastPoints);
         const enriched = buildEnrichedPlan(rawPlan, savedCompletedMap);
         setPlanItems(enriched);
         setPlanSource(data?.source || 'rule_based');
         localStorage.setItem(cacheKey, JSON.stringify(rawPlan));
       })
       .catch((err) => {
+        clearTimeout(timeoutTimer);
         if (!active) return;
-        console.warn('[TodayPage] API plan fetch fell back to rule generator:', err);
+        console.warn('[TodayPage] Plan fetch dropped to rule generator fallback:', err);
         const fallback = generateRuleBasedPlan(effectiveProfile, forecastPoints);
         const enriched = buildEnrichedPlan(fallback, savedCompletedMap);
         setPlanItems(enriched);
-        setPlanSource('rule_based_fallback');
+        setPlanSource('offline');
       })
       .finally(() => {
+        clearTimeout(timeoutTimer);
+        planRequestInFlight.current = null;
         if (active) setIsPlanLoading(false);
       });
 
     return () => {
       active = false;
+      clearTimeout(timeoutTimer);
+      if (planRequestInFlight.current === dedupeKey) {
+        planRequestInFlight.current = null;
+      }
     };
-  }, [effectiveProfile.language, effectiveProfile.location.name, forecastPoints.length]);
+  }, [effectiveProfile.language, effectiveProfile.location?.name]);
 
   // Toggle plan item completion and persist to daily completed cache
   const togglePlanItem = (id: string) => {
@@ -292,37 +320,36 @@ export const TodayPage: React.FC = () => {
     });
   };
 
-  // 6. Calculate real member-specific daily cigarette exposure
+  // 6. Calculate real member-specific daily cigarette exposure using unified function
   const baseCigarettes = useMemo(() => {
     const liveOutdoor = outdoorPm25 || 240;
     const home = effectiveProfile.home;
-
-    if (selectedFamilyId === 'all') {
-      const exposures = effectiveProfile.family.map((mem) =>
-        calculateMemberDailyCigarettes(mem, liveOutdoor, home)
-      );
-      return exposures.length > 0 ? Math.max(...exposures) : 9.0;
-    }
-
-    const member = effectiveProfile.family.find((f) => f.id === selectedFamilyId);
-    if (member) {
-      return calculateMemberDailyCigarettes(member, liveOutdoor, home);
-    }
-
-    return 9.0;
+    const { cigarettes } = calculateFamilyExposure(
+      effectiveProfile.family,
+      liveOutdoor,
+      home,
+      selectedFamilyId
+    );
+    return cigarettes;
   }, [selectedFamilyId, outdoorPm25, effectiveProfile]);
 
-  // Compute total savings from checked items (never trusting model math)
+  // Compute total savings from plan items (never trusting model math)
   const totalPotentialSavings = useMemo(() => {
-    return planItems.reduce((acc, item) => acc + item.cigarettesSaved, 0);
+    const sum = planItems.reduce((acc, item) => acc + item.cigarettesSaved, 0);
+    return Number(sum.toFixed(1));
   }, [planItems]);
 
-  const targetCigarettes = Math.max(1, baseCigarettes - totalPotentialSavings);
+  // Target Y = X minus total savings, never higher than X, 1 decimal place
+  const targetCigarettes = useMemo(() => {
+    const reduced = Math.max(0, baseCigarettes - totalPotentialSavings);
+    return Number(Math.min(baseCigarettes, reduced).toFixed(1));
+  }, [baseCigarettes, totalPotentialSavings]);
 
   const checkedSavings = useMemo(() => {
-    return planItems
+    const sum = planItems
       .filter((item) => item.completed)
       .reduce((acc, item) => acc + item.cigarettesSaved, 0);
+    return Number(sum.toFixed(1));
   }, [planItems]);
 
   // Current exposure decreases as user checks off items: e.g. 9.0 -> 7.6
@@ -330,10 +357,6 @@ export const TodayPage: React.FC = () => {
   const animatedExposure = useAnimatedNumber(targetCurrentExposure, 400);
 
   const formatHeroNumber = (val: number) => {
-    const rounded = Math.round(val);
-    if (Math.abs(val - rounded) < 0.05) {
-      return rounded.toString();
-    }
     return val.toFixed(1);
   };
 
@@ -346,18 +369,22 @@ export const TodayPage: React.FC = () => {
           <div className="flex items-center gap-1.5 text-xs text-slate-400 font-medium min-w-0">
             <Cigarette className="w-4 h-4 text-amber-400 shrink-0" />
             <span className="truncate">
-              {t('today.heroSubtitle', 'breathed today across your routine')}
+              {selectedFamilyId === 'all'
+                ? 'per person (family average)'
+                : t('today.heroSubtitle', 'breathed today across your routine')}
             </span>
           </div>
 
-          <Badge
-            variant="mint"
-            size="sm"
-            icon={<TrendingDown className="w-3 h-3" />}
-            className="shrink-0 whitespace-nowrap"
-          >
-            -{totalPotentialSavings.toFixed(1)} {t('today.heroCigarettes', 'cigs')}
-          </Badge>
+          {totalPotentialSavings > 0.0 && (
+            <Badge
+              variant="mint"
+              size="sm"
+              icon={<TrendingDown className="w-3 h-3" />}
+              className="shrink-0 whitespace-nowrap"
+            >
+              -{totalPotentialSavings.toFixed(1)} {t('today.heroCigarettes', 'cigs')}
+            </Badge>
+          )}
         </div>
 
         {/* Hero Number in Space Grotesk with smooth countdown */}
@@ -374,11 +401,11 @@ export const TodayPage: React.FC = () => {
         <div className="flex justify-center">
           <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-teal-500/15 border border-teal-500/30 text-teal-300 text-xs font-medium">
             <Sparkles className="w-3.5 h-3.5 text-teal-400 shrink-0" />
-            <span className="whitespace-nowrap">
-              {Math.round(baseCigarettes)}{' '}
-              <ArrowRight className="w-3 h-3 inline mx-0.5 text-teal-400" />{' '}
-              {Math.round(targetCigarettes)}{' '}
-              {t('today.targetPlan', 'if you follow your plan')}
+            <span className="whitespace-nowrap flex items-center gap-1.5">
+              <span>{baseCigarettes.toFixed(1)}</span>
+              <ArrowRight className="w-3 h-3 text-teal-400 inline shrink-0" />
+              <span>{targetCigarettes.toFixed(1)}</span>
+              <span>{t('today.targetPlan', 'if you follow your plan')}</span>
             </span>
           </div>
         </div>
@@ -502,7 +529,7 @@ export const TodayPage: React.FC = () => {
             <h3 className="text-xs font-semibold uppercase tracking-wider text-slate-400">
               {t('today.planTimeline', "Today's Air Plan Timeline")}
             </h3>
-            {isPlanLoading ? (
+            {isPlanLoading && planItems.length === 0 ? (
               <span className="text-[10px] text-teal-400 animate-pulse">Generating...</span>
             ) : planSource === 'gemini' ? (
               <Badge variant="mint" size="sm" icon={<Sparkle className="w-2.5 h-2.5" />}>
