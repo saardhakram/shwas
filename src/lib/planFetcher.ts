@@ -48,6 +48,72 @@ export interface FetchDailyPlanParams {
   storage?: StorageLike | null;
 }
 
+function readCachedGeminiPlan(
+  storage: StorageLike | null,
+  cacheKey: string,
+): DailyPlanFetchResult | null {
+  if (!storage) return null;
+  try {
+    const cachedRaw = storage.getItem(cacheKey);
+    const cachedEntry = parsePlanCache(cachedRaw);
+    if (!cachedEntry || cachedEntry.items.length < 5) return null;
+
+    if (cachedRaw && cachedRaw.trim().startsWith('[')) {
+      storage.setItem(cacheKey, serializePlanCache(cachedEntry.source, cachedEntry.items));
+    }
+    if (cachedEntry.source !== 'gemini') return null;
+
+    return { items: cachedEntry.items, source: 'gemini', fromCache: true };
+  } catch {
+    return null;
+  }
+}
+
+async function fetchPlanFromServer(
+  profile: UserProfile,
+  forecast: ForecastDataPoint[],
+  fetchImpl: typeof fetch,
+  timeoutMs: number,
+  storage: StorageLike | null,
+  cacheKey: string,
+): Promise<DailyPlanFetchResult> {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+
+  try {
+    const res = await fetchImpl('/api/plan', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ profile, forecast: forecast.slice(0, 24) }),
+      signal: controller.signal,
+    });
+    clearTimeout(timer);
+
+    if (!res.ok) throw new Error(`Plan API error: ${res.status}`);
+
+    const data = (await res.json()) as { source?: unknown; plan?: unknown };
+    const resolvedSource = typeof data?.source === 'string' ? data.source : 'rule_based';
+    const items: RawPlanItem[] =
+      Array.isArray(data?.plan) && data.plan.length >= 5
+        ? (data.plan as RawPlanItem[])
+        : generateRuleBasedPlan(profile, forecast);
+
+    if (resolvedSource === 'gemini' && storage) {
+      try {
+        storage.setItem(cacheKey, serializePlanCache(resolvedSource, items));
+      } catch {
+        // ignore storage write errors
+      }
+    }
+
+    return { items, source: resolvedSource, fromCache: false };
+  } catch (err) {
+    clearTimeout(timer);
+    console.warn('[TodayPage] Plan fetch dropped to rule generator fallback:', err);
+    return { items: generateRuleBasedPlan(profile, forecast), source: 'offline', fromCache: false };
+  }
+}
+
 /**
  * Fetches today's plan at most once per (date, language, location) per page load.
  * Returns null if profile or forecast is not ready yet.
@@ -66,9 +132,7 @@ export function requestDailyPlanOnce(
     storage = typeof localStorage !== 'undefined' ? localStorage : null,
   } = params;
 
-  if (!profileReady || !forecastReady) {
-    return null;
-  }
+  if (!profileReady || !forecastReady) return null;
 
   const dedupeKey = buildPlanDedupeKey(
     profile.language || 'en',
@@ -77,99 +141,26 @@ export function requestDailyPlanOnce(
   );
   const cacheKey = `shwas_plan_${dedupeKey}`;
 
-  // 1. Check persisted Gemini cache first
-  if (storage) {
-    try {
-      const cachedRaw = storage.getItem(cacheKey);
-      const cachedEntry = parsePlanCache(cachedRaw);
-      if (cachedEntry && cachedEntry.items.length >= 5) {
-        if (cachedRaw && cachedRaw.trim().startsWith('[')) {
-          storage.setItem(cacheKey, serializePlanCache(cachedEntry.source, cachedEntry.items));
-        }
-        if (cachedEntry.source === 'gemini') {
-          const hit: DailyPlanFetchResult = {
-            items: cachedEntry.items,
-            source: 'gemini',
-            fromCache: true,
-          };
-          completedRequests.set(dedupeKey, hit);
-          return Promise.resolve(hit);
-        }
-      }
-    } catch {
-      // ignore storage read errors
-    }
+  const cachedHit = readCachedGeminiPlan(storage, cacheKey);
+  if (cachedHit) {
+    completedRequests.set(dedupeKey, cachedHit);
+    return Promise.resolve(cachedHit);
   }
 
-  // 2. Already completed for this page load -> never re-fetch
   const completed = completedRequests.get(dedupeKey);
-  if (completed) {
-    return Promise.resolve(completed);
-  }
+  if (completed) return Promise.resolve(completed);
 
-  // 3. Coalesce concurrent / StrictMode / re-render calls into the exact same request
   const existing = inFlightRequests.get(dedupeKey);
-  if (existing) {
-    return existing;
-  }
+  if (existing) return existing;
 
-  const promise = (async (): Promise<DailyPlanFetchResult> => {
-    const controller = new AbortController();
-    const timer = setTimeout(() => controller.abort(), timeoutMs);
-
-    try {
-      const res = await fetchImpl('/api/plan', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          profile,
-          forecast: forecast.slice(0, 24),
-        }),
-        signal: controller.signal,
-      });
-
-      clearTimeout(timer);
-
-      if (!res.ok) {
-        throw new Error(`Plan API error: ${res.status}`);
-      }
-
-      const data = await res.json();
-      const resolvedSource = typeof data?.source === 'string' ? data.source : 'rule_based';
-      const items: RawPlanItem[] =
-        Array.isArray(data?.plan) && data.plan.length >= 5
-          ? data.plan
-          : generateRuleBasedPlan(profile, forecast);
-
-      if (resolvedSource === 'gemini' && storage) {
-        try {
-          storage.setItem(cacheKey, serializePlanCache(resolvedSource, items));
-        } catch {
-          // ignore storage write errors
-        }
-      }
-
-      const result: DailyPlanFetchResult = {
-        items,
-        source: resolvedSource,
-        fromCache: false,
-      };
+  const promise = fetchPlanFromServer(profile, forecast, fetchImpl, timeoutMs, storage, cacheKey)
+    .then((result) => {
       completedRequests.set(dedupeKey, result);
       return result;
-    } catch (err) {
-      clearTimeout(timer);
-      console.warn('[TodayPage] Plan fetch dropped to rule generator fallback:', err);
-      const fallbackResult: DailyPlanFetchResult = {
-        items: generateRuleBasedPlan(profile, forecast),
-        source: 'offline',
-        fromCache: false,
-      };
-      completedRequests.set(dedupeKey, fallbackResult);
-      return fallbackResult;
-    } finally {
+    })
+    .finally(() => {
       inFlightRequests.delete(dedupeKey);
-    }
-  })();
+    });
 
   inFlightRequests.set(dedupeKey, promise);
   return promise;

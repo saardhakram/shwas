@@ -66,6 +66,73 @@ export function formatForecastUpdatedAgo(
   return remMin > 0 ? `updated ${hrs} hr ${remMin} min ago` : `updated ${hrs} hr ago`;
 }
 
+function classifyDayLabel(
+  dateStr: string,
+  pointDate: Date,
+  todayStr: string,
+  tomorrowStr: string,
+): string {
+  if (dateStr === todayStr) return 'Today';
+  if (dateStr === tomorrowStr) return 'Tomorrow';
+  return pointDate.toLocaleDateString('en-US', { weekday: 'short' });
+}
+
+interface OpenMeteoHourlyPayload {
+  time: string[];
+  pm2_5: number[];
+  us_aqi: number[];
+}
+
+function parseOpenMeteoHourly(hourly: OpenMeteoHourlyPayload, now: Date): ForecastResult {
+  const todayStr = now.toISOString().slice(0, 10);
+  const tomorrowStr = new Date(now.getTime() + 86400000).toISOString().slice(0, 10);
+
+  const points: ForecastDataPoint[] = [];
+  let currentPoint: ForecastDataPoint | null = null;
+  let minTimeDiff = Infinity;
+
+  for (let i = 0; i < hourly.time.length; i++) {
+    const isoTime = hourly.time[i];
+    const pointDate = new Date(isoTime);
+    const timestamp = pointDate.getTime();
+    const hour = pointDate.getHours();
+    const pm25 = Math.round((hourly.pm2_5[i] || 0) * 10) / 10;
+    const usAqi = Math.round(hourly.us_aqi[i] || 0);
+
+    const pt: ForecastDataPoint = {
+      isoTime,
+      timestamp,
+      time: formatHourShort(hour),
+      fullTime: formatHourFull(hour),
+      hour,
+      day: classifyDayLabel(isoTime.slice(0, 10), pointDate, todayStr, tomorrowStr),
+      pm25,
+      usAqi,
+      aqi: usAqi,
+      isPast: timestamp < now.getTime() - 45 * 60 * 1000,
+    };
+    points.push(pt);
+
+    const diff = Math.abs(timestamp - now.getTime());
+    if (diff < minTimeDiff) {
+      minTimeDiff = diff;
+      currentPoint = pt;
+    }
+  }
+
+  const startIndex = currentPoint ? Math.max(0, points.indexOf(currentPoint)) : 0;
+  const activePoints = points.slice(startIndex, startIndex + 48);
+
+  return {
+    currentAqi: currentPoint?.usAqi ?? 180,
+    currentPm25: currentPoint?.pm25 ?? 140,
+    points: activePoints.length >= 24 ? activePoints : points.slice(0, 48),
+    isSampleData: false,
+    sourceLabel: 'Open-Meteo Live API',
+    isMlForecast: false,
+  };
+}
+
 /**
  * Fetches real 48-hour air quality forecast from Open-Meteo API.
  * Uses Open-Meteo's own `us_aqi` and `pm2_5` fields directly.
@@ -83,80 +150,12 @@ export async function fetchOpenMeteoForecast(
     }
 
     const data = await res.json();
-    if (!data?.hourly?.time || !data?.hourly?.pm2_5 || !data?.hourly?.us_aqi) {
+    const hourly = data?.hourly;
+    if (!hourly?.time || !hourly?.pm2_5 || !hourly?.us_aqi) {
       throw new Error('Invalid Open-Meteo response structure');
     }
 
-    const times: string[] = data.hourly.time;
-    const pm25Arr: number[] = data.hourly.pm2_5;
-    const usAqiArr: number[] = data.hourly.us_aqi;
-
-    const now = new Date();
-    const todayStr = now.toISOString().slice(0, 10);
-    const tomorrow = new Date(now.getTime() + 86400000);
-    const tomorrowStr = tomorrow.toISOString().slice(0, 10);
-
-    const points: ForecastDataPoint[] = [];
-    let currentPoint: ForecastDataPoint | null = null;
-    let minTimeDiff = Infinity;
-
-    for (let i = 0; i < times.length; i++) {
-      const isoTime = times[i];
-      const pointDate = new Date(isoTime);
-      const timestamp = pointDate.getTime();
-      const hour = pointDate.getHours();
-      const dateStr = isoTime.slice(0, 10);
-
-      let day = 'Later';
-      if (dateStr === todayStr) {
-        day = 'Today';
-      } else if (dateStr === tomorrowStr) {
-        day = 'Tomorrow';
-      } else {
-        day = pointDate.toLocaleDateString('en-US', { weekday: 'short' });
-      }
-
-      const pm25 = Math.round((pm25Arr[i] || 0) * 10) / 10;
-      // Direct Open-Meteo us_aqi (no formula)
-      const usAqi = Math.round(usAqiArr[i] || 0);
-
-      const isPast = timestamp < now.getTime() - 45 * 60 * 1000;
-
-      const pt: ForecastDataPoint = {
-        isoTime,
-        timestamp,
-        time: formatHourShort(hour),
-        fullTime: formatHourFull(hour),
-        hour,
-        day,
-        pm25,
-        usAqi,
-        aqi: usAqi,
-        isPast,
-      };
-
-      points.push(pt);
-
-      // Identify the closest hour to current time for live indicators
-      const diff = Math.abs(timestamp - now.getTime());
-      if (diff < minTimeDiff) {
-        minTimeDiff = diff;
-        currentPoint = pt;
-      }
-    }
-
-    // Keep next 48 hours of points starting from current hour
-    const startIndex = currentPoint ? Math.max(0, points.indexOf(currentPoint)) : 0;
-    const activePoints = points.slice(startIndex, startIndex + 48);
-
-    return {
-      currentAqi: currentPoint?.usAqi ?? 180,
-      currentPm25: currentPoint?.pm25 ?? 140,
-      points: activePoints.length >= 24 ? activePoints : points.slice(0, 48),
-      isSampleData: false,
-      sourceLabel: 'Open-Meteo Live API',
-      isMlForecast: false,
-    };
+    return parseOpenMeteoHourly(hourly as OpenMeteoHourlyPayload, new Date());
   } catch (err) {
     console.warn('[Shwas] Open-Meteo live request failed, using offline fallback:', err);
     return getOfflineFallbackForecast();
@@ -174,20 +173,11 @@ function haversineKm(lat1: number, lon1: number, lat2: number, lon2: number): nu
   return 2 * R * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
 }
 
-/**
- * Pure helper: selects the nearest fresh (< 3h old) ML station forecast from Supabase rows.
- * Returns null if rows are empty, stale (>= 3h old), sparse (< 24h), or outside 60 km.
- */
-export function resolveMlForecastFromRows(
+function selectNearestStationRows(
   rows: SupabaseForecastRow[],
   latitude: number,
   longitude: number,
-  now: Date = new Date(),
-  defaultMae: number = mlMetrics.mae,
-): ForecastResult | null {
-  if (!Array.isArray(rows) || rows.length === 0) return null;
-
-  // Group rows by location_id
+): SupabaseForecastRow[] | null {
   const byLocation = new Map<string, SupabaseForecastRow[]>();
   for (const row of rows) {
     if (!row?.location_id) continue;
@@ -196,7 +186,6 @@ export function resolveMlForecastFromRows(
     byLocation.set(row.location_id, list);
   }
 
-  // Pick nearest station within ML_STATION_MAX_DISTANCE_KM
   let nearestRows: SupabaseForecastRow[] | null = null;
   let minDistance = Infinity;
 
@@ -210,9 +199,56 @@ export function resolveMlForecastFromRows(
     }
   }
 
-  if (!nearestRows || nearestRows.length < 24) return null;
+  return nearestRows;
+}
 
-  // Check freshness (< 3 hours old)
+function mapMlRowsToPoints(rows: SupabaseForecastRow[], now: Date): ForecastDataPoint[] {
+  const sorted = [...rows].sort((a, b) => a.horizon_hour - b.horizon_hour);
+  const todayStr = now.toISOString().slice(0, 10);
+  const tomorrowStr = new Date(now.getTime() + 86400000).toISOString().slice(0, 10);
+
+  return sorted.map((row) => {
+    const ptDate = new Date(row.target_time);
+    const timestamp = ptDate.getTime();
+    const hour = ptDate.getHours();
+    const pm25 = Math.round(Math.max(0, Number(row.predicted_pm25)) * 10) / 10;
+    const usAqi = Math.round(Math.max(0, Number(row.predicted_us_aqi)));
+
+    return {
+      isoTime: row.target_time,
+      timestamp,
+      time: formatHourShort(hour),
+      fullTime: formatHourFull(hour),
+      hour,
+      day: classifyDayLabel(ptDate.toISOString().slice(0, 10), ptDate, todayStr, tomorrowStr),
+      pm25,
+      usAqi,
+      aqi: usAqi,
+      isPast: timestamp < now.getTime() - 45 * 60 * 1000,
+    };
+  });
+}
+
+function resolveModelMae(rowMae: number | null | undefined, defaultMae: number): number {
+  return typeof rowMae === 'number' && !isNaN(rowMae) && rowMae > 0 ? rowMae : defaultMae;
+}
+
+/**
+ * Pure helper: selects the nearest fresh (< 6h old) ML station forecast from Supabase rows.
+ * Returns null if rows are empty, stale (>= 6h old), sparse (< 24h), or outside 60 km.
+ */
+export function resolveMlForecastFromRows(
+  rows: SupabaseForecastRow[],
+  latitude: number,
+  longitude: number,
+  now: Date = new Date(),
+  defaultMae: number = mlMetrics.mae,
+): ForecastResult | null {
+  if (!Array.isArray(rows) || rows.length === 0) return null;
+
+  const nearestRows = selectNearestStationRows(rows, latitude, longitude);
+  if (!nearestRows) return null;
+
   const latestGenMs = Math.max(
     ...nearestRows.map((r) => new Date(r.generated_at).getTime()).filter((t) => !isNaN(t)),
   );
@@ -223,46 +259,9 @@ export function resolveMlForecastFromRows(
     return null;
   }
 
-  const sorted = [...nearestRows].sort((a, b) => a.horizon_hour - b.horizon_hour);
-  const todayStr = now.toISOString().slice(0, 10);
-  const tomorrowStr = new Date(now.getTime() + 86400000).toISOString().slice(0, 10);
-
-  const points: ForecastDataPoint[] = sorted.map((row) => {
-    const ptDate = new Date(row.target_time);
-    const timestamp = ptDate.getTime();
-    const hour = ptDate.getHours();
-    const dateStr = ptDate.toISOString().slice(0, 10);
-
-    let day = 'Later';
-    if (dateStr === todayStr) {
-      day = 'Today';
-    } else if (dateStr === tomorrowStr) {
-      day = 'Tomorrow';
-    } else {
-      day = ptDate.toLocaleDateString('en-US', { weekday: 'short' });
-    }
-
-    const pm25 = Math.round(Math.max(0, Number(row.predicted_pm25)) * 10) / 10;
-    const usAqi = Math.round(Math.max(0, Number(row.predicted_us_aqi)));
-
-    return {
-      isoTime: row.target_time,
-      timestamp,
-      time: formatHourShort(hour),
-      fullTime: formatHourFull(hour),
-      hour,
-      day,
-      pm25,
-      usAqi,
-      aqi: usAqi,
-      isPast: timestamp < now.getTime() - 45 * 60 * 1000,
-    };
-  });
-
+  const points = mapMlRowsToPoints(nearestRows, now);
   const first = points[0];
-  const rowMae = nearestRows[0].model_mae;
-  const resolvedMae =
-    typeof rowMae === 'number' && !isNaN(rowMae) && rowMae > 0 ? rowMae : defaultMae;
+  const resolvedMae = resolveModelMae(nearestRows[0].model_mae, defaultMae);
   const generatedAt = new Date(latestGenMs).toISOString();
 
   return {
@@ -280,10 +279,23 @@ export function resolveMlForecastFromRows(
   };
 }
 
+async function querySupabaseForecastRows(): Promise<SupabaseForecastRow[] | null> {
+  if (!isSupabaseConfigured) return null;
+  const { data, error } = await supabase
+    .from('forecasts')
+    .select(
+      'location_id,location_name,lat,lon,generated_at,target_time,horizon_hour,predicted_pm25,predicted_us_aqi,model_version,model_mae',
+    )
+    .order('horizon_hour', { ascending: true });
+
+  if (error || !Array.isArray(data)) return null;
+  return data as SupabaseForecastRow[];
+}
+
 /**
  * Smart 48-hour forecast loader:
  * 1. Reads nearest location forecast from Supabase `public.forecasts`.
- * 2. If fresh (< 3h old) and within 60 km, returns Shwas ML forecast.
+ * 2. If fresh (< 6h old) and within 60 km, returns Shwas ML forecast.
  * 3. Otherwise falls back automatically to Open-Meteo live forecast.
  */
 export async function fetchSmartForecast(
@@ -299,28 +311,14 @@ export async function fetchSmartForecast(
   const fallbackFn = deps?.fallbackFetch ?? fetchOpenMeteoForecast;
 
   try {
-    let rows: SupabaseForecastRow[] | null = null;
-    if (deps?.loadSupabaseRows) {
-      rows = await deps.loadSupabaseRows();
-    } else if (isSupabaseConfigured) {
-      const { data, error } = await supabase
-        .from('forecasts')
-        .select(
-          'location_id,location_name,lat,lon,generated_at,target_time,horizon_hour,predicted_pm25,predicted_us_aqi,model_version,model_mae',
-        )
-        .order('horizon_hour', { ascending: true });
+    const rows = deps?.loadSupabaseRows
+      ? await deps.loadSupabaseRows()
+      : await querySupabaseForecastRows();
 
-      if (!error && Array.isArray(data)) {
-        rows = data as SupabaseForecastRow[];
-      }
-    }
-
-    if (rows && rows.length > 0) {
-      const mlResult = resolveMlForecastFromRows(rows, latitude, longitude, now);
-      if (mlResult) {
-        return mlResult;
-      }
-    }
+    const mlResult = rows?.length
+      ? resolveMlForecastFromRows(rows, latitude, longitude, now)
+      : null;
+    if (mlResult) return mlResult;
   } catch (err) {
     console.warn('[Shwas] Supabase ML forecast lookup failed, falling back to Open-Meteo:', err);
   }

@@ -314,6 +314,30 @@ export function computeFixImpact(
   };
 }
 
+function resolveIndoorHours(profile?: UserProfile | null): number {
+  const selfMember =
+    profile?.family?.find((m) => m.id === 'me' || m.relation === 'self') || profile?.family?.[0];
+  if (!selfMember) return 14;
+  return Math.max(4, 24 - (selfMember.routine.hoursOutside + selfMember.routine.hoursAway));
+}
+
+function computeMaxIndoorSavings(
+  outdoorPm25: number,
+  home: ProfileHome | null,
+  indoorHours: number,
+): number {
+  const baselineIndoor = estimateIndoorPm25(outdoorPm25, {
+    windowsFacingRoad: home?.windowsFacingRoad ?? true,
+    purifier: home?.purifier ?? false,
+    chimney: home?.chimney ?? false,
+    cookingFuel: home?.cookingFuel ?? 'lpg',
+    windowsShut: home?.windowsShut ?? true,
+  });
+  const baselineIndoorCigs = (baselineIndoor * indoorHours) / 528;
+  const cleanTargetCigs = (15 * indoorHours) / 528;
+  return savingFromAction(baselineIndoorCigs, cleanTargetCigs);
+}
+
 /**
  * Computes impact for all detected sources and total cumulative savings.
  */
@@ -326,32 +350,15 @@ export function computeScanResults(
   totalCigarettesSaved: number;
 } {
   const home = profile?.home || null;
-  // Use self routine indoor hours if available (24 - outside - away) or default to 14
-  const selfMember =
-    profile?.family?.find((m) => m.id === 'me' || m.relation === 'self') || profile?.family?.[0];
-  const indoorHours = selfMember
-    ? Math.max(4, 24 - (selfMember.routine.hoursOutside + selfMember.routine.hoursAway))
-    : 14;
-
+  const indoorHours = resolveIndoorHours(profile);
   const fixes = sources.map((s) => computeFixImpact(s, outdoorPm25, home, indoorHours));
 
   // Cap total savings realistically to avoiding full baseline indoor exposure
   const rawTotalSavings = fixes.reduce((acc, f) => acc + f.cigarettesSaved, 0);
-  const baselineIndoor = estimateIndoorPm25(outdoorPm25, {
-    windowsFacingRoad: home?.windowsFacingRoad ?? true,
-    purifier: home?.purifier ?? false,
-    chimney: home?.chimney ?? false,
-    cookingFuel: home?.cookingFuel ?? 'lpg',
-    windowsShut: home?.windowsShut ?? true,
-  });
-  const baselineIndoorCigs = (baselineIndoor * indoorHours) / 528;
-  const cleanTargetCigs = (15 * indoorHours) / 528;
-  const maxPossibleSaving = savingFromAction(baselineIndoorCigs, cleanTargetCigs);
-  const totalCigarettesSaved = Number(
-    Math.min(rawTotalSavings, maxPossibleSaving > 0 ? maxPossibleSaving : rawTotalSavings).toFixed(
-      1,
-    ),
-  );
+  const maxPossibleSaving = computeMaxIndoorSavings(outdoorPm25, home, indoorHours);
+  const capped =
+    maxPossibleSaving > 0 ? Math.min(rawTotalSavings, maxPossibleSaving) : rawTotalSavings;
+  const totalCigarettesSaved = Number(capped.toFixed(1));
 
   return {
     fixes,

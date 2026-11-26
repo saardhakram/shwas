@@ -16,43 +16,19 @@ import {
   generateJoinCode,
   normalizeJoinCode,
 } from './community';
+import {
+  getActiveCommunityGroup,
+  getOrCreateLocalUserId,
+  getPastDayString,
+  getTodayDateString,
+  readLocalStore,
+  seedDemoGreenParkInStore,
+  setActiveCommunityGroup,
+  upsertLocalGroupMember,
+  writeLocalStore,
+} from './communityLocalStore';
 
-const ACTIVE_GROUP_KEY = 'shwas_community_active_group';
-const LOCAL_STORE_KEY = 'shwas_community_local_store';
-const LOCAL_USER_ID_KEY = 'shwas_local_user_id';
-
-interface LocalCommunityStore {
-  groups: Record<string, CommunityGroup>;
-  members: Record<string, CommunityMember[]>;
-  savings: Record<string, DailySavingRow[]>;
-  alerts: Record<string, CommunityAlert[]>;
-}
-
-function readLocalStore(): LocalCommunityStore {
-  try {
-    const raw = localStorage.getItem(LOCAL_STORE_KEY);
-    if (raw) {
-      const parsed = JSON.parse(raw);
-      return {
-        groups: parsed.groups || {},
-        members: parsed.members || {},
-        savings: parsed.savings || {},
-        alerts: parsed.alerts || {},
-      };
-    }
-  } catch {
-    // ignore corrupted local store
-  }
-  return { groups: {}, members: {}, savings: {}, alerts: {} };
-}
-
-function writeLocalStore(store: LocalCommunityStore): void {
-  try {
-    localStorage.setItem(LOCAL_STORE_KEY, JSON.stringify(store));
-  } catch {
-    // ignore storage quota errors
-  }
-}
+export { getActiveCommunityGroup, setActiveCommunityGroup };
 
 export async function getCurrentUserId(): Promise<string> {
   if (isSupabaseConfigured) {
@@ -66,47 +42,7 @@ export async function getCurrentUserId(): Promise<string> {
       // fall through to local id
     }
   }
-
-  let localId = localStorage.getItem(LOCAL_USER_ID_KEY);
-  if (!localId) {
-    localId =
-      typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function'
-        ? crypto.randomUUID()
-        : `local_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
-    localStorage.setItem(LOCAL_USER_ID_KEY, localId);
-  }
-  return localId;
-}
-
-export function getActiveCommunityGroup(): CommunityGroup | null {
-  try {
-    const raw = localStorage.getItem(ACTIVE_GROUP_KEY);
-    return raw ? (JSON.parse(raw) as CommunityGroup) : null;
-  } catch {
-    return null;
-  }
-}
-
-export function setActiveCommunityGroup(group: CommunityGroup | null): void {
-  try {
-    if (!group) {
-      localStorage.removeItem(ACTIVE_GROUP_KEY);
-    } else {
-      localStorage.setItem(ACTIVE_GROUP_KEY, JSON.stringify(group));
-    }
-  } catch {
-    // ignore
-  }
-}
-
-function getTodayDateString(): string {
-  return new Date().toISOString().slice(0, 10);
-}
-
-function getPastDayString(daysAgo: number): string {
-  const d = new Date();
-  d.setUTCDate(d.getUTCDate() - daysAgo);
-  return d.toISOString().slice(0, 10);
+  return getOrCreateLocalUserId();
 }
 
 /**
@@ -115,119 +51,7 @@ function getPastDayString(daysAgo: number): string {
  */
 export async function joinDemoGreenParkSociety(displayName: string): Promise<CommunityGroup> {
   const userId = await getCurrentUserId();
-  const groupId = 'demo-green-park-society';
-  const group: CommunityGroup = {
-    id: groupId,
-    name: 'Green Park Society',
-    join_code: 'GRNPK6',
-    created_by: userId,
-    created_at: new Date().toISOString(),
-  };
-
-  const store = readLocalStore();
-  store.groups[groupId] = group;
-
-  const existingMembers = store.members[groupId] || [
-    { group_id: groupId, user_id: 'demo_sharma', display_name: 'Sharma Family' },
-    { group_id: groupId, user_id: 'demo_kapoor', display_name: 'Kapoor Household' },
-    { group_id: groupId, user_id: 'demo_verma', display_name: 'Verma Family' },
-  ];
-  if (!existingMembers.some((m) => m.user_id === userId)) {
-    existingMembers.push({
-      group_id: groupId,
-      user_id: userId,
-      display_name: displayName || 'Your Family',
-    });
-  }
-  store.members[groupId] = existingMembers;
-
-  if (!store.savings[groupId] || store.savings[groupId].length === 0) {
-    store.savings[groupId] = [
-      // Sharma Family: 5-day streak
-      {
-        group_id: groupId,
-        user_id: 'demo_sharma',
-        day: getPastDayString(0),
-        cigarettes_saved: 3.4,
-      },
-      {
-        group_id: groupId,
-        user_id: 'demo_sharma',
-        day: getPastDayString(1),
-        cigarettes_saved: 4.1,
-      },
-      {
-        group_id: groupId,
-        user_id: 'demo_sharma',
-        day: getPastDayString(2),
-        cigarettes_saved: 3.8,
-      },
-      {
-        group_id: groupId,
-        user_id: 'demo_sharma',
-        day: getPastDayString(3),
-        cigarettes_saved: 4.2,
-      },
-      {
-        group_id: groupId,
-        user_id: 'demo_sharma',
-        day: getPastDayString(4),
-        cigarettes_saved: 3.5,
-      },
-      // Kapoor Household: 3-day streak
-      {
-        group_id: groupId,
-        user_id: 'demo_kapoor',
-        day: getPastDayString(0),
-        cigarettes_saved: 2.8,
-      },
-      {
-        group_id: groupId,
-        user_id: 'demo_kapoor',
-        day: getPastDayString(1),
-        cigarettes_saved: 3.1,
-      },
-      {
-        group_id: groupId,
-        user_id: 'demo_kapoor',
-        day: getPastDayString(2),
-        cigarettes_saved: 2.9,
-      },
-      // Verma Family: 2-day streak
-      { group_id: groupId, user_id: 'demo_verma', day: getPastDayString(0), cigarettes_saved: 2.1 },
-      { group_id: groupId, user_id: 'demo_verma', day: getPastDayString(1), cigarettes_saved: 2.4 },
-    ];
-  }
-
-  if (!store.alerts[groupId] || store.alerts[groupId].length === 0) {
-    const now = Date.now();
-    store.alerts[groupId] = [
-      {
-        id: 'demo_alert_1',
-        group_id: groupId,
-        user_id: 'demo_sharma',
-        type: 'garbage_burning',
-        message: 'Garbage burning reported near Block C park gate',
-        lat: 28.559,
-        lon: 77.206,
-        created_at: new Date(now - 20 * 60 * 1000).toISOString(),
-      },
-      {
-        id: 'demo_alert_2',
-        group_id: groupId,
-        user_id: 'demo_kapoor',
-        type: 'construction_dust',
-        message: 'Uncovered cement unloading on Main Market lane',
-        lat: 28.561,
-        lon: 77.209,
-        created_at: new Date(now - 95 * 60 * 1000).toISOString(),
-      },
-    ];
-  }
-
-  writeLocalStore(store);
-  setActiveCommunityGroup(group);
-  return group;
+  return seedDemoGreenParkInStore(userId, displayName);
 }
 
 /**
@@ -291,6 +115,38 @@ export async function createCommunityGroup(
   return createdGroup;
 }
 
+async function joinViaSupabaseRpc(
+  code: string,
+  userId: string,
+  safeDisplay: string,
+): Promise<{ group: CommunityGroup | null; notFound?: boolean }> {
+  try {
+    // Use SECURITY DEFINER RPC `join_group_by_code` (005_join_by_code.sql) so groups table
+    // never exposes join codes to non-members
+    const { data, error } = await supabase.rpc('join_group_by_code', {
+      code,
+      display_name: safeDisplay,
+    });
+
+    const resolved = Array.isArray(data) ? data[0] : data;
+    if (!error && resolved?.id) {
+      const grp = resolved as CommunityGroup;
+      const store = readLocalStore();
+      upsertLocalGroupMember(store, grp, userId, safeDisplay);
+      writeLocalStore(store);
+      setActiveCommunityGroup(grp);
+      return { group: grp };
+    }
+
+    if (error && String(error.message || '').includes('GROUP_NOT_FOUND')) {
+      return { group: null, notFound: true };
+    }
+  } catch (err) {
+    console.warn('[Community] Supabase join_group_by_code RPC notice:', err);
+  }
+  return { group: null };
+}
+
 /**
  * Joins an existing group by its 6-character join code.
  */
@@ -306,68 +162,29 @@ export async function joinCommunityGroupByCode(
   const safeDisplay = displayName.trim() || 'My Family';
   const userId = await getCurrentUserId();
 
-  // Check demo code shortcut
   if (code === 'GRNPK6') {
     const demo = await joinDemoGreenParkSociety(safeDisplay);
     return { group: demo };
   }
 
+  const notFoundError = `No group found for code "${code}". Check the code or create a new group.`;
+
   if (isSupabaseConfigured) {
-    try {
-      // Use SECURITY DEFINER RPC `join_group_by_code` (005_join_by_code.sql) so groups table
-      // never exposes join codes to non-members
-      const { data, error } = await supabase.rpc('join_group_by_code', {
-        code,
-        display_name: safeDisplay,
-      });
-
-      const resolved = Array.isArray(data) ? data[0] : data;
-      if (!error && resolved?.id) {
-        const grp = resolved as CommunityGroup;
-        const store = readLocalStore();
-        store.groups[grp.id] = grp;
-        const list = store.members[grp.id] || [];
-        const existingIdx = list.findIndex((m) => m.user_id === userId);
-        if (existingIdx >= 0) {
-          list[existingIdx].display_name = safeDisplay;
-        } else {
-          list.push({ group_id: grp.id, user_id: userId, display_name: safeDisplay });
-        }
-        store.members[grp.id] = list;
-        writeLocalStore(store);
-        setActiveCommunityGroup(grp);
-        return { group: grp };
-      }
-
-      if (error && String(error.message || '').includes('GROUP_NOT_FOUND')) {
-        return {
-          group: null,
-          error: `No group found for code "${code}". Check the code or create a new group.`,
-        };
-      }
-    } catch (err) {
-      console.warn('[Community] Supabase join_group_by_code RPC notice:', err);
-    }
+    const rpcRes = await joinViaSupabaseRpc(code, userId, safeDisplay);
+    if (rpcRes.group) return { group: rpcRes.group };
+    if (rpcRes.notFound) return { group: null, error: notFoundError };
   }
 
-  // Fallback check in local store
   const store = readLocalStore();
   const localMatch = Object.values(store.groups).find((g) => g.join_code === code);
   if (localMatch) {
-    const list = store.members[localMatch.id] || [];
-    if (!list.some((m) => m.user_id === userId)) {
-      list.push({ group_id: localMatch.id, user_id: userId, display_name: safeDisplay });
-    }
-    store.members[localMatch.id] = list;
+    upsertLocalGroupMember(store, localMatch, userId, safeDisplay);
     writeLocalStore(store);
     setActiveCommunityGroup(localMatch);
     return { group: localMatch };
   }
 
-  return {
-    group: null,
-    error: `No group found for code "${code}". Check the code or create a new group.`,
-  };
+  return { group: null, error: notFoundError };
 }
 
 /**
@@ -441,7 +258,6 @@ export async function upsertTodayDailySavings(
   const day = getTodayDateString();
   const safeVal = Number(Math.max(0, cigarettesSaved).toFixed(1));
 
-  // Always update local mirror immediately
   const store = readLocalStore();
   const members = store.members[group.id] || [];
   if (!members.some((m) => m.user_id === userId)) {
@@ -469,7 +285,6 @@ export async function upsertTodayDailySavings(
   store.savings[group.id] = savings;
   writeLocalStore(store);
 
-  // Sync to Supabase if configured and non-demo group
   if (isSupabaseConfigured && !group.id.startsWith('demo-')) {
     try {
       await supabase.from('daily_savings').upsert(

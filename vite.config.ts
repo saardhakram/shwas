@@ -27,57 +27,67 @@ function sendJson(res: ServerResponse, statusCode: number, payload: unknown): vo
   res.end(JSON.stringify(payload));
 }
 
+async function dispatchPostApiRoute(
+  server: ViteDevServer,
+  url: string,
+  req: IncomingMessage,
+  res: ServerResponse,
+): Promise<void> {
+  const rawBody = await readRequestBody(req);
+  const parsedBody: unknown = rawBody ? JSON.parse(rawBody) : {};
+  const apiKey = loadGeminiEnv();
+
+  if (url.startsWith('/api/plan')) {
+    const mod = (await server.ssrLoadModule('/api/plan.ts')) as {
+      processPlanRequest: (body: unknown, key?: string) => Promise<unknown>;
+    };
+    sendJson(res, 200, await mod.processPlanRequest(parsedBody, apiKey));
+    return;
+  }
+
+  if (url.startsWith('/api/scan')) {
+    const mod = (await server.ssrLoadModule('/api/scan.ts')) as {
+      processScanRequest: (body: unknown, key?: string) => Promise<unknown>;
+    };
+    sendJson(res, 200, await mod.processScanRequest(parsedBody, apiKey));
+    return;
+  }
+
+  const mod = (await server.ssrLoadModule('/api/ask.ts')) as {
+    processAskRequest: (body: unknown, key?: string, clientId?: string) => Promise<unknown>;
+  };
+  sendJson(
+    res,
+    200,
+    await mod.processAskRequest(parsedBody, apiKey, req.socket?.remoteAddress || 'local'),
+  );
+}
+
 async function handleApiRoute(
   server: ViteDevServer,
   req: IncomingMessage,
   res: ServerResponse,
 ): Promise<boolean> {
-  if (req.url?.startsWith('/api/health')) {
+  const url = req.url || '';
+  if (url.startsWith('/api/health')) {
     res.setHeader('Cache-Control', 'no-store');
     sendJson(res, 200, { ok: true });
     return true;
   }
 
-  if (req.method !== 'POST') return false;
-
-  const isPlan = req.url?.startsWith('/api/plan');
-  const isScan = req.url?.startsWith('/api/scan');
-  const isAsk = req.url?.startsWith('/api/ask');
-  if (!isPlan && !isScan && !isAsk) return false;
+  const isSupportedPost =
+    req.method === 'POST' &&
+    (url.startsWith('/api/plan') || url.startsWith('/api/scan') || url.startsWith('/api/ask'));
+  if (!isSupportedPost) return false;
 
   try {
-    const rawBody = await readRequestBody(req);
-    const parsedBody: unknown = rawBody ? JSON.parse(rawBody) : {};
-    const apiKey = loadGeminiEnv();
-
-    if (isPlan) {
-      const mod = (await server.ssrLoadModule('/api/plan.ts')) as {
-        processPlanRequest: (body: unknown, key?: string) => Promise<unknown>;
-      };
-      sendJson(res, 200, await mod.processPlanRequest(parsedBody, apiKey));
-      return true;
-    }
-
-    if (isScan) {
-      const mod = (await server.ssrLoadModule('/api/scan.ts')) as {
-        processScanRequest: (body: unknown, key?: string) => Promise<unknown>;
-      };
-      sendJson(res, 200, await mod.processScanRequest(parsedBody, apiKey));
-      return true;
-    }
-
-    const mod = (await server.ssrLoadModule('/api/ask.ts')) as {
-      processAskRequest: (body: unknown, key?: string, clientId?: string) => Promise<unknown>;
-    };
-    const clientIp = req.socket?.remoteAddress || 'local';
-    sendJson(res, 200, await mod.processAskRequest(parsedBody, apiKey, clientIp));
-    return true;
+    await dispatchPostApiRoute(server, url, req, res);
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : 'Server error';
     console.error('[API Dev Server Error]:', err);
     sendJson(res, 500, { error: message });
-    return true;
   }
+  return true;
 }
 
 // Vite dev middleware for server-side /api/* routes

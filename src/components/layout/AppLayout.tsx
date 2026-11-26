@@ -8,6 +8,7 @@ import FamilyChips, { FamilyMemberOption } from '../ui/FamilyChips';
 import Badge from '../ui/Badge';
 import { initAnonymousAuth } from '../../lib/supabase';
 import { UserProfile } from '../../types';
+import { buildFamilyChips, getAtmosphereGradient } from './atmosphere';
 
 interface AirQualityContextType {
   aqi: number;
@@ -89,96 +90,13 @@ export const AppLayout: React.FC = () => {
     });
   }, [location.pathname]);
 
-  // Compute dynamic atmospheric haze gradient based on real live AQI:
-  // Severe (300+): Murky brown-grey smog haze
-  // Very Poor (200-300): Deep smoky orange/brown
-  // Poor (100-200): Amber dusk
-  // Good/Moderate (<100): Clear dawn teal
-  const getAtmosphereGradient = (currentAqi: number) => {
-    if (currentAqi >= 300) {
-      return {
-        bg: 'from-[#2a1711] via-[#1c1615] to-[#0c0d12]',
-        glow: 'rgba(180, 83, 9, 0.18)',
-        badgeVariant: 'danger' as const,
-        label: t('aqi.severe', 'Severe Smog'),
-      };
-    } else if (currentAqi >= 200) {
-      return {
-        bg: 'from-[#2b1810] via-[#1c1417] to-[#0c0d12]',
-        glow: 'rgba(239, 68, 68, 0.14)',
-        badgeVariant: 'danger' as const,
-        label: t('aqi.veryPoor', 'Very Poor'),
-      };
-    } else if (currentAqi >= 100) {
-      return {
-        bg: 'from-[#241a0d] via-[#16171c] to-[#0c0d12]',
-        glow: 'rgba(245, 158, 11, 0.12)',
-        badgeVariant: 'warning' as const,
-        label: t('aqi.poor', 'Poor'),
-      };
-    } else {
-      return {
-        bg: 'from-[#052222] via-[#091b22] to-[#0a0f18]',
-        glow: 'rgba(45, 212, 191, 0.18)',
-        badgeVariant: 'mint' as const,
-        label: t('aqi.good', 'Clean Dawn Teal'),
-      };
-    }
-  };
-
-  const atmosphere = getAtmosphereGradient(aqi);
+  const atmosphere = getAtmosphereGradient(aqi, t);
   const isOnboarding = location.pathname === '/onboarding';
 
-  // Dynamic Family Chips from real user profile
-  const dynamicFamilyChips: FamilyMemberOption[] = useMemo(() => {
-    const list: FamilyMemberOption[] = [{ id: 'all', name: t('family.all', 'All Family') }];
-    if (userProfile?.family && userProfile.family.length > 0) {
-      userProfile.family.forEach((m) => {
-        let tag: string | undefined;
-        let tagType: 'asthma' | 'senior' | 'child' | 'default' = 'default';
-        if (m.flags?.asthma) {
-          tag = t('family.asthmaTag', 'Asthma');
-          tagType = 'asthma';
-        } else if (m.flags?.heart) {
-          tag = t('family.seniorTag', 'Heart');
-          tagType = 'senior';
-        } else if (m.flags?.pregnancy) {
-          tag = 'Pregnant';
-          tagType = 'child';
-        } else if (m.age >= 65) {
-          tag = t('family.seniorTag', 'Senior');
-          tagType = 'senior';
-        } else if (m.age <= 10) {
-          tag = t('family.childTag', 'Child');
-          tagType = 'child';
-        }
-
-        list.push({
-          id: m.id,
-          name: `${m.name} (${m.age})`,
-          tag,
-          tagType,
-        });
-      });
-    } else {
-      list.push(
-        { id: 'me', name: t('family.me', 'Me (32)') },
-        {
-          id: 'grandpa',
-          name: t('family.grandpa', 'Grandpa (72)'),
-          tag: t('family.seniorTag', 'Senior'),
-          tagType: 'senior',
-        },
-        {
-          id: 'child',
-          name: t('family.child', 'Aarav (8)'),
-          tag: t('family.asthmaTag', 'Asthma'),
-          tagType: 'asthma',
-        },
-      );
-    }
-    return list;
-  }, [userProfile, t]);
+  const dynamicFamilyChips: FamilyMemberOption[] = useMemo(
+    () => buildFamilyChips(userProfile, t),
+    [userProfile, t],
+  );
 
   return (
     <AirQualityContext.Provider

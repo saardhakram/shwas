@@ -39,6 +39,47 @@ export function calculatePlanItemSavings(item: RawPlanItem, defaultHours = 2): n
   return Number(rawPlanItemSavings(item, defaultHours).toFixed(1));
 }
 
+function distributeProportionalTenths(weights: number[], capTenths: number): number[] {
+  const weightSum = weights.reduce((s, v) => s + v, 0);
+  const exactTenths = weights.map((v) => (v / weightSum) * capTenths);
+  const floored = exactTenths.map((v) => Math.floor(v));
+  const remaining = capTenths - floored.reduce((s, v) => s + v, 0);
+
+  const indicesByRemainder = exactTenths
+    .map((v, idx) => ({ idx, rem: v - floored[idx] }))
+    .sort((a, b) => b.rem - a.rem);
+
+  for (let i = 0; i < remaining && i < indicesByRemainder.length; i++) {
+    floored[indicesByRemainder[i].idx] += 1;
+  }
+  return floored;
+}
+
+function roundUncappedTenthsWithinCap(rawSavings: number[], capTenths: number): number[] {
+  const exactTenths = rawSavings.map((v) => v * 10);
+  const rounded = exactTenths.map((v) => Math.round(v));
+  const excess = rounded.reduce((s, v) => s + v, 0) - capTenths;
+
+  if (excess > 0) {
+    const candidates = exactTenths
+      .map((v, idx) => ({ idx, overshoot: rounded[idx] - v }))
+      .filter((c) => rounded[c.idx] > 0)
+      .sort((a, b) => b.overshoot - a.overshoot);
+    for (let i = 0; i < excess && i < candidates.length; i++) {
+      rounded[candidates[i].idx] -= 1;
+    }
+  }
+
+  if (rounded.reduce((s, v) => s + v, 0) === 0 && rawSavings.length > 0) {
+    let bestIdx = 0;
+    for (let i = 1; i < exactTenths.length; i++) {
+      if (exactTenths[i] > exactTenths[bestIdx]) bestIdx = i;
+    }
+    rounded[bestIdx] = 1;
+  }
+  return rounded;
+}
+
 /**
  * Converts RawPlanItems to interactive AirPlanItems with computed cigarette savings.
  *
@@ -55,62 +96,23 @@ export function buildEnrichedPlan(
   const rawTotal = rawSavings.reduce((sum, val) => sum + val, 0);
 
   let finalTenths: number[];
-
-  if (typeof heroCigarettes === 'number') {
-    // Hard cap: sum of item savings <= 70% of heroCigarettes (floored to 0.1 so it never exceeds 70%)
+  if (typeof heroCigarettes !== 'number') {
+    finalTenths = rawSavings.map((v) => Math.round(v * 10));
+  } else {
     const capTenths = heroCigarettes > 0 ? Math.floor(heroCigarettes * 0.7 * 10 + 1e-9) : 0;
-
     if (capTenths <= 0 || rawItems.length === 0) {
       finalTenths = rawItems.map(() => 0);
     } else if (rawTotal <= 0 || rawTotal * 10 > capTenths) {
-      // Scale proportionally (falling back to equal weights if items had missing/zero PM2.5 deltas)
-      // and distribute tenths using largest-remainder method so savings are never 0 when items exist.
       const weights = rawTotal > 0 ? rawSavings : rawItems.map(() => 1);
-      const weightSum = weights.reduce((s, v) => s + v, 0);
-      const exactTenths = weights.map((v) => (v / weightSum) * capTenths);
-      const floored = exactTenths.map((v) => Math.floor(v));
-      const remaining = capTenths - floored.reduce((s, v) => s + v, 0);
-
-      const indicesByRemainder = exactTenths
-        .map((v, idx) => ({ idx, rem: v - floored[idx] }))
-        .sort((a, b) => b.rem - a.rem);
-
-      for (let i = 0; i < remaining && i < indicesByRemainder.length; i++) {
-        floored[indicesByRemainder[i].idx] += 1;
-      }
-      finalTenths = floored;
+      finalTenths = distributeProportionalTenths(weights, capTenths);
     } else {
-      // Unscaled tenths; if independent rounding pushes total above capTenths, trim smallest remainders
-      const exactTenths = rawSavings.map((v) => v * 10);
-      const rounded = exactTenths.map((v) => Math.round(v));
-      let excess = rounded.reduce((s, v) => s + v, 0) - capTenths;
-      if (excess > 0) {
-        const candidates = exactTenths
-          .map((v, idx) => ({ idx, overshoot: rounded[idx] - v }))
-          .filter((c) => rounded[c.idx] > 0)
-          .sort((a, b) => b.overshoot - a.overshoot);
-        for (let i = 0; i < excess && i < candidates.length; i++) {
-          rounded[candidates[i].idx] -= 1;
-        }
-      }
-      // Guarantee non-zero total savings if all small items independently rounded down to 0
-      if (rounded.reduce((s, v) => s + v, 0) === 0 && rawItems.length > 0) {
-        let bestIdx = 0;
-        for (let i = 1; i < exactTenths.length; i++) {
-          if (exactTenths[i] > exactTenths[bestIdx]) bestIdx = i;
-        }
-        rounded[bestIdx] = 1;
-      }
-      finalTenths = rounded;
+      finalTenths = roundUncappedTenthsWithinCap(rawSavings, capTenths);
     }
-  } else {
-    finalTenths = rawSavings.map((v) => Math.round(v * 10));
   }
 
   return rawItems.map((item, index) => {
     const id = `plan_${index + 1}`;
     const cigarettesSaved = Number((finalTenths[index] / 10).toFixed(1));
-
     return {
       ...item,
       id,

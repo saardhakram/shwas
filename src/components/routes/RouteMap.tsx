@@ -1,8 +1,19 @@
 import React, { useEffect, useRef, useState } from 'react';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
-import { EvaluatedRouteOption, LatLon } from '../../lib/routeExposure';
-import type { GoogleMapInstance, GooglePolylineInstance } from '../../types/maps';
+import type { EvaluatedRouteOption, LatLon } from '../../lib/routeExposure';
+import type {
+  GoogleMapInstance,
+  GoogleMapsNamespace,
+  GooglePolylineInstance,
+} from '../../types/maps';
+import {
+  DARK_GOOGLE_MAP_STYLES,
+  hasGoogleMapsAuthFailed,
+  loadGoogleMapsScript,
+  markGoogleMapsAuthFailed,
+} from './googleMapsLoader';
+import { drawGoogleMapOverlays, drawLeafletMapOverlays } from './mapRenderers';
 
 interface RouteMapProps {
   origin: LatLon;
@@ -13,116 +24,56 @@ interface RouteMapProps {
   onMapProviderChange?: (provider: 'google' | 'leaflet') => void;
 }
 
-// Dark Google Maps style matching Shwas dark glassmorphism palette
-const DARK_GOOGLE_MAP_STYLES = [
-  { elementType: 'geometry', stylers: [{ color: '#0f172a' }] },
-  { elementType: 'labels.text.stroke', stylers: [{ color: '#0b0f17' }] },
-  { elementType: 'labels.text.fill', stylers: [{ color: '#94a3b8' }] },
-  {
-    featureType: 'administrative.locality',
-    elementType: 'labels.text.fill',
-    stylers: [{ color: '#cbd5e1' }],
-  },
-  {
-    featureType: 'poi',
-    elementType: 'labels.text.fill',
-    stylers: [{ color: '#64748b' }],
-  },
-  {
-    featureType: 'poi.park',
-    elementType: 'geometry',
-    stylers: [{ color: '#112224' }],
-  },
-  {
-    featureType: 'road',
-    elementType: 'geometry',
-    stylers: [{ color: '#1e293b' }],
-  },
-  {
-    featureType: 'road',
-    elementType: 'geometry.stroke',
-    stylers: [{ color: '#0f172a' }],
-  },
-  {
-    featureType: 'road.highway',
-    elementType: 'geometry',
-    stylers: [{ color: '#2b3b55' }],
-  },
-  {
-    featureType: 'transit',
-    elementType: 'geometry',
-    stylers: [{ color: '#16253b' }],
-  },
-  {
-    featureType: 'water',
-    elementType: 'geometry',
-    stylers: [{ color: '#081220' }],
-  },
-];
+function hasRequiredGoogleMapsApis(maps?: GoogleMapsNamespace): maps is GoogleMapsNamespace {
+  return Boolean(maps?.Map && maps.LatLngBounds && maps.Polyline && maps.SymbolPath);
+}
 
-let googleMapsScriptPromise: Promise<boolean> | null = null;
-let googleMapsAuthFailed = false;
+function useMapProvider(onMapProviderChange?: (provider: 'google' | 'leaflet') => void) {
+  const [provider, setProvider] = useState<'google' | 'leaflet'>(() => {
+    const key = import.meta.env.VITE_GOOGLE_MAPS_KEY;
+    return key && !hasGoogleMapsAuthFailed() ? 'google' : 'leaflet';
+  });
+  const [googleReady, setGoogleReady] = useState<boolean>(false);
 
-function loadGoogleMapsScript(apiKey: string): Promise<boolean> {
-  if (!apiKey || googleMapsAuthFailed) return Promise.resolve(false);
-  if (typeof window === 'undefined') return Promise.resolve(false);
-  if (window.google?.maps?.Map) return Promise.resolve(true);
-
-  if (googleMapsScriptPromise) return googleMapsScriptPromise;
-
-  googleMapsScriptPromise = new Promise<boolean>((resolve) => {
-    const prevAuthFailure = window.gm_authFailure;
-    window.gm_authFailure = () => {
-      googleMapsAuthFailed = true;
-      if (typeof prevAuthFailure === 'function') prevAuthFailure();
-      resolve(false);
+  useEffect(() => {
+    let active = true;
+    const apiKey = (import.meta.env.VITE_GOOGLE_MAPS_KEY || '').trim();
+    const fallbackToLeaflet = () => {
+      if (!active) return;
+      setGoogleReady(false);
+      setProvider('leaflet');
+      onMapProviderChange?.('leaflet');
     };
 
-    const existing = document.querySelector<HTMLScriptElement>('script[data-shwas-gmaps="true"]');
-    if (existing) {
-      const checkTimer = setTimeout(
-        () => resolve(Boolean(window.google?.maps?.Map && !googleMapsAuthFailed)),
-        4000,
-      );
-      existing.addEventListener('load', () => {
-        clearTimeout(checkTimer);
-        resolve(Boolean(window.google?.maps?.Map && !googleMapsAuthFailed));
-      });
-      existing.addEventListener('error', () => {
-        clearTimeout(checkTimer);
-        resolve(false);
-      });
+    if (!apiKey || hasGoogleMapsAuthFailed()) {
+      fallbackToLeaflet();
       return;
     }
 
-    const script = document.createElement('script');
-    script.src = `https://maps.googleapis.com/maps/api/js?key=${encodeURIComponent(
-      apiKey,
-    )}&libraries=places,routes&v=weekly`;
-    script.async = true;
-    script.defer = true;
-    script.dataset.shwasGmaps = 'true';
-
-    const timeout = setTimeout(() => {
-      resolve(false);
-    }, 6000);
-
-    script.onload = () => {
-      clearTimeout(timeout);
-      // Wait briefly in case gm_authFailure fires immediately after init
-      setTimeout(() => {
-        resolve(Boolean(window.google?.maps?.Map && !googleMapsAuthFailed));
-      }, 250);
-    };
-    script.onerror = () => {
-      clearTimeout(timeout);
-      resolve(false);
+    const prevFailure = window.gm_authFailure;
+    window.gm_authFailure = () => {
+      markGoogleMapsAuthFailed();
+      if (typeof prevFailure === 'function') prevFailure();
+      fallbackToLeaflet();
     };
 
-    document.head.appendChild(script);
-  });
+    loadGoogleMapsScript(apiKey).then((ok) => {
+      if (!active) return;
+      if (ok && window.google?.maps?.Map && !hasGoogleMapsAuthFailed()) {
+        setGoogleReady(true);
+        setProvider('google');
+        onMapProviderChange?.('google');
+      } else {
+        fallbackToLeaflet();
+      }
+    });
 
-  return googleMapsScriptPromise;
+    return () => {
+      active = false;
+    };
+  }, [onMapProviderChange]);
+
+  return { provider, setProvider, googleReady };
 }
 
 export const RouteMap: React.FC<RouteMapProps> = ({
@@ -135,78 +86,27 @@ export const RouteMap: React.FC<RouteMapProps> = ({
 }) => {
   const googleContainerRef = useRef<HTMLDivElement>(null);
   const leafletContainerRef = useRef<HTMLDivElement>(null);
-
   const googleMapRef = useRef<GoogleMapInstance | null>(null);
   const googleOverlaysRef = useRef<GooglePolylineInstance[]>([]);
-
   const leafletMapRef = useRef<L.Map | null>(null);
   const leafletLayerGroupRef = useRef<L.LayerGroup | null>(null);
 
-  const [provider, setProvider] = useState<'google' | 'leaflet'>(() => {
-    const key = import.meta.env.VITE_GOOGLE_MAPS_KEY;
-    return key && !googleMapsAuthFailed ? 'google' : 'leaflet';
-  });
-  const [googleReady, setGoogleReady] = useState<boolean>(false);
+  const { provider, setProvider, googleReady } = useMapProvider(onMapProviderChange);
 
-  // 1. Attempt to initialize Google Maps if key exists; auto-fallback to Leaflet on failure/quota
-  useEffect(() => {
-    let active = true;
-    const apiKey = (import.meta.env.VITE_GOOGLE_MAPS_KEY || '').trim();
-
-    if (!apiKey || googleMapsAuthFailed) {
-      setProvider('leaflet');
-      onMapProviderChange?.('leaflet');
-      return;
-    }
-
-    // Listen for runtime auth/quota failures from Google Maps
-    const prevFailure = window.gm_authFailure;
-    window.gm_authFailure = () => {
-      googleMapsAuthFailed = true;
-      if (typeof prevFailure === 'function') prevFailure();
-      if (active) {
-        setGoogleReady(false);
-        setProvider('leaflet');
-        onMapProviderChange?.('leaflet');
-      }
-    };
-
-    loadGoogleMapsScript(apiKey).then((ok) => {
-      if (!active) return;
-      if (ok && window.google?.maps?.Map && !googleMapsAuthFailed) {
-        setGoogleReady(true);
-        setProvider('google');
-        onMapProviderChange?.('google');
-      } else {
-        setGoogleReady(false);
-        setProvider('leaflet');
-        onMapProviderChange?.('leaflet');
-      }
-    });
-
-    return () => {
-      active = false;
-    };
-  }, [onMapProviderChange]);
-
-  // 2. Render & update Google Map when active
   useEffect(() => {
     const maps = window.google?.maps;
     if (
       provider !== 'google' ||
       !googleReady ||
       !googleContainerRef.current ||
-      !maps?.Map ||
-      !maps.LatLngBounds ||
-      !maps.Polyline ||
-      !maps.SymbolPath
+      !hasRequiredGoogleMapsApis(maps)
     ) {
       return;
     }
 
     try {
       if (!googleMapRef.current) {
-        googleMapRef.current = new maps.Map(googleContainerRef.current, {
+        googleMapRef.current = new maps.Map!(googleContainerRef.current, {
           center: { lat: origin.lat, lng: origin.lon },
           zoom: 12,
           styles: DARK_GOOGLE_MAP_STYLES,
@@ -216,119 +116,16 @@ export const RouteMap: React.FC<RouteMapProps> = ({
         });
       }
 
-      const map = googleMapRef.current;
-
-      // Clear previous overlays
       googleOverlaysRef.current.forEach((ov) => ov.setMap(null));
-      googleOverlaysRef.current = [];
-
-      const bounds = new maps.LatLngBounds();
-      bounds.extend({ lat: origin.lat, lng: origin.lon });
-
-      // Origin pin (fixed-pixel polyline circle icon — avoids deprecated google.maps.Marker warnings)
-      const originPin = new maps.Polyline({
-        path: [
-          { lat: origin.lat, lng: origin.lon },
-          { lat: origin.lat, lng: origin.lon },
-        ],
-        strokeOpacity: 0,
-        icons: [
-          {
-            icon: {
-              path: maps.SymbolPath.CIRCLE,
-              scale: 7,
-              fillColor: '#2DD4BF',
-              fillOpacity: 1,
-              strokeColor: '#0B0F17',
-              strokeWeight: 2.5,
-            },
-            offset: '0%',
-          },
-        ],
-        zIndex: 50,
-        map,
+      googleOverlaysRef.current = drawGoogleMapOverlays({
+        maps,
+        map: googleMapRef.current,
+        origin,
+        destination,
+        routes,
+        selectedRouteId,
+        onSelectRoute,
       });
-      googleOverlaysRef.current.push(originPin);
-
-      // Destination pin (amber)
-      if (destination) {
-        bounds.extend({ lat: destination.lat, lng: destination.lon });
-        const destPin = new maps.Polyline({
-          path: [
-            { lat: destination.lat, lng: destination.lon },
-            { lat: destination.lat, lng: destination.lon },
-          ],
-          strokeOpacity: 0,
-          icons: [
-            {
-              icon: {
-                path: maps.SymbolPath.CIRCLE,
-                scale: 7,
-                fillColor: '#F59E0B',
-                fillOpacity: 1,
-                strokeColor: '#0B0F17',
-                strokeWeight: 2.5,
-              },
-              offset: '0%',
-            },
-          ],
-          zIndex: 50,
-          map,
-        });
-        googleOverlaysRef.current.push(destPin);
-      }
-
-      // Draw routes sorted so selected route renders on top
-      const sortedRoutes = [...routes].sort((a, b) =>
-        a.id === selectedRouteId ? 1 : b.id === selectedRouteId ? -1 : 0,
-      );
-
-      const PolylineCtor = maps.Polyline;
-      sortedRoutes.forEach((route) => {
-        if (!route.path || route.path.length < 2) return;
-        const isSelected = route.id === selectedRouteId;
-        const pathLatLng = route.path.map((p) => {
-          bounds.extend({ lat: p.lat, lng: p.lon });
-          return { lat: p.lat, lng: p.lon };
-        });
-
-        const polyline = new PolylineCtor({
-          path: pathLatLng,
-          geodesic: true,
-          strokeColor: route.strokeColor,
-          strokeOpacity: isSelected ? 0.96 : 0.4,
-          strokeWeight: isSelected ? 6 : 3.5,
-          zIndex: isSelected ? 30 : 10,
-          ...(route.mode === 'metro'
-            ? {
-                strokeOpacity: 0,
-                icons: [
-                  {
-                    icon: {
-                      path: 'M 0,-1 0,1',
-                      strokeOpacity: isSelected ? 0.95 : 0.45,
-                      strokeColor: route.strokeColor,
-                      scale: isSelected ? 3.5 : 2.5,
-                    },
-                    offset: '0',
-                    repeat: '12px',
-                  },
-                ],
-              }
-            : {}),
-          map,
-        });
-
-        polyline.addListener('click', () => onSelectRoute(route.id));
-        googleOverlaysRef.current.push(polyline);
-      });
-
-      if (destination || routes.length > 0) {
-        map.fitBounds(bounds, 42);
-      } else {
-        map.setCenter({ lat: origin.lat, lng: origin.lon });
-        map.setZoom(12);
-      }
     } catch (err) {
       console.warn('[RouteMap] Google Maps runtime error, falling back to Leaflet:', err);
       setProvider('leaflet');
@@ -337,17 +134,15 @@ export const RouteMap: React.FC<RouteMapProps> = ({
   }, [
     provider,
     googleReady,
-    origin.lat,
-    origin.lon,
-    destination?.lat,
-    destination?.lon,
+    origin,
+    destination,
     routes,
     selectedRouteId,
     onSelectRoute,
     onMapProviderChange,
+    setProvider,
   ]);
 
-  // 3. Initialize & update Leaflet + OpenStreetMap fallback
   useEffect(() => {
     if (provider !== 'leaflet' || !leafletContainerRef.current) return;
 
@@ -366,85 +161,22 @@ export const RouteMap: React.FC<RouteMapProps> = ({
 
       leafletLayerGroupRef.current = L.layerGroup().addTo(map);
       leafletMapRef.current = map;
-
-      // Ensure tiles size correctly after CSS transition
       setTimeout(() => map.invalidateSize(), 150);
     }
 
-    const map = leafletMapRef.current;
-    const layerGroup = leafletLayerGroupRef.current;
-    if (!map || !layerGroup) return;
+    if (!leafletMapRef.current || !leafletLayerGroupRef.current) return;
 
-    layerGroup.clearLayers();
-
-    const latLngsForBounds: L.LatLngExpression[] = [[origin.lat, origin.lon]];
-
-    // Draw routes (unselected first, selected on top)
-    const sortedRoutes = [...routes].sort((a, b) =>
-      a.id === selectedRouteId ? 1 : b.id === selectedRouteId ? -1 : 0,
-    );
-
-    sortedRoutes.forEach((route) => {
-      if (!route.path || route.path.length < 2) return;
-      const isSelected = route.id === selectedRouteId;
-      const latlngs: L.LatLngExpression[] = route.path.map((p) => {
-        latLngsForBounds.push([p.lat, p.lon]);
-        return [p.lat, p.lon];
-      });
-
-      const line = L.polyline(latlngs, {
-        color: route.strokeColor,
-        weight: isSelected ? 6 : 3.5,
-        opacity: isSelected ? 0.95 : 0.42,
-        dashArray: route.mode === 'metro' ? '7 7' : undefined,
-      });
-
-      line.on('click', () => onSelectRoute(route.id));
-      line.addTo(layerGroup);
+    drawLeafletMapOverlays({
+      map: leafletMapRef.current,
+      layerGroup: leafletLayerGroupRef.current,
+      origin,
+      destination,
+      routes,
+      selectedRouteId,
+      onSelectRoute,
     });
+  }, [provider, origin, destination, routes, selectedRouteId, onSelectRoute]);
 
-    // Origin marker
-    const originIcon = L.divIcon({
-      className: '',
-      html: `<div style="width:14px;height:14px;border-radius:9999px;background:#2DD4BF;border:2.5px solid #0B0F17;box-shadow:0 0 12px rgba(45,212,191,0.8);"></div>`,
-      iconSize: [14, 14],
-      iconAnchor: [7, 7],
-    });
-    L.marker([origin.lat, origin.lon], { icon: originIcon })
-      .bindTooltip('Origin', { direction: 'top' })
-      .addTo(layerGroup);
-
-    // Destination marker
-    if (destination) {
-      latLngsForBounds.push([destination.lat, destination.lon]);
-      const destIcon = L.divIcon({
-        className: '',
-        html: `<div style="width:14px;height:14px;border-radius:9999px;background:#F59E0B;border:2.5px solid #0B0F17;box-shadow:0 0 12px rgba(245,158,11,0.85);"></div>`,
-        iconSize: [14, 14],
-        iconAnchor: [7, 7],
-      });
-      L.marker([destination.lat, destination.lon], { icon: destIcon })
-        .bindTooltip('Destination', { direction: 'top' })
-        .addTo(layerGroup);
-    }
-
-    if (latLngsForBounds.length > 1) {
-      map.fitBounds(L.latLngBounds(latLngsForBounds), { padding: [36, 36] });
-    } else {
-      map.setView([origin.lat, origin.lon], 12);
-    }
-  }, [
-    provider,
-    origin.lat,
-    origin.lon,
-    destination?.lat,
-    destination?.lon,
-    routes,
-    selectedRouteId,
-    onSelectRoute,
-  ]);
-
-  // Cleanup Leaflet map on unmount
   useEffect(() => {
     return () => {
       if (leafletMapRef.current) {
@@ -460,7 +192,6 @@ export const RouteMap: React.FC<RouteMapProps> = ({
       className="relative isolate rounded-2xl overflow-hidden border border-white/[0.1] bg-[#0B0F17] shadow-xl"
       style={{ isolation: 'isolate', contain: 'layout paint' }}
     >
-      {/* Map canvas container — fixed height so it is never blank */}
       {provider === 'google' ? (
         <div
           ref={googleContainerRef}
@@ -479,12 +210,10 @@ export const RouteMap: React.FC<RouteMapProps> = ({
         </div>
       )}
 
-      {/* Top-right Map Provider Indicator */}
       <div className="absolute top-2.5 right-2.5 z-[400] px-2 py-0.5 rounded-full bg-[#0B0F17]/85 border border-white/15 backdrop-blur-md text-[10px] font-mono text-slate-300 pointer-events-none">
         {provider === 'google' ? 'Google Maps' : 'OSM · Leaflet'}
       </div>
 
-      {/* Bottom-left Exposure Legend */}
       <div className="absolute bottom-2.5 left-2.5 z-[400] flex items-center gap-2.5 px-2.5 py-1 rounded-full bg-[#0B0F17]/85 border border-white/10 backdrop-blur-md text-[10px] text-slate-300 pointer-events-none">
         <span className="flex items-center gap-1">
           <span className="w-2 h-2 rounded-full bg-[#2DD4BF]" /> Cleanest

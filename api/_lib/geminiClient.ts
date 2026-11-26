@@ -34,7 +34,7 @@ export interface GeminiCallOptions {
   maxOutputTokens?: number;
   thinkingLevel?: 'minimal' | 'low' | 'medium' | 'high';
   responseMimeType?: string;
-  maxServerBudgetMs?: number; // default 20000 (20s)
+  maxServerBudgetMs?: number;
 }
 
 export interface GeminiCallResult {
@@ -43,23 +43,21 @@ export interface GeminiCallResult {
   attempts: number;
 }
 
+interface SingleCallResult {
+  ok: boolean;
+  status: number;
+  text?: string;
+  error?: string;
+}
+
 function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
-async function executeSingleCall(
+function buildGeminiPayload(
   model: string,
   options: GeminiCallOptions,
-  remainingBudgetMs: number,
-  perCallCapMs: number,
-): Promise<{ ok: boolean; status: number; text?: string; error?: string }> {
-  // Budget-constrained call timeout
-  const timeoutMs = Math.max(1000, Math.min(remainingBudgetMs, perCallCapMs));
-  const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
-
-  const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`;
-
+): GeminiGenerateContentRequest {
   const parts: GeminiRequestPart[] = [{ text: options.prompt }];
   if (options.inlineData) {
     parts.push({
@@ -79,7 +77,6 @@ async function executeSingleCall(
     generationConfig.maxOutputTokens = options.maxOutputTokens;
   }
 
-  // Apply lowest thinking setting for Gemini 3.x models to keep latency low
   if (/^gemini-3/i.test(model)) {
     const isFlashOrLite = /flash|lite/i.test(model);
     generationConfig.thinkingConfig = {
@@ -87,10 +84,27 @@ async function executeSingleCall(
     };
   }
 
-  const payload: GeminiGenerateContentRequest = {
-    contents: [{ parts }],
-    generationConfig,
-  };
+  return { contents: [{ parts }], generationConfig };
+}
+
+function extractCandidateText(json: GeminiGenerateContentResponse): string | undefined {
+  const responseParts = json?.candidates?.[0]?.content?.parts || [];
+  const textPart =
+    responseParts.find((p) => !p?.thought && typeof p?.text === 'string' && p.text.trim()) ||
+    responseParts.find((p) => typeof p?.text === 'string');
+  return textPart?.text;
+}
+
+async function executeSingleCall(
+  model: string,
+  options: GeminiCallOptions,
+  remainingBudgetMs: number,
+  perCallCapMs: number,
+): Promise<SingleCallResult> {
+  const timeoutMs = Math.max(1000, Math.min(remainingBudgetMs, perCallCapMs));
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+  const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`;
 
   try {
     const res = await fetch(endpoint, {
@@ -99,10 +113,9 @@ async function executeSingleCall(
         'Content-Type': 'application/json',
         'x-goog-api-key': options.apiKey,
       },
-      body: JSON.stringify(payload),
+      body: JSON.stringify(buildGeminiPayload(model, options)),
       signal: controller.signal,
     });
-
     clearTimeout(timeoutId);
 
     if (!res.ok) {
@@ -111,11 +124,7 @@ async function executeSingleCall(
     }
 
     const json = (await res.json()) as GeminiGenerateContentResponse;
-    const responseParts = json?.candidates?.[0]?.content?.parts || [];
-    const textPart =
-      responseParts.find((p) => !p?.thought && typeof p?.text === 'string' && p.text.trim()) ||
-      responseParts.find((p) => typeof p?.text === 'string');
-    const candidateText = textPart?.text;
+    const candidateText = extractCandidateText(json);
     if (!candidateText) {
       return { ok: false, status: 200, error: 'Empty candidate text in Gemini response' };
     }
@@ -134,6 +143,98 @@ async function executeSingleCall(
   }
 }
 
+interface RetryContext {
+  options: GeminiCallOptions;
+  primaryModel: string;
+  fallbackReserveMs: number;
+  primaryCallCapMs: number;
+  getRemainingBudget: () => number;
+  attemptFailures: GeminiAttemptFailure[];
+  totalCalls: number;
+}
+
+async function tryPrimaryWithOptionalRetry(ctx: RetryContext): Promise<GeminiCallResult | null> {
+  if (ctx.getRemainingBudget() <= 1000 || ctx.totalCalls >= 3) return null;
+
+  ctx.totalCalls++;
+  const call1Budget =
+    ctx.fallbackReserveMs > 0
+      ? Math.max(2000, ctx.getRemainingBudget() - ctx.fallbackReserveMs)
+      : ctx.getRemainingBudget();
+  const res1 = await executeSingleCall(
+    ctx.primaryModel,
+    ctx.options,
+    call1Budget,
+    ctx.primaryCallCapMs,
+  );
+
+  if (res1.ok && res1.text) {
+    return { text: res1.text, modelUsed: ctx.primaryModel, attempts: ctx.totalCalls };
+  }
+
+  ctx.attemptFailures.push({
+    model: ctx.primaryModel,
+    status: res1.status,
+    error: (res1.error || '').slice(0, 200),
+  });
+  console.warn(
+    `[GeminiClient] Call 1 to ${ctx.primaryModel} failed (status: ${res1.status}). Error: ${res1.error}`,
+  );
+
+  const budgetForRetry = ctx.getRemainingBudget() - ctx.fallbackReserveMs - 2000;
+  if (res1.status !== 503 || budgetForRetry < 3000 || ctx.totalCalls >= 3) {
+    return null;
+  }
+
+  await sleep(2000);
+  ctx.totalCalls++;
+  const retryCap = Math.min(
+    ctx.primaryCallCapMs,
+    Math.max(3000, ctx.getRemainingBudget() - ctx.fallbackReserveMs),
+  );
+  const res503 = await executeSingleCall(ctx.primaryModel, ctx.options, retryCap, retryCap);
+  if (res503.ok && res503.text) {
+    return { text: res503.text, modelUsed: ctx.primaryModel, attempts: ctx.totalCalls };
+  }
+
+  ctx.attemptFailures.push({
+    model: ctx.primaryModel,
+    status: res503.status,
+    error: (res503.error || '').slice(0, 200),
+  });
+  console.warn(
+    `[GeminiClient] Retry after 503 to ${ctx.primaryModel} failed (status: ${res503.status}). Error: ${res503.error}`,
+  );
+  return null;
+}
+
+async function tryFallbackModel(
+  ctx: RetryContext,
+  fallbackModel: string,
+): Promise<GeminiCallResult | null> {
+  if (ctx.getRemainingBudget() <= 1000 || ctx.totalCalls >= 3) return null;
+
+  ctx.totalCalls++;
+  console.warn(
+    `[GeminiClient] Switching to fallback model: ${fallbackModel} (Call ${ctx.totalCalls})`,
+  );
+  const rem = ctx.getRemainingBudget();
+  const fallbackRes = await executeSingleCall(fallbackModel, ctx.options, rem, rem);
+  if (fallbackRes.ok && fallbackRes.text) {
+    return { text: fallbackRes.text, modelUsed: fallbackModel, attempts: ctx.totalCalls };
+  }
+
+  ctx.attemptFailures.push({
+    model: fallbackModel,
+    status: fallbackRes.status,
+    error: (fallbackRes.error || '').slice(0, 200),
+  });
+  console.warn(
+    `[GeminiClient] Fallback model ${fallbackModel} failed (status: ${fallbackRes.status}). Error: ${fallbackRes.error}`,
+  );
+  return null;
+}
+
 /**
  * Executes Gemini calls adhering strictly to rate-limit and overload rules:
  * - On 429: jump straight to fallback model (no retry on same model)
@@ -149,89 +250,35 @@ export async function callGeminiWithRetry(options: GeminiCallOptions): Promise<G
   const startTime = Date.now();
   const totalBudgetMs = options.maxServerBudgetMs ?? 20000;
   const hasDistinctFallback = Boolean(fallbackModel && fallbackModel !== primaryModel);
-  // Always reserve budget for the fallback model so a slow/overloaded primary can never starve it
   const fallbackReserveMs = hasDistinctFallback
     ? Math.min(10000, Math.floor(totalBudgetMs * 0.4))
     : 0;
   const primaryCallCapMs = hasDistinctFallback
     ? Math.max(5000, Math.min(12000, totalBudgetMs - fallbackReserveMs))
     : totalBudgetMs;
-  let totalCalls = 0;
-  const attemptFailures: GeminiAttemptFailure[] = [];
 
-  const getRemainingBudget = () => totalBudgetMs - (Date.now() - startTime);
+  const ctx: RetryContext = {
+    options,
+    primaryModel,
+    fallbackReserveMs,
+    primaryCallCapMs,
+    getRemainingBudget: () => totalBudgetMs - (Date.now() - startTime),
+    attemptFailures: [],
+    totalCalls: 0,
+  };
 
-  // 1. First attempt on primary model
-  if (getRemainingBudget() > 1000 && totalCalls < 3) {
-    totalCalls++;
-    const call1Budget = hasDistinctFallback
-      ? Math.max(2000, getRemainingBudget() - fallbackReserveMs)
-      : getRemainingBudget();
-    const res1 = await executeSingleCall(primaryModel, options, call1Budget, primaryCallCapMs);
+  const primaryHit = await tryPrimaryWithOptionalRetry(ctx);
+  if (primaryHit) return primaryHit;
 
-    if (res1.ok && res1.text) {
-      return { text: res1.text, modelUsed: primaryModel, attempts: totalCalls };
-    }
-
-    attemptFailures.push({
-      model: primaryModel,
-      status: res1.status,
-      error: (res1.error || '').slice(0, 200),
-    });
-    console.warn(
-      `[GeminiClient] Call 1 to ${primaryModel} failed (status: ${res1.status}). Error: ${res1.error}`,
-    );
-
-    // If 503 (Overloaded), retry primary model ONCE after 2s sleep ONLY if enough budget remains beyond fallback reserve
-    const budgetForRetry = getRemainingBudget() - fallbackReserveMs - 2000;
-    if (res1.status === 503 && budgetForRetry >= 3000 && totalCalls < 3) {
-      await sleep(2000);
-      totalCalls++;
-      const retryCap = Math.min(
-        primaryCallCapMs,
-        Math.max(3000, getRemainingBudget() - fallbackReserveMs),
-      );
-      const res503 = await executeSingleCall(primaryModel, options, retryCap, retryCap);
-      if (res503.ok && res503.text) {
-        return { text: res503.text, modelUsed: primaryModel, attempts: totalCalls };
-      }
-      attemptFailures.push({
-        model: primaryModel,
-        status: res503.status,
-        error: (res503.error || '').slice(0, 200),
-      });
-      console.warn(
-        `[GeminiClient] Retry after 503 to ${primaryModel} failed (status: ${res503.status}). Error: ${res503.error}`,
-      );
-    }
-    // Note: If res1.status === 429, we do NOT retry the primary model — we proceed directly to fallback
+  if (hasDistinctFallback) {
+    const fallbackHit = await tryFallbackModel(ctx, fallbackModel);
+    if (fallbackHit) return fallbackHit;
   }
 
-  // 2. Fallback model attempt (gets the entire remaining budget)
-  if (hasDistinctFallback && getRemainingBudget() > 1000 && totalCalls < 3) {
-    totalCalls++;
-    console.warn(
-      `[GeminiClient] Switching to fallback model: ${fallbackModel} (Call ${totalCalls})`,
-    );
-    const rem = getRemainingBudget();
-    const fallbackRes = await executeSingleCall(fallbackModel, options, rem, rem);
-    if (fallbackRes.ok && fallbackRes.text) {
-      return { text: fallbackRes.text, modelUsed: fallbackModel, attempts: totalCalls };
-    }
-    attemptFailures.push({
-      model: fallbackModel,
-      status: fallbackRes.status,
-      error: (fallbackRes.error || '').slice(0, 200),
-    });
-    console.warn(
-      `[GeminiClient] Fallback model ${fallbackModel} failed (status: ${fallbackRes.status}). Error: ${fallbackRes.error}`,
-    );
-  }
-
-  const summary = attemptFailures.map((f) => `${f.model}: HTTP ${f.status}`).join('; ');
+  const summary = ctx.attemptFailures.map((f) => `${f.model}: HTTP ${f.status}`).join('; ');
   const err: GeminiClientError = new Error(
-    `All Gemini attempts failed after ${totalCalls} calls within ${Date.now() - startTime}ms${summary ? ` [${summary}]` : ''}.`,
+    `All Gemini attempts failed after ${ctx.totalCalls} calls within ${Date.now() - startTime}ms${summary ? ` [${summary}]` : ''}.`,
   );
-  err.attempts = attemptFailures;
+  err.attempts = ctx.attemptFailures;
   throw err;
 }

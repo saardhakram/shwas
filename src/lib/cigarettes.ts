@@ -83,7 +83,7 @@ export function estimateIndoorPm25(outdoorPm25: number, home: HomeCharacteristic
   }
 
   // Baseline indoor PM2.5 infiltrated from outside
-  let indoorAmbient = safeOutdoor * infiltrationRate;
+  const indoorAmbient = safeOutdoor * infiltrationRate;
 
   // 3. Internal cooking source emissions
   let cookingEmission = 15; // default LPG

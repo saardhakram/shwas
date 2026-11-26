@@ -24,8 +24,6 @@
  *    - walk:        0.00 kg/km
  */
 
-import { ForecastDataPoint } from './forecast';
-
 export interface LatLon {
   lat: number;
   lon: number;
@@ -181,25 +179,21 @@ export function extractPm25ForTime(
   }
 
   const targetMs = departureTime.getTime();
-  let bestIdx = 0;
+  let chosen: number | null = null;
   let bestDiff = Infinity;
 
   for (let i = 0; i < times.length; i++) {
     const val = values[i];
-    if (val === null || val === undefined || isNaN(val)) continue;
     const parsedMs = new Date(times[i]).getTime();
-    if (isNaN(parsedMs)) continue;
+    if (typeof val !== 'number' || isNaN(val) || isNaN(parsedMs)) continue;
     const diff = Math.abs(parsedMs - targetMs);
     if (diff < bestDiff) {
       bestDiff = diff;
-      bestIdx = i;
+      chosen = val;
     }
   }
 
-  const chosen = values[bestIdx];
-  return typeof chosen === 'number' && !isNaN(chosen)
-    ? Math.max(0, Math.round(chosen))
-    : fallbackPm25;
+  return chosen !== null ? Math.max(0, Math.round(chosen)) : fallbackPm25;
 }
 
 /**
@@ -317,265 +311,10 @@ export function estimateMetroRoute(
   };
 }
 
-const SUSTAINABLE_MODES = new Set<RouteMode>(['metro', 'walk', 'two_wheeler']);
-
-function getShortModeName(mode: RouteMode): string {
-  switch (mode) {
-    case 'metro':
-      return 'Metro';
-    case 'car':
-      return 'Car';
-    case 'auto':
-      return 'Auto';
-    case 'two_wheeler':
-      return 'Two-wheeler';
-    case 'walk':
-      return 'Walk';
-  }
-}
-
-export interface RecommendationResult {
-  id: string;
-  reason: string;
-}
-
-/**
- * Selects the "Recommended" option balancing personal smog exposure AND city sustainability:
- * 1. Only considers options within 15 minutes of the fastest option.
- * 2. If two options differ by less than 0.02 cigarettes, prefers the one with lower CO2.
- * 3. Never recommends Car when Metro, Walk, or Two-wheeler is within 0.02 cigarettes
- *    of the cleanest eligible option and within 15 minutes of the fastest option.
- */
-export function selectRecommendedOption(
-  options: Array<{
-    id: string;
-    mode?: RouteMode;
-    durationMin: number;
-    cigarettes: number;
-    co2Kg?: number;
-  }>,
-): RecommendationResult | null {
-  if (!options || options.length === 0) return null;
-
-  const fastestMin = Math.min(...options.map((o) => o.durationMin));
-  const eligible = options.filter(
-    (o) => o.durationMin <= fastestMin + RECOMMENDED_MAX_EXTRA_MINUTES,
-  );
-
-  if (eligible.length === 0) {
-    return { id: options[0].id, reason: 'fastest available option' };
-  }
-
-  const minCigs = Math.min(...eligible.map((o) => o.cigarettes));
-
-  // All eligible options within 0.02 cigarettes of the cleanest eligible option
-  let candidates = eligible.filter((o) => o.cigarettes - minCigs <= SMOG_TIE_THRESHOLD_CIGS + 1e-9);
-
-  // Never recommend Car if Metro, Walk, or Two-wheeler is in the 0.02-cig band (and already within 15 min)
-  const hasSustainableAlternative = candidates.some((c) => c.mode && SUSTAINABLE_MODES.has(c.mode));
-  if (hasSustainableAlternative) {
-    candidates = candidates.filter((c) => c.mode !== 'car');
-  }
-
-  // Within the 0.02-cigarette band, prefer lower CO2, then lower cigarettes, then faster time
-  candidates.sort((a, b) => {
-    const co2A = a.co2Kg ?? (a.mode ? CO2_KG_PER_KM[a.mode] : 0);
-    const co2B = b.co2Kg ?? (b.mode ? CO2_KG_PER_KM[b.mode] : 0);
-    if (Math.abs(co2A - co2B) > 1e-6) return co2A - co2B;
-    if (Math.abs(a.cigarettes - b.cigarettes) > 1e-6) return a.cigarettes - b.cigarettes;
-    return a.durationMin - b.durationMin;
-  });
-
-  const winner = candidates[0];
-  let reason = 'cleanest for you and the city';
-  if (winner.mode === 'walk') {
-    reason = 'cleanest for you · zero emissions';
-  } else if (winner.mode === 'metro') {
-    reason = 'cleanest for you and the city';
-  } else if (winner.mode === 'car') {
-    reason = 'lowest personal smog exposure';
-  } else if (winner.mode === 'two_wheeler' || winner.mode === 'auto') {
-    reason = 'cleanest & lower emissions';
-  }
-
-  return { id: winner.id, reason };
-}
-
-/**
- * Maps an option's cigarette exposure relative to the set of options into a visual colour:
- * mint (#2DD4BF) cleanest -> amber (#F59E0B) moderate -> red (#EF4444) dirtiest.
- */
-export function classifyExposureColor(
-  cigarettes: number,
-  minCigs: number,
-  maxCigs: number,
-): { exposureLevel: ExposureLevel; strokeColor: string } {
-  const span = maxCigs - minCigs;
-  if (span <= 0.01) {
-    return cigarettes <= 0.25
-      ? { exposureLevel: 'clean', strokeColor: '#2DD4BF' }
-      : cigarettes <= 0.6
-        ? { exposureLevel: 'moderate', strokeColor: '#F59E0B' }
-        : { exposureLevel: 'high', strokeColor: '#EF4444' };
-  }
-
-  const ratio = (cigarettes - minCigs) / span;
-  if (ratio <= 0.33) {
-    return { exposureLevel: 'clean', strokeColor: '#2DD4BF' };
-  }
-  if (ratio <= 0.67) {
-    return { exposureLevel: 'moderate', strokeColor: '#F59E0B' };
-  }
-  return { exposureLevel: 'high', strokeColor: '#EF4444' };
-}
-
-function formatMultiplier(ratio: number): string {
-  if (ratio >= 9.95) return `${Math.round(ratio)}×`;
-  const rounded = Number(ratio.toFixed(1));
-  return Number.isInteger(rounded) ? `${rounded}×` : `${rounded.toFixed(1)}×`;
-}
-
-/**
- * Evaluates a batch of raw routes with their corresponding average PM2.5 values,
- * computes cigarettes, CO2, exposure colours, relative smog labels, bar widths,
- * and marks the Recommended option with its reason.
- */
-export function evaluateRouteOptions(
-  routes: RawRouteGeometry[],
-  routeAvgPm25s: number[],
-): EvaluatedRouteOption[] {
-  if (!routes || routes.length === 0) return [];
-
-  const preliminary = routes.map((route, idx) => {
-    const avgPm25 = Math.round(routeAvgPm25s[idx] ?? 120);
-    const cigarettes = calculateRouteCigarettes(avgPm25, route.durationMin, route.mode);
-    const co2Kg = calculateRouteCo2Kg(route.distanceKm, route.mode);
-    return { route, avgPm25, cigarettes, co2Kg };
-  });
-
-  const cigsList = preliminary.map((p) => p.cigarettes);
-  const minCigs = Math.min(...cigsList);
-  const maxCigs = Math.max(...cigsList);
-
-  // Pick cleanest baseline option (preferring lowest CO2 on ties) for relative comparison text
-  const cleanestBaseline = [...preliminary].sort((a, b) => {
-    if (Math.abs(a.cigarettes - b.cigarettes) > 1e-6) return a.cigarettes - b.cigarettes;
-    return a.co2Kg - b.co2Kg;
-  })[0];
-  const baselineName = getShortModeName(cleanestBaseline.route.mode);
-
-  const recommendation = selectRecommendedOption(
-    preliminary.map((p) => ({
-      id: p.route.id,
-      mode: p.route.mode,
-      durationMin: p.route.durationMin,
-      cigarettes: p.cigarettes,
-      co2Kg: p.co2Kg,
-    })),
-  );
-
-  return preliminary.map(({ route, avgPm25, cigarettes, co2Kg }) => {
-    const { exposureLevel, strokeColor } = classifyExposureColor(cigarettes, minCigs, maxCigs);
-
-    let relativeSmogLabel: string;
-    if (route.id === cleanestBaseline.route.id || cigarettes <= minCigs + 0.005) {
-      relativeSmogLabel = 'Cleanest option';
-    } else if (minCigs > 0) {
-      const ratio = cigarettes / minCigs;
-      if (ratio >= 1.15) {
-        relativeSmogLabel = `${formatMultiplier(ratio)} more smog than ${baselineName}`;
-      } else {
-        relativeSmogLabel = `Similar smog to ${baselineName}`;
-      }
-    } else {
-      relativeSmogLabel = `More smog than ${baselineName}`;
-    }
-
-    const smogBarPercent =
-      maxCigs > 0 ? Math.max(8, Math.min(100, Math.round((cigarettes / maxCigs) * 100))) : 8;
-
-    const isRec = recommendation?.id === route.id;
-
-    return {
-      ...route,
-      avgPm25,
-      cigarettes,
-      co2Kg,
-      exposureLevel,
-      strokeColor,
-      recommended: isRec,
-      recommendedReason: isRec ? recommendation?.reason : undefined,
-      relativeSmogLabel,
-      smogBarPercent,
-    };
-  });
-}
-
-function formatShortTime(d: Date): string {
-  const h = d.getHours();
-  const m = d.getMinutes();
-  const ampm = h >= 12 ? 'PM' : 'AM';
-  const h12 = h % 12 === 0 ? 12 : h % 12;
-  return `${h12}:${m.toString().padStart(2, '0')} ${ampm}`;
-}
-
-/**
- * Generates a departure timing tip from the 48-hour forecast:
- * e.g. "Leave at 2:00 PM instead of now to breathe 35% less smog"
- */
-export function computeDepartureTip(
-  forecastPoints: ForecastDataPoint[],
-  departureTime: Date,
-  isNow = true,
-): DepartureTip | null {
-  if (!forecastPoints || forecastPoints.length < 3) return null;
-
-  const depMs = departureTime.getTime();
-  const windowEndMs = depMs + 18 * 3600 * 1000;
-
-  // Find point closest to departure time
-  let currentPoint: ForecastDataPoint | null = null;
-  let bestStartDiff = Infinity;
-
-  for (const pt of forecastPoints) {
-    const ptMs = new Date(pt.isoTime).getTime();
-    if (isNaN(ptMs)) continue;
-    const diff = Math.abs(ptMs - depMs);
-    if (diff < bestStartDiff) {
-      bestStartDiff = diff;
-      currentPoint = pt;
-    }
-  }
-
-  if (!currentPoint || currentPoint.pm25 <= 0) return null;
-
-  // Search upcoming hours (at least 1h after departure, up to 18h ahead) for lowest PM2.5
-  let bestPoint: ForecastDataPoint | null = null;
-  for (const pt of forecastPoints) {
-    const ptMs = new Date(pt.isoTime).getTime();
-    if (isNaN(ptMs)) continue;
-    if (ptMs < depMs + 45 * 60 * 1000 || ptMs > windowEndMs) continue;
-    if (!bestPoint || pt.pm25 < bestPoint.pm25) {
-      bestPoint = pt;
-    }
-  }
-
-  if (!bestPoint) return null;
-
-  const reductionPct = Math.round(((currentPoint.pm25 - bestPoint.pm25) / currentPoint.pm25) * 100);
-
-  if (reductionPct < 10) return null;
-
-  const bestDate = new Date(bestPoint.isoTime);
-  const bestTimeLabel = isNaN(bestDate.getTime()) ? bestPoint.time : formatShortTime(bestDate);
-  const departureLabel = isNow ? 'now' : formatShortTime(departureTime);
-
-  return {
-    bestTimeLabel,
-    departureLabel,
-    percentLessSmog: reductionPct,
-    currentPm25: currentPoint.pm25,
-    bestPm25: bestPoint.pm25,
-    message: `Leave at ${bestTimeLabel} instead of ${departureLabel} to breathe ${reductionPct}% less smog`,
-  };
-}
+export {
+  selectRecommendedOption,
+  classifyExposureColor,
+  evaluateRouteOptions,
+  computeDepartureTip,
+} from './routeScoring';
+export type { RecommendationResult } from './routeScoring';
